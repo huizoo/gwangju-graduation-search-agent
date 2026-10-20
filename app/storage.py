@@ -890,6 +890,21 @@ class Service:
                 conn.execute("INSERT OR IGNORE INTO institution_identifiers(provider,external_key,institution_id) VALUES(?,?,?)", (source["provider"], row["external_key"], institution_id))
                 conn.execute("INSERT INTO registry_memberships(snapshot_id,institution_id,external_key,raw_row_json) VALUES(?,?,?,?)", (snapshot_id, institution_id, row["external_key"], dumps(row)))
             conn.execute("UPDATE registry_snapshots SET linked_count=? WHERE id=?", (result["linked_count"], snapshot_id))
+            from .registry_assets import matching_authorities
+            for relation in matching_authorities(original):
+                member = conn.execute(
+                    "SELECT institution_id FROM registry_memberships WHERE snapshot_id=? AND external_key=?",
+                    (snapshot_id, relation["external_key"]),
+                ).fetchone()
+                if member is None:
+                    continue
+                institution = _one(conn, "institutions", member[0])
+                channels = json.loads(institution["official_channels_json"])
+                channel = relation["channel"]
+                if not any(existing == channel for existing in channels):
+                    channels.append(channel)
+                    conn.execute("UPDATE institutions SET official_channels_json=? WHERE id=?", (dumps(channels), member[0]))
+                    _audit(conn, "institution", member[0], "official_file_channel", None, relation, actor="system")
             conn.execute("UPDATE import_previews SET status='committed',idempotency_key=?,result_json=? WHERE id=?", (idempotency_key, dumps(result), identity))
             self.store.touch(conn)
             return validate("RegistrySnapshot", result)

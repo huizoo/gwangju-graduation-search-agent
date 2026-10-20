@@ -1,0 +1,260 @@
+{
+  "schema_version": "4.0",
+  "checked_at": "2026-10-20T19:22:26.694543+09:00",
+  "scope": "광주 기존 5개 구의 유치원·어린이집·대학교·전문대학 기관 목록",
+  "work_kind": "공식 공개 명부 확보·정규화, 일정 정확성 검증 아님",
+  "new_keys_or_permissions_requested": false,
+  "live_database_modified": false,
+  "schema_validation": "app.domain.validate RegistryImport, 5개 정규 파일 통과",
+  "results": [
+    {
+      "file": "kindergarten-edoffice-registry.json",
+      "rows": 256,
+      "by_district": {
+        "북구": 80,
+        "서구": 46,
+        "광산구": 75,
+        "동구": 17,
+        "남구": 38
+      },
+      "complete": true,
+      "schema_valid": true
+    },
+    {
+      "file": "universities-registry.json",
+      "rows": 18,
+      "by_type": {
+        "junior_college": 7,
+        "university": 11
+      },
+      "complete": false,
+      "schema_valid": true
+    },
+    {
+      "file": "kindergarten-welfare-partial-registry.json",
+      "raw_rows": 400,
+      "rows": 255,
+      "exact_duplicates_removed": 145,
+      "by_district": {
+        "광산구": 80,
+        "북구": 76,
+        "남구": 36,
+        "서구": 46,
+        "동구": 17
+      },
+      "complete": false,
+      "schema_valid": true
+    },
+    {
+      "file": "childcare-welfare-partial-registry.json",
+      "raw_rows": 250,
+      "rows": 250,
+      "exact_duplicates_removed": 0,
+      "by_district": {
+        "광산구": 50,
+        "북구": 50,
+        "남구": 50,
+        "서구": 50,
+        "동구": 50
+      },
+      "complete": false,
+      "schema_valid": true
+    },
+    {
+      "file": "childcare-representative-registry.json",
+      "rows": 1,
+      "complete": false,
+      "schema_valid": true
+    }
+  ],
+  "kindergarten_full_directory": {
+    "source_origin": "https://www.gen.go.kr/s_school/index.php?mode=search1&s_div2=1",
+    "page_total": 256,
+    "download_rows": 256,
+    "unique_official_codes": 256,
+    "declared_by_district": {
+      "동구": 17,
+      "서구": 46,
+      "남구": 38,
+      "북구": 80,
+      "광산구": 75
+    },
+    "matched_by_district": true,
+    "homepage_present": 169,
+    "homepage_absent": 87,
+    "as_of": null,
+    "coverage_complete": true,
+    "operation_status": "unknown",
+    "completeness_scope": "취득 시 공식 관내학교 명부 전체. 실제 운영·휴폐원 및 졸업 행사 개최는 별도 확인."
+  },
+  "university_filter": {
+    "source_origin": "https://www.data.go.kr/data/15107736/standard.do",
+    "filtered_rows": 79,
+    "excluded_graduate_rows": 61,
+    "included_university": 11,
+    "included_junior_college": 7,
+    "data_as_of": "2026-03-18",
+    "original_reference_year": 2025,
+    "coverage_complete": false,
+    "expected_total": null,
+    "limitation": "타지역 본교의 광주 지역대학·학습관·별도 캠퍼스 포괄 여부 미대조",
+    "mapping_note": "원문 대학구분명 전문대학인 한국폴리텍 V 대학 광주캠퍼스 1행을 junior_college로 유지"
+  },
+  "childcare_file": {
+    "source_origin": "https://www.data.go.kr/data/15135134/fileData.do",
+    "original_file_label": "전남광주통합특별시_전남광주복지플랫폼 어린이집, 유치원 목록 정보_260921.zip",
+    "file_label_date": "2026-09-21",
+    "as_of": null,
+    "rows": 250,
+    "rows_per_district": 50,
+    "coverage_complete": false,
+    "expected_total": null,
+    "limitation": "구별 정확히 50행으로 제한표본 징후. 원본 공식 전체수·전체페이지 확보 증거 없음. 전화·홈페이지·운영상태 미포함"
+  },
+  "alternate_kindergarten_file": {
+    "raw_rows": 400,
+    "exact_duplicates_removed": 145,
+    "unique_rows": 255,
+    "coverage_complete": false,
+    "use_for_default_import": false,
+    "reason": "공식 교육청 명부 256과 기관 구성·구별 소계가 달라 합집합 적재하지 않음"
+  },
+  "rejected_source_candidates": [
+    {
+      "file": "runtime/non-school-registry/kindergarten-2025-original.bin",
+      "reason": "2025 유치원현황 XLSX는 기관 명부가 아니라 집계 통계"
+    },
+    {
+      "source_url": "https://www.data.go.kr/data/15013108/standard.do",
+      "observed_target": "publicDataPk=3065251",
+      "reason": "별도 어린이집 제공 API 안내로 연결됨. 인증 없이 전체 명부 확보했다는 증거 없음"
+    }
+  ],
+  "identity_rules": [
+    "공식 유치원코드 pPresch를 external_key로 사용",
+    "어린이집 공시 공식 기관코드 29110000084를 사용",
+    "코드 없는 자료원은 source ID + type + name + address의 canonical JSON SHA-256 사용",
+    "다른 주소·캠퍼스 및 다른 자료원의 유사 이름을 자동 병합하지 않음"
+  ],
+  "trusted_channel_sidecar": {
+    "path": "runtime/non-school-registry/homepage-authority-provenance.json",
+    "requires_server_validation": true,
+    "scope": "공식 목록과 기관 홈페이지 관계만 증명하며 날짜·시각 게시 승인과 무관",
+    "plain_user_import_is_not_authority": true
+  },
+  "representatives": {
+    "path": "runtime/non-school-registry/representative-institutions-no-answer.json",
+    "count": 10,
+    "schedule_urls_supplied": 0,
+    "expected_dates_supplied": 0,
+    "expected_times_supplied": 0,
+    "kindergarten": 3,
+    "university": 3,
+    "junior_college": 3,
+    "childcare": 1
+  },
+  "artifacts": [
+    {
+      "path": "runtime/non-school-registry/gen-kindergarten-directory.html",
+      "bytes": 142755,
+      "sha256": "c6c53cda370abc5a08e09a9b5215f8db8d8cd276b412ef8faed790ba6cb42f95",
+      "source_url": "https://www.gen.go.kr/s_school/index.php?mode=search1&s_div2=1"
+    },
+    {
+      "path": "runtime/non-school-registry/gen-kindergarten-directory-original.bin",
+      "bytes": 162928,
+      "sha256": "11595015492dec5de72fc1a33bc1276e96b747e805937214d5b12c9be386b7ee",
+      "source_url": "https://www.gen.go.kr/s_school/index.php?mode=excel1&s_div1=&s_div2=1&s_div3=&s_div4=&s_name="
+    },
+    {
+      "path": "runtime/non-school-registry/universities-gwangju.bin",
+      "bytes": 381223,
+      "sha256": "718157d33c346824cdeface923caf9e73ae7d53fa8ca62b22c5e122d668b6e0c",
+      "source_url": "https://www.data.go.kr/tcs/dss/selectStdDataDetailView.do?publicDataPk=15107736&colCondition=CTPV_NM&searchKeyword1=%EA%B4%91%EC%A3%BC%EA%B4%91%EC%97%AD%EC%8B%9C"
+    },
+    {
+      "path": "runtime/non-school-registry/children-20260921-original.bin",
+      "bytes": 8788,
+      "sha256": "222095a465bb2f2baad554022f579f2b94f2af413cb48dd40cfab082edbc02c4",
+      "source_url": "https://www.data.go.kr/cmm/cmm/fileDownload.do?atchFileId=FILE_000000007687446&fileDetailSn=1"
+    },
+    {
+      "path": "runtime/non-school-registry/children-file-0.csv",
+      "bytes": 27222,
+      "sha256": "2b40da16511efb0c4d3f6e66f4e6e7406a1fb3b31014039553d03635b56da9fe",
+      "source_url": null
+    },
+    {
+      "path": "runtime/non-school-registry/children-file-1.csv",
+      "bytes": 14672,
+      "sha256": "4e5e24df9b71099cdf908415fa49526dc01b4e8540704f0cb4bfe37b19faf79b",
+      "source_url": null
+    },
+    {
+      "path": "runtime/non-school-registry/hana-summary.html",
+      "bytes": 30340,
+      "sha256": "37f18cb3ca53715eda58db46509e8eab5bc45027c2b524c32fbe706085fadd06",
+      "source_url": "https://info.childcare.go.kr/info_html5/pnis/search/preview/SummaryInfoSlPu.jsp?flag=YJ&STCODE_POP=29110000084&CRNAMETITLE=&loginFlag="
+    },
+    {
+      "path": "runtime/non-school-registry/kindergarten-2025-original.bin",
+      "bytes": 216600,
+      "sha256": "6f9476f4d30169967ebaea3c2b4f9198ee67f60bfa5408877b3d3d9960d34335",
+      "source_url": "https://www.gen.go.kr/opengen/edu_stat/index.php?mode=down&number=294"
+    },
+    {
+      "path": "runtime/non-school-registry/kindergarten-edoffice-registry.json",
+      "bytes": 111182,
+      "sha256": "2369a7778d3a4e3a186278e919d5bad7877e5a6add20cade19e898be3a4146a4",
+      "source_url": null
+    },
+    {
+      "path": "runtime/non-school-registry/universities-registry.json",
+      "bytes": 9875,
+      "sha256": "df960f0c33322bee3bdf621b47ef224956502fecc4990b5458ef76b5fcd77517",
+      "source_url": null
+    },
+    {
+      "path": "runtime/non-school-registry/kindergarten-welfare-partial-registry.json",
+      "bytes": 126356,
+      "sha256": "6d1d2d62e96b6240d53b671cc08285c5581e1120c9237555d6607d68a230ba17",
+      "source_url": null
+    },
+    {
+      "path": "runtime/non-school-registry/childcare-welfare-partial-registry.json",
+      "bytes": 119904,
+      "sha256": "7b7feffe4deacdafc07afcfcc4ab36ce5283d522756e66e62173a50c46815103",
+      "source_url": null
+    },
+    {
+      "path": "runtime/non-school-registry/childcare-representative-registry.json",
+      "bytes": 1292,
+      "sha256": "bd1cf5d20154ce3c8d1f647256f73329d9f29bf3740d0efdc3ea0f8d0941db09",
+      "source_url": null
+    },
+    {
+      "path": "runtime/non-school-registry/homepage-authority-provenance.json",
+      "bytes": 507415,
+      "sha256": "1e8b71988d76a5cbd0646b54bfc329a672614f96f6f935933e617dfcab6f438a",
+      "source_url": null
+    },
+    {
+      "path": "runtime/non-school-registry/representative-institutions-no-answer.json",
+      "bytes": 7317,
+      "sha256": "5b083788e1b9424e021e9577dd035d53dbd39364c6a58acd587480393edb8cd6",
+      "source_url": null
+    },
+    {
+      "path": "runtime/non-school-registry/normalization-results.json",
+      "bytes": 1497,
+      "sha256": "690bd7cc6255e38ecd9b2e4decb54bcee2de67349f23139aeda8bdaec5403f47",
+      "source_url": null
+    },
+    {
+      "path": "runtime/non-school-registry/normalize_registry.py",
+      "bytes": 16714,
+      "sha256": "b23e303e2703ad849a8839dcb9a51412c8af394444d3a968954dcca7262100bb",
+      "source_url": null
+    }
+  ]
+}

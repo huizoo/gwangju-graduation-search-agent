@@ -1,0 +1,976 @@
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" lang="ko" xml:lang="ko">
+<head>
+<title>요약 &lt; 정보공시</title>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+
+
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta http-equiv="Pragma" content="no-cache" />
+<meta http-equiv="Expires" content="0" />
+<meta http-equiv="Cache-Control" content="no-cache" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" /><!-- 151130 viewport 추가 -->
+<meta name="format-detection" content="telephone=no">
+
+<link rel="stylesheet" type="text/css" href="/css/info_html5/unityPblntf/common.css" />
+<!--[if IE 7 ]><link rel="stylesheet" type="text/css" href="/css/info_html5/ie7.css" /><![endif]-->
+<!--[if IE 8 ]><link rel="stylesheet" type="text/css" href="/css/info_html5/ie8.css" /><![endif]-->
+<!--[if IE 8 ]><link rel="stylesheet" type="text/css" href="/css/info_html5/unityPblntf/ie8.css" /><![endif]-->
+<!--[if IE 11 ]><link rel="stylesheet" type="text/css" href="/css/info_html5/unityPblntf/ie11.css" /><![endif]-->
+<link href="/images/info/unityPblntf/sub/favicon.ico" rel="shortcut icon"/><!-- favicon 경로 수정했습니다. -->
+<script type="text/javascript" src="/js/info_html5/jquery-1.8.3.js"></script> <!-- 151209 1.9.1 은 live 로드시 오류 발생 -->
+<script type="text/javascript" src="/js/info_html5/jquery-ui.js"></script>
+<script type="text/javascript" src="/js/info_html5/jquery.cookie-1.4.1.js"></script><!-- 151123 즐겨찾기 위해 추가 -->
+<script type="text/javascript" src="/js/common/jquery.blockUI.js"></script>
+<!--[If lt IE 9]>
+    <script type="text/javascript" src="/js/info_html5/unityPblntf/pie/PIE.js"></script>
+<![endif]-->
+<script type="text/javascript" src="/js/info_html5/unityPblntf/common.js"></script>
+
+<!-- 구글 분석기 -->
+
+ <!-- //구글 분석기 -->
+
+<script type="text/javascript">
+//<![CDATA[
+    var imagePath       = "/info_html5" ;
+    var imageRootPath   = "/" ;
+    var serverType      = "P" ;
+    var serverId        = "info" ;
+
+    var serverIdSame    = "/" ;
+    var domainAddr      = "info.childcare.go.kr";
+
+    $(document).ready(function(){
+    	var $frmCrname = $('#nurseryNameSearchFrm input[name="crname"]');
+    	$frmCrname.focus(function(){
+    		if( this.value == '어린이집을 검색하세요' ){
+//     			this.value = ''; // 2016.06.10 웹접근성 관련 내용 삭제
+    		}
+    	});
+
+        $frmCrname.blur(function(){
+        	if( this.value == '' ){
+//                 this.value = '어린이집을 검색하세요'; // 2016.06.10 웹접근성 관련 내용 삭제
+            }
+        });
+
+        function fnComNurseryNameSearch(){
+        	var cName = $frmCrname.val().replace(/\s/g, "");
+
+            if( cName == '' || cName == '어린이집을 검색하세요' ){
+                alert('어린이집 또는 유치원명을 입력해주세요.');
+                $frmCrname.focus();
+                return false;
+            }
+
+            if( cName.length < 2 ){
+                alert('어린이집명을 2자 이상 입력하세요.');
+                $frmCrname.focus();
+                return false;
+            }
+
+            var filterSearch = ["어린이집", "어린이", "린이집", "어린", "이집", "린이"];
+
+            for(var i=0;i<filterSearch.length;i++) {
+                if (cName == filterSearch[i]) {
+                    alert("정확한 어린이집 또는 유치원명을 입력해주세요");
+                    $frmCrname.focus();
+                    return false;
+                }
+            }
+
+            $('#nurseryNameSearchFrm').get(0).submit();
+        }582
+
+        $frmCrname.keydown(function(e){
+        	if( e.keyCode == 13 ){
+        		fnComNurseryNameSearch();
+            }
+        });
+
+        $('#nurseryNameSearchBtn').click(function(){
+        	fnComNurseryNameSearch();
+        });
+        
+        /*
+        console.log(Object.defineProperties(new Error, {
+        	toString: {value() {(new Error).stack.includes('toString@') && alert('devtools')}},
+        	message: {
+        		get() {
+        			document.location.href = "about:blank";
+        		}
+        	},
+        	
+        }));
+        */
+    });
+
+    document.oncontextmenu = function(e){
+    	if (serverType == "P") {
+    	    alert('오른쪽 마우스는 사용할 수 없습니다.');
+    	    return false;
+    	}
+    };
+    
+    document.addEventListener("keydown", function (e) {
+    	if (serverType == "P") {
+	    	if (event.key === "F12" || (event.ctrlKey && event.shiftKey && (event.key.toLowerCase() === "i" || event.key.toLowerCase() === "j"))) {
+	    		event.preventDefault();
+	    		
+	    	}
+	    	
+	    	if (event.ctrlKey && event.key.toLowerCase() === "u") {
+	    		event.preventDefault();
+	    	}
+    	}
+    });
+    
+//]]>
+</script>
+<script type="text/javascript" src="/js/info_html5/pnis/common.js"></script> <!-- 151230 홈페이지바로가기 주소 초기화위해 추가 -->
+
+
+<script type="text/javascript">
+//리사이즈
+$(document).ready(function() {
+	window.resizeTo(900, 960) ;
+});
+</script>
+</head>
+<body>
+
+	<!-- popWrap -->
+	<div id="popWrap2" class="pnis_pop">
+
+		<p class="topArea">
+			<span class="name" id="CRNAMETITLE"></span>
+
+			<a href="#" onclick = "clickFavoriteOnPOP();return false;" id="favorite_pop" class="bul_favoriteMap_off" style="display:none;">
+			 	<span class='blind'>즐겨찾기 표시하기 링크</span>
+			 </a>
+											 
+			
+			<img class="bi" src="/info_html5/unityPblntf/common/logo.png" alt="투명한 보육정보를 위한 어린이집정보공개포털" />
+		</p>
+
+		
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" src="/js/info_html5/jquery-1.8.3.js"></script>
+<script type="text/javascript" src="/js/common/fncommon.js"></script>
+<script type="text/javascript" src="/js/info_html5/highcharts.js"></script>
+<script type="text/javascript" src="/js/info_html5/highcharts-more.js"></script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=5a2e64689d501a94ef400958b2aa9a7b"></script>
+
+<script type="text/javascript">
+
+$(document).ready(function(){
+	$('#CRNAMETITLE').text('광주하나금융공동직장어린이집') ;
+
+	// 홈페이지 <a> 태그 세팅
+	$('.crhmpg').each(function() {
+		fnPrepareHompageLink(this);
+
+	}
+	);
+	//classNM = window.opener.$('#favorite_29110000084').attr("class");
+	try{
+		classNM = window.opener.$('#favorite_29110000084').attr("class");
+		$('#favorite_pop').removeClass().addClass(classNM);
+		$('#favorite_pop').show();
+		var favortxt = window.opener.$('#favorite_29110000084').children('.blind').html();
+		$('#favorite_pop .blind').html(favortxt);
+	}catch(err){
+		console.log('팝업 없음');
+	}
+});
+
+
+$(function () {
+	
+	 $('#data1').highcharts({
+	     chart: {
+	    	 ignoreHiddenSeries: false,
+	    	 type: 'column'
+	     },
+	     title: {
+	         text: '',
+	         x: -80
+	     },
+	     xAxis: {
+	         categories:['교사', '아동'],
+	         labels: {
+	             enabled: true
+	         }
+	     },
+	     yAxis: {
+	         title : {text: ''},
+	         labels: {
+	             enabled: false
+	         },
+	         max: ( 11 + 11 * 0.3)
+	     },
+	     legend: {
+	         enabled: false
+	     },
+	     tooltip: {
+	         formatter: function() {
+	             var point = this.point,
+	                 s = this.x +':<b>'+ this.y +'명</b><br/>';
+	             return s;
+	         }
+	     },
+	     plotOptions: {
+	    	 column: {
+	             dataLabels: {
+	                 enabled: true,
+	                 formatter: function() {
+	                     //var s = '<center>'+this.x +'<br/>'+ this.y +'명<br/></center>';
+	                     var s = '<center>'+ this.y +'명</center>';
+	                     return s;
+	                 }
+	             }
+	         }
+	     },
+	     series: [{
+// 	             name: '정현원 현황',
+	             data: [{
+	            	    name: '교사',
+	            	    color: '#fd8b63',
+	            	    y: 4
+	            	}, {
+	            	    name: '아동',
+	            	    color: '#6cd3c7',
+	            	    y: 11
+	            	}]
+	         }]
+	 });
+
+	 $('#data2').highcharts({
+	     chart: {
+	         plotBackgroundColor: null,
+	         plotBorderWidth: 0,
+	         plotShadow: false
+	     },
+	     title: {
+	         text: '',
+	         x: -80
+	     },
+	     tooltip: {
+	         pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>'
+	     },
+	     legend: {
+	         enabled: true
+//              layout: 'vertical',
+//              backgroundColor: '#FFFFFF',
+//              align: 'right',
+//              verticalAlign: 'top',
+//              y : 30
+	     },
+	     plotOptions: {
+	         pie: {
+	             dataLabels: {
+	                 enabled: true,
+	                 distance: -20,
+	                 style: {
+	                    // fontWeight: 'bold',
+	                     color: 'white',
+	                     textShadow: '0px 1px 2px black'
+	                 },
+	                // format: '<center>{point.name}<br />{point.percentage:.1f} %</center>'
+	                 //format: '<center>{point.percentage:.1f}%</center>'
+	                  formatter: function() {
+	                     var s;
+	                     if(this.y == 0) {
+	                     	s=''
+	                     } else {
+	                     	s = '<center>'+ this.y +'%</center>';
+	                     }
+	                     return s;
+	                 }
+	             },
+	             startAngle: 0,
+	             endAngle: 150
+	         }
+	     },
+	     series: [{
+	    	     type: 'pie',
+	             name: '교사 자격',
+	             innerSize: '70%',
+	             size: '140%',
+	             data: [{
+	                 name: '1급',
+	                 color: '#48c5d0',
+	                 y: 80
+	             }, {
+	                 name: '2급',
+	                 color: '#feac0d',
+	                 y: 20
+	             }, {
+	                 name: '3급',
+	                 color: '#b9d21a',
+	                 y: 0
+	             }]
+	         }]
+	 });
+
+	 $('#data3').highcharts({
+	     chart: {
+	         plotBackgroundColor: null,
+	         plotBorderWidth: null,
+	         plotShadow: false
+	     },
+	     title: {
+	         text: '',
+	         x: -80
+	     },
+	     tooltip: {
+	         pointFormat: '{series.name}: <b>{point.percentage:.1f}%</b>'
+	     },
+	     plotOptions: {
+	         pie: {
+	             dataLabels: {
+	                 enabled: true,
+	                 distance: -20,
+	                 style: {
+	                     //fontWeight: 'bold',
+	                     color: 'white',
+	                     textShadow: '0px 1px 2px black'
+	                 },
+	                // format: '<center>{point.name}<br />{point.percentage:.1f} %</center>'
+	                 // format: '<center>{point.percentage:.1f} %</center>'
+	                 formatter: function() {
+	                     var s;
+	                     if(this.y == 0) {
+	                     	s=''
+	                     } else {
+	                     	s = '<center>'+ this.y +'%</center>';
+	                     }
+	                     return s;
+	                 }
+	             },
+	             startAngle: 0,
+	             endAngle: 150
+	         }
+	     },
+	     series: [{
+	             type: 'pie',
+	             name: '현 기관 근속 연수',
+	             innerSize: '70%',
+	             size: '140%',
+	             data: [{
+	                 name: '1년미만',
+	                 color: '#fd8b63',
+	                 y: 25
+	             }, {
+	                 name: '1년이상 2년미만',
+	                 color: '#f67c7c',
+	                 y: 25
+	             }, {
+	                 name: '2년이상 4년미만',
+	                 color: '#b9d21a',
+	                 y: 50
+	             }, {
+	                 name: '4년이상 6년미만',
+	                 color: '#8b9ac3',
+	                 y: 0
+	             }, {
+	                 name: '6년이상',
+	                 color: '#48c5d0',
+	                 y: 0
+	             }]
+	         }]
+	 });
+	});
+
+
+
+	
+</script>
+
+    
+    
+    
+    
+    
+        
+    
+
+<script type="text/javascript">
+//<![CDATA[
+
+//]]>
+
+function fnLoginCheck(){
+        
+
+      var stcode = document.getElementById("stcodePop").value;
+      var returnUrl = "http://info.childcare.go.kr/info/pnis/search/preview/SummaryInfoSlPu2.jsp?flag=IP&STCODE_POP="+stcode;
+      if(confirm('로그인 하시겠습니까?\n\n"확인":로그인 페이지로 이동합니다.\n"취소":비회원 수정 요청페이지로 이동합니다.')) {
+        //location.href = "SummaryInfoLogin.jsp?returnUrl="+encodeURIComponent(returnUrl);
+        frm.action = "http://www.childcare.go.kr/cpis2gi/loginI.jsp?menuId=8213&returnUrl="+encodeURIComponent(returnUrl);
+    } else {
+        location.href = "SummaryInfoSlPu2.jsp?flag=IP&STCODE_POP="+stcode;
+    }
+}
+
+function fnInfoUd(){
+      var stcode = document.getElementById("stcodePop").value;
+      location.href = "SummaryInfoSlPu2.jsp?flag=IP&STCODE_POP="+stcode;
+}
+
+function clickFavoriteOnPOP(){
+	window.opener.$('#favorite_29110000084').trigger('click');
+	classNM = window.opener.$('#favorite_29110000084').attr("class");
+	$('#favorite_pop').removeClass().addClass(classNM);
+	var favortxt = window.opener.$('#favorite_29110000084').children('.blind').html();
+	$('#favorite_pop .blind').html(favortxt);
+}
+</script>
+
+<div class="conArea info_search">
+	<!-- tabMenu_st -->
+	<div class="tabMenu_st">
+		<!-- list_tab -->
+		
+
+
+
+
+
+
+	
+
+
+
+<div class="tabMenu_wrap">
+	<ul>
+		<li>
+			<a href="/info_html5/pnis/search/preview/SummaryInfoSlPu.jsp?flag=YJ&STCODE_POP=29110000084&CRNAMETITLE=%EA%B4%91%EC%A3%BC%ED%95%98%EB%82%98%EA%B8%88%EC%9C%B5%EA%B3%B5%EB%8F%99%EC%A7%81%EC%9E%A5%EC%96%B4%EB%A6%B0%EC%9D%B4%EC%A7%91&loginFlag=" class="current" title="요약 선택됨"><img src="/info_html5/unityPblntf/common/icon-tabMenu-1.png" />요약</a>
+		</li>
+		<li>
+			<a href="/info_html5/pnis/search/preview/BasisPresentConditionSlPu.jsp?flag=GH&STCODE_POP=29110000084&CRNAMETITLE=%EA%B4%91%EC%A3%BC%ED%95%98%EB%82%98%EA%B8%88%EC%9C%B5%EA%B3%B5%EB%8F%99%EC%A7%81%EC%9E%A5%EC%96%B4%EB%A6%B0%EC%9D%B4%EC%A7%91&loginFlag=" ><img src="/info_html5/unityPblntf/common/icon-tabMenu-2.png"/>기본 현황</a>
+		</li>
+		<li>
+			<a href="/info_html5/pnis/search/preview/ChildStaffSlPu.jsp?flag=BG&STCODE_POP=29110000084&CRNAMETITLE=%EA%B4%91%EC%A3%BC%ED%95%98%EB%82%98%EA%B8%88%EC%9C%B5%EA%B3%B5%EB%8F%99%EC%A7%81%EC%9E%A5%EC%96%B4%EB%A6%B0%EC%9D%B4%EC%A7%91&loginFlag=" ><img src="/info_html5/unityPblntf/common/icon-tabMenu-3.png"/>영유아 및 교직원</a>
+		</li>
+		<li>
+			<a href="/info_html5/pnis/search/preview/ChildCareCurriculumSlPu.jsp?flag=BB&STCODE_POP=29110000084&CRNAMETITLE=%EA%B4%91%EC%A3%BC%ED%95%98%EB%82%98%EA%B8%88%EC%9C%B5%EA%B3%B5%EB%8F%99%EC%A7%81%EC%9E%A5%EC%96%B4%EB%A6%B0%EC%9D%B4%EC%A7%91&loginFlag=" ><img src="/info_html5/unityPblntf/common/icon-tabMenu-4.png"/>교육·보육과정</a>
+		</li>
+		<li>
+			<a href="/info_html5/pnis/search/preview/BudgetBalanceSlPu.jsp?flag=YK&&act=TOT&STCODE_POP=29110000084&CRNAMETITLE=%EA%B4%91%EC%A3%BC%ED%95%98%EB%82%98%EA%B8%88%EC%9C%B5%EA%B3%B5%EB%8F%99%EC%A7%81%EC%9E%A5%EC%96%B4%EB%A6%B0%EC%9D%B4%EC%A7%91&loginFlag=" ><img src="/info_html5/unityPblntf/common/icon-tabMenu-5.png"/>예·결산 등 회계</a>
+		</li>
+		<li>
+			<a href="/info_html5/pnis/search/preview/HealthSafetySlPu.jsp?flag=GA&STCODE_POP=29110000084&CRNAMETITLE=%EA%B4%91%EC%A3%BC%ED%95%98%EB%82%98%EA%B8%88%EC%9C%B5%EA%B3%B5%EB%8F%99%EC%A7%81%EC%9E%A5%EC%96%B4%EB%A6%B0%EC%9D%B4%EC%A7%91&loginFlag=" ><img src="/info_html5/unityPblntf/common/icon-tabMenu-6.png"/>영양 및 환경 위생</a>
+		</li>
+		<li>
+			<a href="/info_html5/pnis/search/preview/SafetyEducationCheckSlPu.jsp?flag=AE&STCODE_POP=29110000084&CRNAMETITLE=%EA%B4%91%EC%A3%BC%ED%95%98%EB%82%98%EA%B8%88%EC%9C%B5%EA%B3%B5%EB%8F%99%EC%A7%81%EC%9E%A5%EC%96%B4%EB%A6%B0%EC%9D%B4%EC%A7%91&loginFlag=" ><img src="/info_html5/unityPblntf/common/icon-tabMenu-7.png"/>안전교육·안전점검</a>
+		</li>
+		<li>
+			<a href="/info_html5/pnis/search/preview/VioltfcltySlLPu.jsp?flag=FcltyList&STCODE_POP=29110000084&CRNAMETITLE=%EA%B4%91%EC%A3%BC%ED%95%98%EB%82%98%EA%B8%88%EC%9C%B5%EA%B3%B5%EB%8F%99%EC%A7%81%EC%9E%A5%EC%96%B4%EB%A6%B0%EC%9D%B4%EC%A7%91&loginFlag=" ><img src="/info_html5/unityPblntf/common/icon-tabMenu-10.png"/>위반내역</a>
+		</li>		
+		
+		<!-- 2018.01.23   i_neosag03  평가인증등급 평가인증창 추가 -->
+		
+			<!-- 평가인증 등급일 경우 평가인증창 팝업 -->
+			<li>
+				<a href="/info_html5/pnis/search/preview/AppraisaAuthenticationGradeSlPu.jsp?flag=PI&STCODE_POP=29110000084&CRNAMETITLE=%EA%B4%91%EC%A3%BC%ED%95%98%EB%82%98%EA%B8%88%EC%9C%B5%EA%B3%B5%EB%8F%99%EC%A7%81%EC%9E%A5%EC%96%B4%EB%A6%B0%EC%9D%B4%EC%A7%91&loginFlag=" ><img src="/info_html5/unityPblntf/common/icon-tabMenu-8.png"/>평가</a>
+			</li>
+		
+			
+		
+		
+		<li>
+			<a href="/info_html5/pnis/search/preview/EtntctClassAdditionSlPu.jsp?flag=EN&STCODE_POP=29110000084&CRNAMETITLE=%EA%B4%91%EC%A3%BC%ED%95%98%EB%82%98%EA%B8%88%EC%9C%B5%EA%B3%B5%EB%8F%99%EC%A7%81%EC%9E%A5%EC%96%B4%EB%A6%B0%EC%9D%B4%EC%A7%91&loginFlag=" ><img src="/info_html5/unityPblntf/common/icon-tabMenu-9.png"/>연장보육반</a>
+		</li>
+	</ul>
+	</div>
+
+
+
+
+
+		<!-- //list_tab -->
+		<!-- tab_con -->
+		<div class="tab_con">
+			<!-- 1.요약 -->
+			<div class="tabConTit mT40">
+				<h4 class="tit_h4_2">요약</h4>
+				<div class="pageOption"></div>
+			</div>
+			
+			<div class="x-scroll">
+				<table class="table_childcare bT mT10">
+					<caption>요약 정보</caption>
+					<colgroup>
+						<col width="12%" />
+						<col width="7%" />
+						<col width="7%" />
+						<col width="7%" />
+						<col width="7%" />
+						<col width="7%" />
+						<col width="7%" />
+						<col width="7%" />
+						<col width="9%" />
+						<col width="9%" />
+						<col width="9%" />
+						<col width="6%" />
+						<col width="6%" />
+					</colgroup>
+					
+					<tbody>
+						<tr>
+							<th scope="row">기관명</th>
+							<td colspan="6" class="td_left">
+								광주하나금융공동직장어린이집
+								
+							</td>
+							<td colspan="6" rowspan="10" class="no_right" style="padding:0;">
+								<div id="map" style="height:400px;"></div>
+								<script type="text/javascript">
+								
+									$(document).ready(function() {
+										var container = document.getElementById('map');
+										var options = {center: new daum.maps.LatLng(35.150823950430365, 126.91365266679198), level: 3};
+										var map = new daum.maps.Map(container, options);
+										var marker = new daum.maps.Marker();
+										
+										marker.setPosition(map.getCenter());
+										marker.setMap(map);
+									} ); //ready()
+
+								</script>
+							</td>
+						</tr>
+						
+						<tr>
+							<th scope="row">대표자명</th>
+							<td colspan="6" class="td_left">주식회사 하나금융지주의 사업주</td>
+						</tr>
+						
+						<tr>
+							<th scope="row">원장명</th>
+							<td colspan="6" class="td_left">[비식별 처리]</td>
+						</tr>
+						
+						<tr>
+							<th scope="row">설립유형</th>
+							<td colspan="6" class="td_left">직장</td>
+						</tr>
+						
+						<tr>
+							<th scope="row">설립(개원)일</th>
+							<td colspan="6" class="td_left">2019-06-27</td>
+						</tr>
+						
+						<tr>
+							<th scope="row">관할 행정기관</th>
+							<td colspan="6" class="td_left">전남광주통합특별시 동구청</td>
+						</tr>
+						
+						<tr>
+							<th scope="row">전화번호</th>
+							<td colspan="6" class="td_left">(062)226-1910</td>
+						</tr>
+						
+						<tr>
+							<th scope="row">홈페이지</th>
+                    		<td colspan="6" class="td_left"><a href="https://www.puruni.com/hanagj" class="crhmpg" target="_blank" title="새창">https://www.puruni.com/hanagj</a></td>
+						</tr>
+						
+						<tr>
+							<th scope="row">운영시간</th>
+							<td colspan="6" class="td_left">평일기준시간 : 07:30 ~ 19:30</td>
+						</tr>
+						
+						<tr>
+							<th scope="row">주소</th>
+							<td colspan="6" class="td_left">
+								(61481)
+								전남광주통합특별시 동구 금남로5가 금남로 190&nbsp;하나은행 광주금융센터 3층
+							</td>
+						</tr>
+						
+						<tr>
+							<th scope="row">제공서비스</th>
+							<td colspan="12" class="td_left no_right">
+								<ul class="list_style_col5">
+									
+							    		
+								    		
+								    		
+												<li>
+													<input type='checkbox' disabled name='chk_sisul_spec' id='chk_sisul_spec' value='99' checked  title="일반 선택" onclick="javascript:fnCareSpecCheck();"> 일반
+												</li>
+											
+										
+									
+							    		
+								    		
+								    		
+												<li>
+													<input type='checkbox' disabled name='chk_sisul_spec' id='chk_sisul_spec' value='01'   title="영아전담 선택" onclick="javascript:fnCareSpecCheck();"> 영아전담
+												</li>
+											
+										
+									
+							    		
+								    		
+								    		
+												<li>
+													<input type='checkbox' disabled name='chk_sisul_spec' id='chk_sisul_spec' value='02'   title="장애아전문 선택" onclick="javascript:fnCareSpecCheck();"> 장애아전문
+												</li>
+											
+										
+									
+							    		
+								    		
+								    		
+												<li>
+													<input type='checkbox' disabled name='chk_sisul_spec' id='chk_sisul_spec' value='03'   title="장애아통합 선택" onclick="javascript:fnCareSpecCheck();"> 장애아통합
+												</li>
+											
+										
+									
+							    		
+								    		
+								    			<li>
+								    				<input type='checkbox' disabled name='chk_sisul_spec' id='chk_sisul_spec' value='04'   title="방과후 전담 선택" onclick="javascript:fnCareSpecCheck();"> 방과후 전담
+												</li>
+								    		
+								    		
+										
+									
+							    		
+								    		
+								    		
+												<li>
+													<input type='checkbox' disabled name='chk_sisul_spec' id='chk_sisul_spec' value='05'   title="방과후통합 선택" onclick="javascript:fnCareSpecCheck();"> 방과후통합
+												</li>
+											
+										
+									
+							    		
+								    		
+								    		
+												<li>
+													<input type='checkbox' disabled name='chk_sisul_spec' id='chk_sisul_spec' value='06'   title="야간연장형 선택" onclick="javascript:fnCareSpecCheck();"> 야간연장형
+												</li>
+											
+										
+									
+							    		
+								    		
+								    		
+												<li>
+													<input type='checkbox' disabled name='chk_sisul_spec' id='chk_sisul_spec' value='07'   title="휴일보육 선택" onclick="javascript:fnCareSpecCheck();"> 휴일보육
+												</li>
+											
+										
+									
+							    		
+								    		
+								    		
+												<li>
+													<input type='checkbox' disabled name='chk_sisul_spec' id='chk_sisul_spec' value='08'   title="24시간 선택" onclick="javascript:fnCareSpecCheck();"> 24시간
+												</li>
+											
+										
+									
+							    		
+								    		
+								    		
+												<li>
+													<input type='checkbox' disabled name='chk_sisul_spec' id='chk_sisul_spec' value='10'   title="시간제보육 선택" onclick="javascript:fnCareSpecCheck();"> 시간제보육
+												</li>
+											
+										
+									
+								</ul>
+							</td>
+						</tr>
+						
+						<tr>
+							<th scope="row" rowspan="3">반 및 아동수</th>
+							<th scope="col" class="td_back">연령</th>
+							<th scope="col" class="td_back">만0세</th>
+							<th scope="col" class="td_back">만1세</th>
+							<th scope="col" class="td_back">만2세</th>
+							<th scope="col" class="td_back">만3세</th>
+							<th scope="col" class="td_back">만4세</th>
+							<th scope="col" class="td_back">만5세</th>
+							<th scope="col" class="td_back">영아<br />혼합<br /><span style="font-weight: 501;font-size: 10px;">(만0~2세)</span></th>
+							<th scope="col" class="td_back">영유아<br />혼합<br /><span style="font-weight: 501;font-size: 10px;">(만2~3세)</span></th>
+							<th scope="col" class="td_back">유아<br />혼합<br /><span style="font-weight: 501;font-size: 10px;">(만3~5세)</span></th>
+							<th scope="col" class="td_back">특수/<br />장애</th>
+							<th scope="col" class="td_back no_right">총계</th>
+						</tr>
+						
+						<tr>
+							<th scope="row">반수</th>
+							<td>0</td>
+							<td>0</td>
+							<td>0</td>
+							<td>0</td>
+							<td>0</td>
+							<td>1</td>
+							<td>1</td>
+							<td>0</td>
+							<td>1</td>
+							<td>0</td>
+							<td class="no_right">3</td>
+						</tr>
+						
+						<tr>
+							<th scope="row">아동수</th>
+							<td>0</td>
+							<td>0</td>
+							<td>0</td>
+							<td>0</td>
+							<td>0</td>
+							<td>2</td>
+							<td>2</td>
+							<td>0</td>
+							<td>7</td>
+							<td>0</td>
+							<td class="no_right">11</td>
+						</tr>
+						
+						<tr>
+							<th scope="row">교사현황</th>
+							<td colspan="12" class="no_right summaryInfo">
+								<div class="section">
+									<span class="tit">교사대 아동비율</span>
+									<!-- 그래프 값 -->
+									<ul class="blind">
+										<li>교사 <!-- 고정값 -->: 4명</li>
+										<li>아동 <!-- 고정값 -->: 11 명</li>
+									</ul>
+									<!-- //그래프 값 -->
+									
+									
+										<div class="chartArea graph">
+											<div class="data" id="data1" style="min-width: 230px; max-width: 260px; height: 150px;text-align:center;"></div>
+										</div>
+										<ul class="remark s1">
+											<li><span class="box box1"></span><span class="tit2">교사</span></li>
+											<li><span class="box box2"></span><span class="tit2">아동</span></li>
+										</ul>
+									
+									
+									
+								</div>
+								
+								<div class="section">
+									<span class="tit">교사 자격</span>
+									<!-- 그래프 값 -->
+									<ul class="blind">
+										<li>3급 <!-- 고정값 -->: 0 %</li>
+										<li>2급 <!-- 고정값 -->: 20 %</li>
+										<li>1급 <!-- 고정값 -->: 80 %</li>
+									</ul>
+									<!-- //그래프 값 -->
+									
+									
+										<div class="graph">
+											<div class="data" id="data2" style="min-width: 230px; max-width: 260px; height: 150px;text-align:center;"></div>
+										</div>
+										<ul class="remark s2">
+											<li><span class="box box1"></span><span class="tit2">3급 : 0 %</span></li>
+											<li><span class="box box2"></span><span class="tit2">2급 : 20 %</span></li>
+											<li><span class="box box3"></span><span class="tit2">1급 : 80 %</span></li>
+										</ul>
+									
+									
+									
+									
+								</div>
+								
+								<div class="section">
+									<span class="tit">현 기관 근속 연수</span>
+									<!-- 그래프 값 -->
+									<ul class="blind">
+										<li>6년이상<!-- 고정값 -->: 0 %</li>
+										<li>4년이상~6년미만<!-- 고정값 -->: 0 %</li>
+										<li>2년이상~4년미만<!-- 고정값 -->: 50 %</li>
+										<li>1년이상~2년미만<!-- 고정값 -->: 25 %</li>
+										<li>1년미만<!-- 고정값 -->: 25 %</li>
+									</ul>
+									<!-- //그래프 값 -->
+									
+									
+										<div class="graph">
+											<div class="data" id="data3" style="min-width: 230px; max-width: 260px; height: 150px;text-align:center;"></div>
+										</div>
+										<ul class="remark s3">
+											<li><span class="box box1"></span><span class="tit2">6년이상 : 0 %</span></li>
+											<li><span class="box box2"></span><span class="tit2">4년이상~6년미만 : 0 %</span></li>
+											<li><span class="box box3"></span><span class="tit2">2년이상~4년미만 : 50 %</span></li>
+											<li><span class="box box4"></span><span class="tit2">1년이상~2년미만 : 25 %</span></li>
+											<li><span class="box box5"></span><span class="tit2">1년미만 : 25 %</span></li>
+										</ul>
+									
+									
+									
+								</div>
+							</td>
+						</tr>
+						
+						<tr>
+							<th scope="row">통학차량 운영</th>
+							<td colspan="5" class="td_left">
+								
+								미운영
+								
+							</td>
+							
+							<th scope="row" colspan="2">평가인증 연월</th>
+							<td colspan="5" class="td_left no_right">
+                				
+                        			
+									2025-03
+								
+								
+							</td>
+						</tr>
+					</tbody>
+				</table>
+			</div>
+			
+			<!-- btn -->
+			
+                <div id="popWrap">              <!-- 2019.05.28 추가 -->
+                    <!-- 하단닫기버튼 -->
+                    <div class="btn_close3">
+                        <a href="javascript:window.close();" class="btn"><span>닫기</span></a>
+                        <a href="javascript:window.print();" class="btn"><span>인쇄</span></a>
+                    </div>
+                    <!-- //하단닫기버튼 -->
+                </div>
+            
+			<!-- //btn -->
+		<!-- //1.요약 -->
+		</div>
+	</div>
+	<!-- tabMenu_st -->
+</div>
+
+
+
+		<a href="javascript:window.close();" class="btn_close"><span>창닫기</span></a>
+
+	</div>
+	<!-- //popWrap -->
+
+</body>
+</html>
