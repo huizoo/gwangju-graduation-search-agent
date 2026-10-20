@@ -1012,7 +1012,7 @@ class Service:
             for observation in observations:
                 candidate = observation["candidate"]
                 value = candidate[name]
-                if value is None or (name == "event_date" and value["precision"] == "unknown") or (name == "ceremony_status" and value == "unclear"):
+                if value is None or (name == "event_date" and value["precision"] == "unknown"):
                     continue
                 references.append((observation, value))
                 document = context["documents"][observation["document_id"]]

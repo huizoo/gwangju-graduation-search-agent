@@ -158,3 +158,13 @@ def test_explicit_different_ceremony_sequences_are_not_merged(source_context):
     events = service.events(season["id"], view="calendar")["items"]
     assert len(events) == 2
     assert {e["publication"]["calendar_date"] for e in events} == {"2027-01-07","2027-01-08"}
+
+
+def test_bound_postponement_holds_old_date_without_calling_it_cancelled(source_context):
+    """기존 취소 경고 경로의 연기 보류 기능을 행사 관계 검사로 유지한다."""
+    service, _, season = source_context
+    save_notice(source_context, "2026학년도 검증초등학교 졸업식은 2027년 1월 7일 오전 10시에 시작합니다.")
+    save_notice(source_context, "2026학년도 검증초등학교 졸업식은 연기합니다.", "postponed")
+    from app.results import result_rows
+    row = result_rows(service.snapshot(season["id"]))[0]
+    assert row["date"] is row["start_time"] is row["status"] is None

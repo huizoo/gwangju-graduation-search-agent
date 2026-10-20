@@ -25,7 +25,7 @@ _CHANGE_ROW = re.compile(
 _NEGATIVE = re.compile(
     r"(?:올해\s*)?(?:(?:개최|실시)(?:를)?\s*)?"
     r"(?P<status>취소(?:합니다|되었습니다|됐습니다|\s*안내)?|미실시(?:합니다|\s*안내)?|미개최(?:합니다|\s*안내)?|"
-    r"(?:개최|실시)하지\s*않(?:습니다|기로\s*했습니다))\s*[.!。]?"
+    r"(?:개최|실시)하지\s*않(?:습니다|기로\s*했습니다)|연기(?:합니다|되었습니다|됐습니다|\s*안내)?)\s*[.!。]?"
 )
 
 
@@ -76,7 +76,7 @@ def _neis_candidate(document: dict, season: dict) -> dict | None:
         candidate = _candidate(name, event_type, int(row["AY"]), day, segment["id"], segment["text"], raw_date)
         candidate.update(event_key_hint=unit["key"], audience=unit["audience"])
         if negative:
-            candidate.update(ceremony_status="cancelled" if "취소" in negative["status"] else "not_held",
+            candidate.update(ceremony_status="unclear" if "연기" in negative["status"] else "cancelled" if "취소" in negative["status"] else "not_held",
                              event_date={"precision": "unknown", "date": None, "month": None}, date_evidence=[])
         return candidate
     except (KeyError, ValueError, TypeError):
@@ -115,7 +115,7 @@ def _parse_negative(line, institution, season, segment_id):
     candidate = _candidate(title,
         "degree_award_ceremony" if "학위수여식" in line else "graduation_ceremony",
         season["academic_year"], None, segment_id, line, None)
-    candidate.update(ceremony_status="cancelled" if "취소" in negative["status"] else "not_held",
+    candidate.update(ceremony_status="unclear" if "연기" in negative["status"] else "cancelled" if "취소" in negative["status"] else "not_held",
                      event_date={"precision": "unknown", "date": None, "month": None}, date_evidence=[])
     return candidate
 
