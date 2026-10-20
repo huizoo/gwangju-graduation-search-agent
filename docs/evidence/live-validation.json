@@ -1,0 +1,1172 @@
+{
+  "checked_at": "2026-10-20T11:00:22.698641+00:00",
+  "evidence_level": "actual_app_http_after_restart",
+  "app_mode": "live",
+  "new_external_requests_performed": false,
+  "current_season": {
+    "id": "ba3daa8c-f911-4aae-ae89-f454a946d72a",
+    "label": "2026학년도 겨울 졸업 시즌",
+    "academic_year": 2026,
+    "search_start": "2026-12-01",
+    "search_end": "2027-03-31",
+    "export_key": "2026-winter",
+    "timezone": "Asia/Seoul",
+    "region_profile": "gwangju_5_gu",
+    "revision": 1
+  },
+  "registry": {
+    "registered_institutions": 860,
+    "types": {
+      "childcare": 251,
+      "middle": 92,
+      "elementary": 158,
+      "kindergarten": 256,
+      "high": 71,
+      "university": 11,
+      "other_school": 8,
+      "junior_college": 7,
+      "special_school": 6
+    },
+    "all_gwangju_complete": false
+  },
+  "job": {
+    "id": "30078065-3167-413a-8f62-da3c660d5108",
+    "kind": "schedule_scan",
+    "season_id": "ba3daa8c-f911-4aae-ae89-f454a946d72a",
+    "status": "completed",
+    "paused_reason": null,
+    "target_count": 13,
+    "created_at": "2026-10-20T10:39:12.988782+00:00",
+    "updated_at": "2026-10-20T10:45:49.066038+00:00",
+    "revision": 21,
+    "scope_snapshot": {
+      "season": {
+        "academic_year": 2026,
+        "export_key": "2026-winter",
+        "id": "ba3daa8c-f911-4aae-ae89-f454a946d72a",
+        "label": "2026학년도 겨울 졸업 시즌",
+        "region_profile": "gwangju_5_gu",
+        "revision": 1,
+        "search_end": "2027-03-31",
+        "search_start": "2026-12-01",
+        "timezone": "Asia/Seoul"
+      },
+      "source_config_hash": "6cccaa705baf2449131bf094595705a04573ae1c0207b8d6adea032dc3ce9d31"
+    },
+    "counts": {
+      "pending": 0,
+      "running": 0,
+      "done": 13,
+      "failed": 0,
+      "cancelled": 0
+    },
+    "usage": {
+      "active_seconds": 537,
+      "browser_reads": 0,
+      "document_fetches": 97,
+      "http_requests": 288,
+      "llm_calls": 4,
+      "replans": 23,
+      "reserved_tokens": 14000,
+      "search_calls": 23,
+      "tokens": 21933
+    },
+    "limits": {
+      "browser_timeout_seconds": 30,
+      "concurrency": 2,
+      "document_max_bytes": 10485760,
+      "document_max_chars": 100000,
+      "http_max_retries": 2,
+      "http_timeout_seconds": 15,
+      "item_max_browser_reads": 1,
+      "item_max_document_fetches": 8,
+      "item_max_llm_calls": 8,
+      "item_max_replans": 2,
+      "item_max_search_calls": 4,
+      "item_max_tokens": 24000,
+      "item_timeout_seconds": 180,
+      "job_max_active_seconds": 21600,
+      "job_max_browser_reads": 500,
+      "job_max_document_fetches": 5000,
+      "job_max_http_requests": 10000,
+      "job_max_llm_calls": 5000,
+      "job_max_search_calls": 2500,
+      "job_max_tokens": 1000000,
+      "llm_concurrency": 1,
+      "llm_max_input_tokens": 12000,
+      "llm_max_output_tokens": 2000,
+      "llm_max_retries": 1,
+      "llm_timeout_seconds": 45,
+      "pdf_max_pages": 80,
+      "per_host_min_interval_ms": 1000,
+      "segment_max_tokens": 120000,
+      "segment_timeout_seconds": 1800
+    },
+    "segment_number": 2,
+    "segment_usage": {
+      "active_seconds": 11,
+      "browser_reads": 0,
+      "document_fetches": 4,
+      "http_requests": 14,
+      "llm_calls": 0,
+      "replans": 1,
+      "reserved_tokens": 0,
+      "search_calls": 1,
+      "tokens": 0
+    }
+  },
+  "discovery_mode": "blind_window",
+  "seeded_date": false,
+  "seeded_notice_url": false,
+  "representative_results": [
+    {
+      "name": "각화중학교",
+      "type": "middle",
+      "district": "북구",
+      "status": "done",
+      "outcome": "needs_review",
+      "reason_codes": [
+        "access_failed",
+        "provider_error"
+      ],
+      "usage": {
+        "active_seconds": 62,
+        "browser_reads": 0,
+        "document_fetches": 8,
+        "http_requests": 24,
+        "llm_calls": 0,
+        "replans": 2,
+        "reserved_tokens": 0,
+        "search_calls": 2,
+        "tokens": 0
+      },
+      "confirmed_dates": []
+    },
+    {
+      "name": "각화초등학교",
+      "type": "elementary",
+      "district": "북구",
+      "status": "done",
+      "outcome": "needs_review",
+      "reason_codes": [
+        "access_failed",
+        "provider_error"
+      ],
+      "usage": {
+        "active_seconds": 108,
+        "browser_reads": 0,
+        "document_fetches": 8,
+        "http_requests": 23,
+        "llm_calls": 0,
+        "replans": 2,
+        "reserved_tokens": 0,
+        "search_calls": 2,
+        "tokens": 0
+      },
+      "confirmed_dates": [
+        {
+          "event_id": "27239694-9488-4a1b-a0bf-17420f13e3f6",
+          "audience": "초등학교 6학년",
+          "campus_label": null,
+          "date": "2027-01-07",
+          "time": null,
+          "current_date_allowed": true,
+          "current_time_allowed": false,
+          "field_permissions": {
+            "ceremony_status": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:41:01.150429Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "event_date": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:41:01.151302Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "start_time": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            },
+            "venue": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "건국유치원",
+      "type": "kindergarten",
+      "district": "북구",
+      "status": "done",
+      "outcome": "needs_review",
+      "reason_codes": [
+        "access_failed",
+        "provider_error"
+      ],
+      "usage": {
+        "active_seconds": 30,
+        "browser_reads": 0,
+        "document_fetches": 8,
+        "http_requests": 27,
+        "llm_calls": 0,
+        "replans": 2,
+        "reserved_tokens": 0,
+        "search_calls": 2,
+        "tokens": 0
+      },
+      "confirmed_dates": []
+    },
+    {
+      "name": "건국초등학교",
+      "type": "elementary",
+      "district": "북구",
+      "status": "done",
+      "outcome": "needs_review",
+      "reason_codes": [
+        "access_failed",
+        "empty_article",
+        "provider_error"
+      ],
+      "usage": {
+        "active_seconds": 23,
+        "browser_reads": 0,
+        "document_fetches": 8,
+        "http_requests": 27,
+        "llm_calls": 0,
+        "replans": 2,
+        "reserved_tokens": 0,
+        "search_calls": 2,
+        "tokens": 0
+      },
+      "confirmed_dates": [
+        {
+          "event_id": "43bd5288-4f45-4b62-a648-8d1ad3f4a32f",
+          "audience": "초등학교 6학년",
+          "campus_label": null,
+          "date": "2027-01-06",
+          "time": null,
+          "current_date_allowed": true,
+          "current_time_allowed": false,
+          "field_permissions": {
+            "ceremony_status": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:41:06.677535Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "event_date": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:41:06.678390Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "start_time": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            },
+            "venue": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "고려고등학교",
+      "type": "high",
+      "district": "북구",
+      "status": "done",
+      "outcome": "needs_review",
+      "reason_codes": [
+        "access_failed",
+        "provider_error"
+      ],
+      "usage": {
+        "active_seconds": 19,
+        "browser_reads": 0,
+        "document_fetches": 8,
+        "http_requests": 25,
+        "llm_calls": 0,
+        "replans": 2,
+        "reserved_tokens": 0,
+        "search_calls": 2,
+        "tokens": 0
+      },
+      "confirmed_dates": [
+        {
+          "event_id": "31d0c928-fe2f-4304-8e94-e3c67ea81c45",
+          "audience": "고등학교 3학년 · 주간",
+          "campus_label": null,
+          "date": "2027-01-28",
+          "time": null,
+          "current_date_allowed": true,
+          "current_time_allowed": false,
+          "field_permissions": {
+            "ceremony_status": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:41:19.678620Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "event_date": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:41:19.679604Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "start_time": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            },
+            "venue": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "고려중학교",
+      "type": "middle",
+      "district": "북구",
+      "status": "done",
+      "outcome": "needs_review",
+      "reason_codes": [
+        "access_failed",
+        "parse_failed",
+        "provider_error"
+      ],
+      "usage": {
+        "active_seconds": 105,
+        "browser_reads": 0,
+        "document_fetches": 8,
+        "http_requests": 22,
+        "llm_calls": 2,
+        "replans": 1,
+        "reserved_tokens": 0,
+        "search_calls": 1,
+        "tokens": 7933
+      },
+      "confirmed_dates": [
+        {
+          "event_id": "72634a29-a2e0-4693-9924-a42db943f385",
+          "audience": "중학교 3학년 · 주간",
+          "campus_label": null,
+          "date": "2027-01-08",
+          "time": null,
+          "current_date_allowed": true,
+          "current_time_allowed": false,
+          "field_permissions": {
+            "ceremony_status": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:42:51.036153Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "event_date": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:42:51.037370Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "start_time": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            },
+            "venue": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "광주고등학교부설방송통신고등학교",
+      "type": "other_school",
+      "district": "동구",
+      "status": "done",
+      "outcome": "needs_review",
+      "reason_codes": [
+        "access_failed",
+        "provider_error"
+      ],
+      "usage": {
+        "active_seconds": 14,
+        "browser_reads": 0,
+        "document_fetches": 8,
+        "http_requests": 18,
+        "llm_calls": 0,
+        "replans": 2,
+        "reserved_tokens": 0,
+        "search_calls": 2,
+        "tokens": 0
+      },
+      "confirmed_dates": []
+    },
+    {
+      "name": "광주과학기술원",
+      "type": "university",
+      "district": "북구",
+      "status": "done",
+      "outcome": "limit_reached",
+      "reason_codes": [
+        "item_budget"
+      ],
+      "usage": {
+        "active_seconds": 62,
+        "browser_reads": 0,
+        "document_fetches": 1,
+        "http_requests": 4,
+        "llm_calls": 2,
+        "replans": 0,
+        "reserved_tokens": 14000,
+        "search_calls": 0,
+        "tokens": 14000
+      },
+      "confirmed_dates": []
+    },
+    {
+      "name": "광주보건대학교",
+      "type": "junior_college",
+      "district": "광산구",
+      "status": "done",
+      "outcome": "needs_review",
+      "reason_codes": [
+        "access_failed",
+        "provider_error"
+      ],
+      "usage": {
+        "active_seconds": 28,
+        "browser_reads": 0,
+        "document_fetches": 8,
+        "http_requests": 26,
+        "llm_calls": 0,
+        "replans": 2,
+        "reserved_tokens": 0,
+        "search_calls": 2,
+        "tokens": 0
+      },
+      "confirmed_dates": []
+    },
+    {
+      "name": "광주선광학교",
+      "type": "special_school",
+      "district": "광산구",
+      "status": "done",
+      "outcome": "needs_review",
+      "reason_codes": [
+        "access_failed",
+        "provider_error"
+      ],
+      "usage": {
+        "active_seconds": 26,
+        "browser_reads": 0,
+        "document_fetches": 8,
+        "http_requests": 28,
+        "llm_calls": 0,
+        "replans": 2,
+        "reserved_tokens": 0,
+        "search_calls": 2,
+        "tokens": 0
+      },
+      "confirmed_dates": [
+        {
+          "event_id": "33988837-6062-48cc-84a2-22e8a3601b61",
+          "audience": "유치원 1학년",
+          "campus_label": null,
+          "date": "2026-12-30",
+          "time": null,
+          "current_date_allowed": true,
+          "current_time_allowed": false,
+          "field_permissions": {
+            "ceremony_status": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:43:16.617672Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "event_date": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:43:16.618727Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "start_time": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            },
+            "venue": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            }
+          }
+        },
+        {
+          "event_id": "5b45c253-5814-47c8-9a9b-90b0e4c8ef49",
+          "audience": "고등학교 3학년",
+          "campus_label": null,
+          "date": "2027-01-08",
+          "time": null,
+          "current_date_allowed": true,
+          "current_time_allowed": false,
+          "field_permissions": {
+            "ceremony_status": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:43:16.603916Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "event_date": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:43:16.605806Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "start_time": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            },
+            "venue": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            }
+          }
+        },
+        {
+          "event_id": "66512eef-bcba-4bbc-98d9-e6d833418b6f",
+          "audience": "전공과 1학년",
+          "campus_label": null,
+          "date": "2027-01-08",
+          "time": null,
+          "current_date_allowed": true,
+          "current_time_allowed": false,
+          "field_permissions": {
+            "ceremony_status": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:43:16.563943Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "event_date": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:43:16.565012Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "start_time": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            },
+            "venue": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            }
+          }
+        },
+        {
+          "event_id": "75c527e9-549c-4af9-83df-7e172502d8de",
+          "audience": "초등학교 6학년",
+          "campus_label": null,
+          "date": "2027-01-08",
+          "time": null,
+          "current_date_allowed": true,
+          "current_time_allowed": false,
+          "field_permissions": {
+            "ceremony_status": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:43:16.630642Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "event_date": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:43:16.631723Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "start_time": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            },
+            "venue": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            }
+          }
+        },
+        {
+          "event_id": "e3af907f-3259-4e82-b900-de990bcd0bfb",
+          "audience": "중학교 3학년",
+          "campus_label": null,
+          "date": "2027-01-08",
+          "time": null,
+          "current_date_allowed": true,
+          "current_time_allowed": false,
+          "field_permissions": {
+            "ceremony_status": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:43:16.590898Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "event_date": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:43:16.591988Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "start_time": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            },
+            "venue": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "광주하나금융공동직장어린이집",
+      "type": "childcare",
+      "district": "동구",
+      "status": "done",
+      "outcome": "needs_review",
+      "reason_codes": [
+        "access_failed",
+        "provider_error",
+        "unsupported_format"
+      ],
+      "usage": {
+        "active_seconds": 23,
+        "browser_reads": 0,
+        "document_fetches": 8,
+        "http_requests": 22,
+        "llm_calls": 0,
+        "replans": 2,
+        "reserved_tokens": 0,
+        "search_calls": 2,
+        "tokens": 0
+      },
+      "confirmed_dates": []
+    },
+    {
+      "name": "전남대학교",
+      "type": "university",
+      "district": "북구",
+      "status": "done",
+      "outcome": "needs_review",
+      "reason_codes": [
+        "access_failed",
+        "empty_article",
+        "provider_error",
+        "tls_error"
+      ],
+      "usage": {
+        "active_seconds": 16,
+        "browser_reads": 0,
+        "document_fetches": 8,
+        "http_requests": 15,
+        "llm_calls": 0,
+        "replans": 2,
+        "reserved_tokens": 0,
+        "search_calls": 2,
+        "tokens": 0
+      },
+      "confirmed_dates": []
+    },
+    {
+      "name": "첨단고등학교",
+      "type": "high",
+      "district": "광산구",
+      "status": "done",
+      "outcome": "limit_reached",
+      "reason_codes": [
+        "access_failed",
+        "item_budget"
+      ],
+      "usage": {
+        "active_seconds": 21,
+        "browser_reads": 0,
+        "document_fetches": 8,
+        "http_requests": 27,
+        "llm_calls": 0,
+        "replans": 2,
+        "reserved_tokens": 0,
+        "search_calls": 2,
+        "tokens": 0
+      },
+      "confirmed_dates": [
+        {
+          "event_id": "e6f67af6-56e4-40e0-b230-f2c5b9c78b75",
+          "audience": "고등학교 3학년 · 주간",
+          "campus_label": null,
+          "date": "2027-01-20",
+          "time": null,
+          "current_date_allowed": true,
+          "current_time_allowed": false,
+          "field_permissions": {
+            "ceremony_status": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:45:48.909808Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "event_date": {
+              "general_visible": true,
+              "current_allowed": true,
+              "confirmed_at": "2026-10-20T10:45:48.911105Z",
+              "recheck_status": "succeeded",
+              "reason_codes": []
+            },
+            "start_time": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            },
+            "venue": {
+              "general_visible": false,
+              "current_allowed": false,
+              "confirmed_at": null,
+              "recheck_status": "not_applicable",
+              "reason_codes": [
+                "publication_held"
+              ]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "current_counts": {
+    "target_institutions": 13,
+    "date_institutions": 6,
+    "calendar_events": 10,
+    "time_events": 0,
+    "sales_ready_events": 0
+  },
+  "overview": {
+    "season_id": "ba3daa8c-f911-4aae-ae89-f454a946d72a",
+    "content_revision": 418,
+    "registry_complete": false,
+    "eligible_institutions": 860,
+    "attempted_institutions": 13,
+    "date_confirmed_institutions": 6,
+    "time_confirmed_institutions": 0,
+    "review_institutions": 860,
+    "events_total": 16,
+    "events_with_usable_date": 10,
+    "events_with_usable_time": 0,
+    "date_confirmation_ratio": 0.0069767441860465115,
+    "time_confirmation_ratio": 0.0,
+    "registry_snapshots": [
+      {
+        "id": "79cf97dd-2e5c-4d07-8579-0ac68f078161",
+        "retrieved_at": "2026-10-20T10:38:46.037751+00:00",
+        "loaded_count": 1,
+        "linked_count": 1,
+        "rejected_count": 0,
+        "source": {
+          "as_of": null,
+          "completeness_note": "단일 대표 기관의 공개 기본정보다. 전체 목록 확보와 무관하며 원문에 자료 기준일이 없어 as_of=null이다. / 전체 행수·거절·제외 조건상 등록 목록의 완전성은 확인되지 않았습니다.",
+          "coverage_complete": false,
+          "expected_total": null,
+          "official_url": "https://info.childcare.go.kr/info_html5/pnis/search/preview/SummaryInfoSlPu.jsp?flag=YJ&STCODE_POP=29110000084&CRNAMETITLE=&loginFlag=",
+          "provider": "childcare_public_disclosure",
+          "scope_districts": [
+            "동구"
+          ],
+          "scope_types": [
+            "childcare"
+          ],
+          "source_hash": "37f18cb3ca53715eda58db46509e8eab5bc45027c2b524c32fbe706085fadd06",
+          "source_name": "어린이집정보공개포털 대표 기관 기본 공시"
+        }
+      },
+      {
+        "id": "87929947-0a35-4aa1-8cf8-8f98365b799f",
+        "retrieved_at": "2026-10-20T10:38:45.986929+00:00",
+        "loaded_count": 250,
+        "linked_count": 250,
+        "rejected_count": 0,
+        "source": {
+          "as_of": null,
+          "completeness_note": "원본 250행 중 같은 자료원·기관유형·기관명·주소의 정확히 같은 행 0개를 중복 제거했다. 최종 250개. 기관명과 주소만 있어 운영 상태·전화·홈페이지를 추정하지 않는다. 파일명 20260921은 게시·파일 날짜이며 개별 자료 기준일은 미상이다. 각 구가 정확히 50행이므로 전체 범위 확인 전 제한 표본으로 취급한다. / 전체 행수·거절·제외 조건상 등록 목록의 완전성은 확인되지 않았습니다.",
+          "coverage_complete": false,
+          "expected_total": null,
+          "official_url": "https://www.data.go.kr/data/15135134/fileData.do",
+          "provider": "gwangju_welfare_public_file",
+          "scope_districts": [
+            "동구",
+            "서구",
+            "남구",
+            "북구",
+            "광산구"
+          ],
+          "scope_types": [
+            "childcare"
+          ],
+          "source_hash": "4e5e24df9b71099cdf908415fa49526dc01b4e8540704f0cb4bfe37b19faf79b",
+          "source_name": "광주복지플랫폼 어린이집 일부 목록"
+        }
+      },
+      {
+        "id": "e7f116e8-2d41-4e3b-b1b6-f6e5abdd6a58",
+        "retrieved_at": "2026-10-20T10:38:45.866997+00:00",
+        "loaded_count": 18,
+        "linked_count": 18,
+        "rejected_count": 0,
+        "source": {
+          "as_of": "2026-03-18",
+          "completeness_note": "광주 필터 79행 중 대학원 61행을 기관 중복 생성에서 제외하고 대학 11·전문대학 7행을 확보했다. 기능대학 1행은 원문 대학구분명이 전문대학이라 그 구분을 유지한다. 지역 학습관·별도 캠퍼스 전체 포함 여부를 독립 대조하지 못해 광주 전체 기관 확보로 표시하지 않는다. / 전체 행수·거절·제외 조건상 등록 목록의 완전성은 확인되지 않았습니다.",
+          "coverage_complete": false,
+          "expected_total": null,
+          "official_url": "https://www.data.go.kr/data/15107736/standard.do",
+          "provider": "kcue_standard_public_file",
+          "scope_districts": [
+            "동구",
+            "서구",
+            "남구",
+            "북구",
+            "광산구"
+          ],
+          "scope_types": [
+            "university",
+            "junior_college"
+          ],
+          "source_hash": "718157d33c346824cdeface923caf9e73ae7d53fa8ca62b22c5e122d668b6e0c",
+          "source_name": "한국대학교육협의회 광주 대학·전문대학 표준표"
+        }
+      },
+      {
+        "id": "7fc51f9d-a74f-459a-8fb4-772a381eb685",
+        "retrieved_at": "2026-10-20T10:38:45.717021+00:00",
+        "loaded_count": 256,
+        "linked_count": 256,
+        "rejected_count": 0,
+        "source": {
+          "as_of": null,
+          "completeness_note": "공식 웹 총수 256과 XLS 출력 256행 및 5개 구별 소계가 일치한다. 완전성은 이 공식 관내 명부 범위이며 개별 운영 여부·행사 공개 여부를 뜻하지 않는다. 명부의 자료 기준일은 명시되지 않아 as_of는 null이다. 홈페이지 169개 연결, 87개 미기재. 서버 검증: 공식 화면·명부 행수와 5개 구 소계가 일치한다. 원문 자료 기준일 미상으로 앱의 전체성 정책을 충족하지 않아 coverage_complete=false로 적재한다.",
+          "coverage_complete": false,
+          "expected_total": 256,
+          "official_url": "https://www.gen.go.kr/s_school/index.php?mode=search1&s_div2=1",
+          "provider": "gwangju_education_directory",
+          "scope_districts": [
+            "동구",
+            "서구",
+            "남구",
+            "북구",
+            "광산구"
+          ],
+          "scope_types": [
+            "kindergarten"
+          ],
+          "source_hash": "11595015492dec5de72fc1a33bc1276e96b747e805937214d5b12c9be386b7ee",
+          "source_name": "광주교육청 유치원 관내학교 명부 (2026-10-20 취득)"
+        }
+      },
+      {
+        "id": "a67fa862-19aa-4905-a6a6-13d58bd0ce1c",
+        "retrieved_at": "2026-10-20T10:13:49.800026+00:00",
+        "loaded_count": 335,
+        "linked_count": 335,
+        "rejected_count": 0,
+        "source": {
+          "as_of": "2026-10-20",
+          "completeness_note": "인증 schoolInfo F10 요청의 list_total_count와 모든 페이지 행 수 대조. 다른 유형 목록의 완전성은 포함하지 않음.",
+          "coverage_complete": true,
+          "expected_total": 335,
+          "official_url": "https://open.neis.go.kr/hub/schoolInfo?ATPT_OFCDC_SC_CODE=F10&Type=json",
+          "provider": "neis",
+          "scope_districts": [
+            "광산구",
+            "남구",
+            "동구",
+            "북구",
+            "서구"
+          ],
+          "scope_types": [
+            "elementary",
+            "high",
+            "middle",
+            "other_school",
+            "special_school"
+          ],
+          "source_hash": "395d7ead986d4e466f864faf5cefe842714c94e7508c39e319f6a448e1ed49a5",
+          "source_name": "NEIS 광주 학교기본정보"
+        }
+      },
+      {
+        "id": "ea5d57c2-26d2-4ea4-8b2b-bd6189697494",
+        "retrieved_at": "2026-10-20T10:09:40.335888+00:00",
+        "loaded_count": 335,
+        "linked_count": 0,
+        "rejected_count": 0,
+        "source": {
+          "as_of": "2026-10-20",
+          "completeness_note": "인증 schoolInfo F10 요청의 list_total_count와 모든 페이지 행 수 대조. 다른 유형 목록의 완전성은 포함하지 않음.",
+          "coverage_complete": true,
+          "expected_total": 335,
+          "official_url": "https://open.neis.go.kr/hub/schoolInfo?ATPT_OFCDC_SC_CODE=F10&Type=json",
+          "provider": "neis",
+          "scope_districts": [
+            "광산구",
+            "남구",
+            "동구",
+            "북구",
+            "서구"
+          ],
+          "scope_types": [
+            "elementary",
+            "high",
+            "middle",
+            "other_school",
+            "special_school"
+          ],
+          "source_hash": "395d7ead986d4e466f864faf5cefe842714c94e7508c39e319f6a448e1ed49a5",
+          "source_name": "NEIS 광주 학교기본정보"
+        }
+      }
+    ],
+    "month_only_institutions": 0,
+    "publication_held_institutions": 6,
+    "publication_policy_version": "4.0",
+    "official_date_institutions": 6,
+    "manual_date_institutions": 0,
+    "official_time_institutions": 0,
+    "manual_time_institutions": 0
+  },
+  "historical": {
+    "seeded_notice_url": true,
+    "seeded_date": false,
+    "is_current_season_result": false,
+    "report": "runtime/live-app/historical-gist-publication.json"
+  },
+  "exports": [
+    {
+      "season": {
+        "id": "ba3daa8c-f911-4aae-ae89-f454a946d72a",
+        "label": "2026학년도 겨울 졸업 시즌",
+        "academic_year": 2026,
+        "search_start": "2026-12-01",
+        "search_end": "2027-03-31",
+        "export_key": "2026-winter",
+        "timezone": "Asia/Seoul",
+        "region_profile": "gwangju_5_gu",
+        "revision": 1
+      },
+      "snapshot": {
+        "season_id": "ba3daa8c-f911-4aae-ae89-f454a946d72a",
+        "status": "current",
+        "content_revision": 418,
+        "exported_revision": 418,
+        "exported_at": "2026-10-20T11:00:21.578472+00:00",
+        "url": "/exports/2026-winter/schedule.html",
+        "error": null,
+        "publication_policy_version": "4.0",
+        "withheld_event_count": 6
+      },
+      "file": "output/graduation-schedule-2026.html",
+      "sha256": "7515646bf98980b1437c733d3fdd1f57fe59c151545b3d532cf4703d27fbd34b",
+      "bytes": 19731,
+      "published_events": 10,
+      "sales_ready_events": 0
+    },
+    {
+      "season": {
+        "id": "ce4a7893-04e5-46de-b5df-22d781ded241",
+        "label": "2025학년도 과거 공지 검증 (현재 판매 시즌 아님)",
+        "academic_year": 2025,
+        "search_start": "2025-12-01",
+        "search_end": "2026-03-31",
+        "export_key": "2025-winter-source-check",
+        "timezone": "Asia/Seoul",
+        "region_profile": "gwangju_5_gu",
+        "revision": 1
+      },
+      "snapshot": {
+        "season_id": "ce4a7893-04e5-46de-b5df-22d781ded241",
+        "status": "current",
+        "content_revision": 418,
+        "exported_revision": 418,
+        "exported_at": "2026-10-20T11:00:22.381079+00:00",
+        "url": "/exports/2025-winter-source-check/schedule.html",
+        "error": null,
+        "publication_policy_version": "4.0",
+        "withheld_event_count": 0
+      },
+      "file": "output/historical-gist-verification-2025.html",
+      "sha256": "7fd8e117a2f16e1db5c5f82200d7db4ded4f0d491c05941526aded3ec22da255",
+      "bytes": 9822,
+      "published_events": 1,
+      "sales_ready_events": 1
+    }
+  ],
+  "backup": {
+    "id": "2a0ffc83-ee8e-4dda-97e8-55db54357778",
+    "created_at": "2026-10-20T11:00:22.687838+00:00",
+    "bytes": 5521408,
+    "sha256": "039a8fbb20c27ddc990ddf6b49bc0ac1b45b73203cc3397f71ed87037b98b3a2",
+    "sqlite_header_valid": true,
+    "integrity_checks": {
+      "live": {
+        "quick_check": "ok",
+        "foreign_key_errors": 0,
+        "institutions": 860,
+        "events": 17
+      },
+      "backup": {
+        "quick_check": "ok",
+        "foreign_key_errors": 0,
+        "institutions": 860,
+        "events": 17
+      }
+    }
+  },
+  "limits": [
+    "done은 조사 시도 완료이며 날짜·시각 확인 완료를 뜻하지 않는다.",
+    "과거 GIST 공지는 시작 시각 경로의 실제 양성 사례이며 현재 시즌의 무시드 성과에 합산하지 않는다.",
+    "토큰에는 사용량 미상 예약이 포함된다. llm_calls는 구버전 선예약을 포함한 예산 계상이며 실제 성공 호출수가 아니다."
+  ],
+  "final_code_restart": {
+    "checked_at": "2026-10-20T11:17:23.064162+00:00",
+    "current_rules": [
+      "neis_ceremony_row@1.1.0",
+      "explicit_notice@1.1.0",
+      "academic_calendar_row@1.0.0"
+    ],
+    "same_saved_counts": {
+      "2026-winter": {
+        "events": 10,
+        "times": 0
+      },
+      "2025-winter-source-check": {
+        "events": 1,
+        "times": 1
+      }
+    },
+    "ui_assets_http_ok": true,
+    "new_external_requests_performed": false
+  }
+}

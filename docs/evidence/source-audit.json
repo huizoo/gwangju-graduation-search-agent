@@ -1,0 +1,764 @@
+{
+  "audited_at": "2026-10-20T11:01:40.122387+00:00",
+  "audit_kind": "independent_captured_response_comparison",
+  "method": "앱의 추출·규칙·게시 함수를 재사용하지 않고 Python 표준 라이브러리로 저장 JSON의 원문 필드, 캡처된 공식 명부의 코드·이름, 증거 연결, 표시값을 대조했다.",
+  "network_requests": 0,
+  "database_mutations": 0,
+  "new_live_integration_evidence": false,
+  "complete_schedule_accuracy_claim": false,
+  "limitations": [
+    "캡처 당시 저장된 응답과 게시값의 일치만 확인한다. 현재 외부 사이트 재확인이나 이후 일정 변경 확인은 아니다.",
+    "현재 표의 날짜 10행은 시작 시각이 없는 날짜 전용 자료다. 판매 준비 완료로 계산하지 않는다.",
+    "GIST는 2025학년도 과거 시즌에 URL을 지정한 검사다. 현재 시즌의 무시드 탐색 성공으로 계산하지 않는다.",
+    "학교 코드·이름 연결은 캡처된 NEIS 명부와 일정 요청 URL에 대조했다. DB의 institution_identifiers/registry_membership 직접 조회나 공식 목록 서버 재조회는 하지 않았다.",
+    "JSON 자체 SHA-256과 NEIS 행 텍스트 해시는 재계산했다. GIST 원래 HTML 바이트의 해시는 저장된 메타데이터로만 기록했다."
+  ],
+  "inputs": [
+    {
+      "path": "runtime/live-app/representative-final.json",
+      "file_sha256": "d9402c0439b28b315cdc7196c169f57da6ebf74cc132395b5ed816a661d3ce4b",
+      "recorded_at": "2026-10-20T10:47:07.093952+00:00"
+    },
+    {
+      "path": "runtime/live-app/historical-gist-publication.json",
+      "file_sha256": "ffc3339687068ed0d8540557c9f20eb148bc56917c4f15d1c157df7fae3eeac7",
+      "recorded_at": "2026-10-20T10:45:40.254527+00:00"
+    },
+    {
+      "path": "runtime/provider-live/neis-registry.json",
+      "file_sha256": "653c0ef19777fd7cde54717d7413975333d25ca4b8fe45b975d7673f5d30cca1",
+      "source_as_of": "2026-10-20",
+      "source_hash_recorded": "395d7ead986d4e466f864faf5cefe842714c94e7508c39e319f6a448e1ed49a5"
+    }
+  ],
+  "summary": {
+    "current_event_rows": 10,
+    "current_institutions": 6,
+    "current_date_matches": 10,
+    "current_start_times_confirmed": 0,
+    "current_sales_ready_rows": 0,
+    "historical_documents_reviewed": 2,
+    "historical_matched_documents": 2
+  },
+  "count_checks": {
+    "expected_10_current_rows": true,
+    "expected_6_current_institutions": true,
+    "all_current_rows_match": true,
+    "both_historical_snapshots_match": true
+  },
+  "current": {
+    "academic_year": 2026,
+    "discovery_mode": "blind_window",
+    "seeded_date": false,
+    "seeded_notice_url": false,
+    "rows": [
+      {
+        "institution": "광주선광학교",
+        "event_id": "33988837-6062-48cc-84a2-22e8a3601b61",
+        "institution_code": "F10:7140364",
+        "academic_year": 2026,
+        "source_date": "20261230",
+        "published_date": "2026-12-30",
+        "course": "유치원",
+        "grade_flags": {
+          "ONE_GRADE_EVENT_YN": "Y",
+          "TW_GRADE_EVENT_YN": "N",
+          "THREE_GRADE_EVENT_YN": "N",
+          "FR_GRADE_EVENT_YN": "N",
+          "FIV_GRADE_EVENT_YN": "N",
+          "SIX_GRADE_EVENT_YN": "N"
+        },
+        "target_grades": [
+          1
+        ],
+        "day_night": null,
+        "published_audience": "유치원 1학년",
+        "calendar_time": null,
+        "sales_ready": false,
+        "checks": {
+          "institution_name_matches": true,
+          "document_and_observation_link_match": true,
+          "academic_year_and_season_match": true,
+          "date_in_target_period": true,
+          "source_date_matches_effective_and_publication": true,
+          "course_grade_daynight_match_audience": true,
+          "actual_source_names_graduation": true,
+          "canonical_row_text_hash_matches_document": true,
+          "time_remains_unknown": true,
+          "institution_code_matches_request": true,
+          "institution_code_and_name_match_captured_registry": true
+        },
+        "status": "matched",
+        "document_id": "adb6e137-1200-49ab-96cf-b70d6e581366",
+        "observation_id": "ba46295d-1359-4cb1-88c6-54e6d496eb1c",
+        "source_key": "neis:SchoolSchedule:F10:7140364:2026:neis-1156acc06bb9952f9f29f478",
+        "document_content_sha256": "a59590ec3a7c02b0fadbdd8d15b0a059d318b682b6a731696b819a9663514c51",
+        "recomputed_segment_sha256": "a59590ec3a7c02b0fadbdd8d15b0a059d318b682b6a731696b819a9663514c51",
+        "captured_at": "2026-10-20T10:42:51.404907+00:00",
+        "last_checked_at": "2026-10-20T10:42:51.404907+00:00",
+        "locations": {
+          "input_file": "runtime/live-app/representative-final.json",
+          "event": "/details/0/event",
+          "observation": "/details/0/observations/0",
+          "document": "/details/0/documents/0",
+          "source_text": "/details/0/documents/0/segments/0/text"
+        },
+        "registry_link": {
+          "file": "runtime/provider-live/neis-registry.json",
+          "json_pointer": "/rows/60",
+          "provider": "neis",
+          "official_url": "https://open.neis.go.kr/hub/schoolInfo?ATPT_OFCDC_SC_CODE=F10&Type=json",
+          "source_as_of": "2026-10-20",
+          "source_hash_recorded": "395d7ead986d4e466f864faf5cefe842714c94e7508c39e319f6a448e1ed49a5",
+          "matched_external_key": "F10:7140364",
+          "matched_name": "광주선광학교"
+        }
+      },
+      {
+        "institution": "건국초등학교",
+        "event_id": "43bd5288-4f45-4b62-a648-8d1ad3f4a32f",
+        "institution_code": "F10:7392163",
+        "academic_year": 2026,
+        "source_date": "20270106",
+        "published_date": "2027-01-06",
+        "course": "초등학교",
+        "grade_flags": {
+          "ONE_GRADE_EVENT_YN": "N",
+          "TW_GRADE_EVENT_YN": "N",
+          "THREE_GRADE_EVENT_YN": "N",
+          "FR_GRADE_EVENT_YN": "N",
+          "FIV_GRADE_EVENT_YN": "N",
+          "SIX_GRADE_EVENT_YN": "Y"
+        },
+        "target_grades": [
+          6
+        ],
+        "day_night": null,
+        "published_audience": "초등학교 6학년",
+        "calendar_time": null,
+        "sales_ready": false,
+        "checks": {
+          "institution_name_matches": true,
+          "document_and_observation_link_match": true,
+          "academic_year_and_season_match": true,
+          "date_in_target_period": true,
+          "source_date_matches_effective_and_publication": true,
+          "course_grade_daynight_match_audience": true,
+          "actual_source_names_graduation": true,
+          "canonical_row_text_hash_matches_document": true,
+          "time_remains_unknown": true,
+          "institution_code_matches_request": true,
+          "institution_code_and_name_match_captured_registry": true
+        },
+        "status": "matched",
+        "document_id": "3bd664bc-efba-427f-9582-a58b807dd781",
+        "observation_id": "ec1a1b01-d2ab-4c05-b942-8d41adadbe0d",
+        "source_key": "neis:SchoolSchedule:F10:7392163:2026:neis-a915dd381011cbc2090328b1",
+        "document_content_sha256": "e9198990a319f3c69c6de74a2b8025f21f3d09a2030f0d6300d65742ec3a1ac2",
+        "recomputed_segment_sha256": "e9198990a319f3c69c6de74a2b8025f21f3d09a2030f0d6300d65742ec3a1ac2",
+        "captured_at": "2026-10-20T10:40:44.174744+00:00",
+        "last_checked_at": "2026-10-20T10:40:44.174744+00:00",
+        "locations": {
+          "input_file": "runtime/live-app/representative-final.json",
+          "event": "/details/1/event",
+          "observation": "/details/1/observations/0",
+          "document": "/details/1/documents/0",
+          "source_text": "/details/1/documents/0/segments/0/text"
+        },
+        "registry_link": {
+          "file": "runtime/provider-live/neis-registry.json",
+          "json_pointer": "/rows/2",
+          "provider": "neis",
+          "official_url": "https://open.neis.go.kr/hub/schoolInfo?ATPT_OFCDC_SC_CODE=F10&Type=json",
+          "source_as_of": "2026-10-20",
+          "source_hash_recorded": "395d7ead986d4e466f864faf5cefe842714c94e7508c39e319f6a448e1ed49a5",
+          "matched_external_key": "F10:7392163",
+          "matched_name": "건국초등학교"
+        }
+      },
+      {
+        "institution": "각화초등학교",
+        "event_id": "27239694-9488-4a1b-a0bf-17420f13e3f6",
+        "institution_code": "F10:7392135",
+        "academic_year": 2026,
+        "source_date": "20270107",
+        "published_date": "2027-01-07",
+        "course": "초등학교",
+        "grade_flags": {
+          "ONE_GRADE_EVENT_YN": "N",
+          "TW_GRADE_EVENT_YN": "N",
+          "THREE_GRADE_EVENT_YN": "N",
+          "FR_GRADE_EVENT_YN": "N",
+          "FIV_GRADE_EVENT_YN": "N",
+          "SIX_GRADE_EVENT_YN": "Y"
+        },
+        "target_grades": [
+          6
+        ],
+        "day_night": null,
+        "published_audience": "초등학교 6학년",
+        "calendar_time": null,
+        "sales_ready": false,
+        "checks": {
+          "institution_name_matches": true,
+          "document_and_observation_link_match": true,
+          "academic_year_and_season_match": true,
+          "date_in_target_period": true,
+          "source_date_matches_effective_and_publication": true,
+          "course_grade_daynight_match_audience": true,
+          "actual_source_names_graduation": true,
+          "canonical_row_text_hash_matches_document": true,
+          "time_remains_unknown": true,
+          "institution_code_matches_request": true,
+          "institution_code_and_name_match_captured_registry": true
+        },
+        "status": "matched",
+        "document_id": "713663d1-359c-41e3-a75c-9ce19efbc968",
+        "observation_id": "96cff160-d1ee-4db2-83ed-0a6ca849dc3d",
+        "source_key": "neis:SchoolSchedule:F10:7392135:2026:neis-a915dd381011cbc2090328b1",
+        "document_content_sha256": "86dc1a21cff485d2c7613cd618ca75e452cefa97a68e1bb238f5c436b498a220",
+        "recomputed_segment_sha256": "86dc1a21cff485d2c7613cd618ca75e452cefa97a68e1bb238f5c436b498a220",
+        "captured_at": "2026-10-20T10:39:13.690947+00:00",
+        "last_checked_at": "2026-10-20T10:39:13.690947+00:00",
+        "locations": {
+          "input_file": "runtime/live-app/representative-final.json",
+          "event": "/details/2/event",
+          "observation": "/details/2/observations/0",
+          "document": "/details/2/documents/0",
+          "source_text": "/details/2/documents/0/segments/0/text"
+        },
+        "registry_link": {
+          "file": "runtime/provider-live/neis-registry.json",
+          "json_pointer": "/rows/1",
+          "provider": "neis",
+          "official_url": "https://open.neis.go.kr/hub/schoolInfo?ATPT_OFCDC_SC_CODE=F10&Type=json",
+          "source_as_of": "2026-10-20",
+          "source_hash_recorded": "395d7ead986d4e466f864faf5cefe842714c94e7508c39e319f6a448e1ed49a5",
+          "matched_external_key": "F10:7392135",
+          "matched_name": "각화초등학교"
+        }
+      },
+      {
+        "institution": "고려중학교",
+        "event_id": "72634a29-a2e0-4693-9924-a42db943f385",
+        "institution_code": "F10:7392191",
+        "academic_year": 2026,
+        "source_date": "20270108",
+        "published_date": "2027-01-08",
+        "course": "중학교",
+        "grade_flags": {
+          "ONE_GRADE_EVENT_YN": "N",
+          "TW_GRADE_EVENT_YN": "N",
+          "THREE_GRADE_EVENT_YN": "Y",
+          "FR_GRADE_EVENT_YN": "*",
+          "FIV_GRADE_EVENT_YN": "*",
+          "SIX_GRADE_EVENT_YN": "*"
+        },
+        "target_grades": [
+          3
+        ],
+        "day_night": "주간",
+        "published_audience": "중학교 3학년 · 주간",
+        "calendar_time": null,
+        "sales_ready": false,
+        "checks": {
+          "institution_name_matches": true,
+          "document_and_observation_link_match": true,
+          "academic_year_and_season_match": true,
+          "date_in_target_period": true,
+          "source_date_matches_effective_and_publication": true,
+          "course_grade_daynight_match_audience": true,
+          "actual_source_names_graduation": true,
+          "canonical_row_text_hash_matches_document": true,
+          "time_remains_unknown": true,
+          "institution_code_matches_request": true,
+          "institution_code_and_name_match_captured_registry": true
+        },
+        "status": "matched",
+        "document_id": "ab127c6e-833b-4afb-8bb6-6b5b3d682347",
+        "observation_id": "b63616af-fa2e-441b-b6e1-bb919754d1fb",
+        "source_key": "neis:SchoolSchedule:F10:7392191:2026:neis-a8d7da074cb83989010e3830",
+        "document_content_sha256": "7735210fc23dc9f6a19c733829df9a73f966dafebca1222f37f1ae370df67ea3",
+        "recomputed_segment_sha256": "7735210fc23dc9f6a19c733829df9a73f966dafebca1222f37f1ae370df67ea3",
+        "captured_at": "2026-10-20T10:41:07.351836+00:00",
+        "last_checked_at": "2026-10-20T10:41:07.351836+00:00",
+        "locations": {
+          "input_file": "runtime/live-app/representative-final.json",
+          "event": "/details/3/event",
+          "observation": "/details/3/observations/0",
+          "document": "/details/3/documents/0",
+          "source_text": "/details/3/documents/0/segments/0/text"
+        },
+        "registry_link": {
+          "file": "runtime/provider-live/neis-registry.json",
+          "json_pointer": "/rows/6",
+          "provider": "neis",
+          "official_url": "https://open.neis.go.kr/hub/schoolInfo?ATPT_OFCDC_SC_CODE=F10&Type=json",
+          "source_as_of": "2026-10-20",
+          "source_hash_recorded": "395d7ead986d4e466f864faf5cefe842714c94e7508c39e319f6a448e1ed49a5",
+          "matched_external_key": "F10:7392191",
+          "matched_name": "고려중학교"
+        }
+      },
+      {
+        "institution": "광주선광학교",
+        "event_id": "5b45c253-5814-47c8-9a9b-90b0e4c8ef49",
+        "institution_code": "F10:7140364",
+        "academic_year": 2026,
+        "source_date": "20270108",
+        "published_date": "2027-01-08",
+        "course": "고등학교",
+        "grade_flags": {
+          "ONE_GRADE_EVENT_YN": "N",
+          "TW_GRADE_EVENT_YN": "N",
+          "THREE_GRADE_EVENT_YN": "Y",
+          "FR_GRADE_EVENT_YN": "N",
+          "FIV_GRADE_EVENT_YN": "N",
+          "SIX_GRADE_EVENT_YN": "N"
+        },
+        "target_grades": [
+          3
+        ],
+        "day_night": null,
+        "published_audience": "고등학교 3학년",
+        "calendar_time": null,
+        "sales_ready": false,
+        "checks": {
+          "institution_name_matches": true,
+          "document_and_observation_link_match": true,
+          "academic_year_and_season_match": true,
+          "date_in_target_period": true,
+          "source_date_matches_effective_and_publication": true,
+          "course_grade_daynight_match_audience": true,
+          "actual_source_names_graduation": true,
+          "canonical_row_text_hash_matches_document": true,
+          "time_remains_unknown": true,
+          "institution_code_matches_request": true,
+          "institution_code_and_name_match_captured_registry": true
+        },
+        "status": "matched",
+        "document_id": "3e84d2ff-35f2-4f30-8a02-de480aad5bec",
+        "observation_id": "4b90909f-3827-465c-8b54-d7d51eb6749e",
+        "source_key": "neis:SchoolSchedule:F10:7140364:2026:neis-25e943fea93266d1058812ed",
+        "document_content_sha256": "017ac729cfeb816e7b4c26125ce7e3aa8cfe4bdce2081bbe80271125fc9577bc",
+        "recomputed_segment_sha256": "017ac729cfeb816e7b4c26125ce7e3aa8cfe4bdce2081bbe80271125fc9577bc",
+        "captured_at": "2026-10-20T10:42:51.404668+00:00",
+        "last_checked_at": "2026-10-20T10:42:51.404668+00:00",
+        "locations": {
+          "input_file": "runtime/live-app/representative-final.json",
+          "event": "/details/4/event",
+          "observation": "/details/4/observations/0",
+          "document": "/details/4/documents/0",
+          "source_text": "/details/4/documents/0/segments/0/text"
+        },
+        "registry_link": {
+          "file": "runtime/provider-live/neis-registry.json",
+          "json_pointer": "/rows/60",
+          "provider": "neis",
+          "official_url": "https://open.neis.go.kr/hub/schoolInfo?ATPT_OFCDC_SC_CODE=F10&Type=json",
+          "source_as_of": "2026-10-20",
+          "source_hash_recorded": "395d7ead986d4e466f864faf5cefe842714c94e7508c39e319f6a448e1ed49a5",
+          "matched_external_key": "F10:7140364",
+          "matched_name": "광주선광학교"
+        }
+      },
+      {
+        "institution": "광주선광학교",
+        "event_id": "66512eef-bcba-4bbc-98d9-e6d833418b6f",
+        "institution_code": "F10:7140364",
+        "academic_year": 2026,
+        "source_date": "20270108",
+        "published_date": "2027-01-08",
+        "course": "전공과",
+        "grade_flags": {
+          "ONE_GRADE_EVENT_YN": "Y",
+          "TW_GRADE_EVENT_YN": "N",
+          "THREE_GRADE_EVENT_YN": "N",
+          "FR_GRADE_EVENT_YN": "N",
+          "FIV_GRADE_EVENT_YN": "N",
+          "SIX_GRADE_EVENT_YN": "N"
+        },
+        "target_grades": [
+          1
+        ],
+        "day_night": null,
+        "published_audience": "전공과 1학년",
+        "calendar_time": null,
+        "sales_ready": false,
+        "checks": {
+          "institution_name_matches": true,
+          "document_and_observation_link_match": true,
+          "academic_year_and_season_match": true,
+          "date_in_target_period": true,
+          "source_date_matches_effective_and_publication": true,
+          "course_grade_daynight_match_audience": true,
+          "actual_source_names_graduation": true,
+          "canonical_row_text_hash_matches_document": true,
+          "time_remains_unknown": true,
+          "institution_code_matches_request": true,
+          "institution_code_and_name_match_captured_registry": true
+        },
+        "status": "matched",
+        "document_id": "036f0cb4-e5d7-4a01-a8bf-c32cec0fbc5a",
+        "observation_id": "79e30c8a-ac76-4531-a94c-45d318df2cab",
+        "source_key": "neis:SchoolSchedule:F10:7140364:2026:neis-fe736781671a770d8eef8567",
+        "document_content_sha256": "3228e3dfe4a2a3056c17f59863acee3325cca51fb240cbf087e8f54133029d2b",
+        "recomputed_segment_sha256": "3228e3dfe4a2a3056c17f59863acee3325cca51fb240cbf087e8f54133029d2b",
+        "captured_at": "2026-10-20T10:42:51.405027+00:00",
+        "last_checked_at": "2026-10-20T10:42:51.405027+00:00",
+        "locations": {
+          "input_file": "runtime/live-app/representative-final.json",
+          "event": "/details/5/event",
+          "observation": "/details/5/observations/0",
+          "document": "/details/5/documents/0",
+          "source_text": "/details/5/documents/0/segments/0/text"
+        },
+        "registry_link": {
+          "file": "runtime/provider-live/neis-registry.json",
+          "json_pointer": "/rows/60",
+          "provider": "neis",
+          "official_url": "https://open.neis.go.kr/hub/schoolInfo?ATPT_OFCDC_SC_CODE=F10&Type=json",
+          "source_as_of": "2026-10-20",
+          "source_hash_recorded": "395d7ead986d4e466f864faf5cefe842714c94e7508c39e319f6a448e1ed49a5",
+          "matched_external_key": "F10:7140364",
+          "matched_name": "광주선광학교"
+        }
+      },
+      {
+        "institution": "광주선광학교",
+        "event_id": "75c527e9-549c-4af9-83df-7e172502d8de",
+        "institution_code": "F10:7140364",
+        "academic_year": 2026,
+        "source_date": "20270108",
+        "published_date": "2027-01-08",
+        "course": "초등학교",
+        "grade_flags": {
+          "ONE_GRADE_EVENT_YN": "N",
+          "TW_GRADE_EVENT_YN": "N",
+          "THREE_GRADE_EVENT_YN": "N",
+          "FR_GRADE_EVENT_YN": "N",
+          "FIV_GRADE_EVENT_YN": "N",
+          "SIX_GRADE_EVENT_YN": "Y"
+        },
+        "target_grades": [
+          6
+        ],
+        "day_night": null,
+        "published_audience": "초등학교 6학년",
+        "calendar_time": null,
+        "sales_ready": false,
+        "checks": {
+          "institution_name_matches": true,
+          "document_and_observation_link_match": true,
+          "academic_year_and_season_match": true,
+          "date_in_target_period": true,
+          "source_date_matches_effective_and_publication": true,
+          "course_grade_daynight_match_audience": true,
+          "actual_source_names_graduation": true,
+          "canonical_row_text_hash_matches_document": true,
+          "time_remains_unknown": true,
+          "institution_code_matches_request": true,
+          "institution_code_and_name_match_captured_registry": true
+        },
+        "status": "matched",
+        "document_id": "8b428428-17c8-4921-acf4-c7c5fac0e941",
+        "observation_id": "b19d905d-8b2c-4b43-b3e5-61dcee5c6a60",
+        "source_key": "neis:SchoolSchedule:F10:7140364:2026:neis-a915dd381011cbc2090328b1",
+        "document_content_sha256": "80ca71af373bca3423064113af70a3bb5f5f7f7ed34a69b9b4c7b1f7e6ac1e88",
+        "recomputed_segment_sha256": "80ca71af373bca3423064113af70a3bb5f5f7f7ed34a69b9b4c7b1f7e6ac1e88",
+        "captured_at": "2026-10-20T10:42:51.405282+00:00",
+        "last_checked_at": "2026-10-20T10:42:51.405282+00:00",
+        "locations": {
+          "input_file": "runtime/live-app/representative-final.json",
+          "event": "/details/6/event",
+          "observation": "/details/6/observations/0",
+          "document": "/details/6/documents/0",
+          "source_text": "/details/6/documents/0/segments/0/text"
+        },
+        "registry_link": {
+          "file": "runtime/provider-live/neis-registry.json",
+          "json_pointer": "/rows/60",
+          "provider": "neis",
+          "official_url": "https://open.neis.go.kr/hub/schoolInfo?ATPT_OFCDC_SC_CODE=F10&Type=json",
+          "source_as_of": "2026-10-20",
+          "source_hash_recorded": "395d7ead986d4e466f864faf5cefe842714c94e7508c39e319f6a448e1ed49a5",
+          "matched_external_key": "F10:7140364",
+          "matched_name": "광주선광학교"
+        }
+      },
+      {
+        "institution": "광주선광학교",
+        "event_id": "e3af907f-3259-4e82-b900-de990bcd0bfb",
+        "institution_code": "F10:7140364",
+        "academic_year": 2026,
+        "source_date": "20270108",
+        "published_date": "2027-01-08",
+        "course": "중학교",
+        "grade_flags": {
+          "ONE_GRADE_EVENT_YN": "N",
+          "TW_GRADE_EVENT_YN": "N",
+          "THREE_GRADE_EVENT_YN": "Y",
+          "FR_GRADE_EVENT_YN": "N",
+          "FIV_GRADE_EVENT_YN": "N",
+          "SIX_GRADE_EVENT_YN": "N"
+        },
+        "target_grades": [
+          3
+        ],
+        "day_night": null,
+        "published_audience": "중학교 3학년",
+        "calendar_time": null,
+        "sales_ready": false,
+        "checks": {
+          "institution_name_matches": true,
+          "document_and_observation_link_match": true,
+          "academic_year_and_season_match": true,
+          "date_in_target_period": true,
+          "source_date_matches_effective_and_publication": true,
+          "course_grade_daynight_match_audience": true,
+          "actual_source_names_graduation": true,
+          "canonical_row_text_hash_matches_document": true,
+          "time_remains_unknown": true,
+          "institution_code_matches_request": true,
+          "institution_code_and_name_match_captured_registry": true
+        },
+        "status": "matched",
+        "document_id": "1801eb80-0e08-4dd7-8db5-83ac300cc84f",
+        "observation_id": "31d4ab40-bbda-44b7-880a-37b2f3344e0a",
+        "source_key": "neis:SchoolSchedule:F10:7140364:2026:neis-19b8451e3383642d0346dead",
+        "document_content_sha256": "972b1bcdf454911aa545ad6a56690dd497302ba73a4ccf12617c388542f4fc01",
+        "recomputed_segment_sha256": "972b1bcdf454911aa545ad6a56690dd497302ba73a4ccf12617c388542f4fc01",
+        "captured_at": "2026-10-20T10:42:51.405167+00:00",
+        "last_checked_at": "2026-10-20T10:42:51.405167+00:00",
+        "locations": {
+          "input_file": "runtime/live-app/representative-final.json",
+          "event": "/details/7/event",
+          "observation": "/details/7/observations/0",
+          "document": "/details/7/documents/0",
+          "source_text": "/details/7/documents/0/segments/0/text"
+        },
+        "registry_link": {
+          "file": "runtime/provider-live/neis-registry.json",
+          "json_pointer": "/rows/60",
+          "provider": "neis",
+          "official_url": "https://open.neis.go.kr/hub/schoolInfo?ATPT_OFCDC_SC_CODE=F10&Type=json",
+          "source_as_of": "2026-10-20",
+          "source_hash_recorded": "395d7ead986d4e466f864faf5cefe842714c94e7508c39e319f6a448e1ed49a5",
+          "matched_external_key": "F10:7140364",
+          "matched_name": "광주선광학교"
+        }
+      },
+      {
+        "institution": "첨단고등학교",
+        "event_id": "e6f67af6-56e4-40e0-b230-f2c5b9c78b75",
+        "institution_code": "F10:7140377",
+        "academic_year": 2026,
+        "source_date": "20270120",
+        "published_date": "2027-01-20",
+        "course": "고등학교",
+        "grade_flags": {
+          "ONE_GRADE_EVENT_YN": "N",
+          "TW_GRADE_EVENT_YN": "N",
+          "THREE_GRADE_EVENT_YN": "Y",
+          "FR_GRADE_EVENT_YN": "*",
+          "FIV_GRADE_EVENT_YN": "*",
+          "SIX_GRADE_EVENT_YN": "*"
+        },
+        "target_grades": [
+          3
+        ],
+        "day_night": "주간",
+        "published_audience": "고등학교 3학년 · 주간",
+        "calendar_time": null,
+        "sales_ready": false,
+        "checks": {
+          "institution_name_matches": true,
+          "document_and_observation_link_match": true,
+          "academic_year_and_season_match": true,
+          "date_in_target_period": true,
+          "source_date_matches_effective_and_publication": true,
+          "course_grade_daynight_match_audience": true,
+          "actual_source_names_graduation": true,
+          "canonical_row_text_hash_matches_document": true,
+          "time_remains_unknown": true,
+          "institution_code_matches_request": true,
+          "institution_code_and_name_match_captured_registry": true
+        },
+        "status": "matched",
+        "document_id": "2e81e705-9c9f-4225-b1c6-13297bb6d49b",
+        "observation_id": "22b1891a-4fd1-48f2-b219-731ad8842b2f",
+        "source_key": "neis:SchoolSchedule:F10:7140377:2026:neis-98e2550aef12fb58d4065eec",
+        "document_content_sha256": "6b3c486439f1e84b09a1ab63c10e7e98e6c55dccc2646122d278092d17ff58d4",
+        "recomputed_segment_sha256": "6b3c486439f1e84b09a1ab63c10e7e98e6c55dccc2646122d278092d17ff58d4",
+        "captured_at": "2026-10-20T10:43:24.032468+00:00",
+        "last_checked_at": "2026-10-20T10:45:38.884519+00:00",
+        "locations": {
+          "input_file": "runtime/live-app/representative-final.json",
+          "event": "/details/8/event",
+          "observation": "/details/8/observations/0",
+          "document": "/details/8/documents/0",
+          "source_text": "/details/8/documents/0/segments/0/text"
+        },
+        "registry_link": {
+          "file": "runtime/provider-live/neis-registry.json",
+          "json_pointer": "/rows/310",
+          "provider": "neis",
+          "official_url": "https://open.neis.go.kr/hub/schoolInfo?ATPT_OFCDC_SC_CODE=F10&Type=json",
+          "source_as_of": "2026-10-20",
+          "source_hash_recorded": "395d7ead986d4e466f864faf5cefe842714c94e7508c39e319f6a448e1ed49a5",
+          "matched_external_key": "F10:7140377",
+          "matched_name": "첨단고등학교"
+        }
+      },
+      {
+        "institution": "고려고등학교",
+        "event_id": "31d0c928-fe2f-4304-8e94-e3c67ea81c45",
+        "institution_code": "F10:7140327",
+        "academic_year": 2026,
+        "source_date": "20270128",
+        "published_date": "2027-01-28",
+        "course": "고등학교",
+        "grade_flags": {
+          "ONE_GRADE_EVENT_YN": "N",
+          "TW_GRADE_EVENT_YN": "N",
+          "THREE_GRADE_EVENT_YN": "Y",
+          "FR_GRADE_EVENT_YN": "*",
+          "FIV_GRADE_EVENT_YN": "*",
+          "SIX_GRADE_EVENT_YN": "*"
+        },
+        "target_grades": [
+          3
+        ],
+        "day_night": "주간",
+        "published_audience": "고등학교 3학년 · 주간",
+        "calendar_time": null,
+        "sales_ready": false,
+        "checks": {
+          "institution_name_matches": true,
+          "document_and_observation_link_match": true,
+          "academic_year_and_season_match": true,
+          "date_in_target_period": true,
+          "source_date_matches_effective_and_publication": true,
+          "course_grade_daynight_match_audience": true,
+          "actual_source_names_graduation": true,
+          "canonical_row_text_hash_matches_document": true,
+          "time_remains_unknown": true,
+          "institution_code_matches_request": true,
+          "institution_code_and_name_match_captured_registry": true
+        },
+        "status": "matched",
+        "document_id": "0f5ac858-53a3-4a1e-9116-15d037eb5ec0",
+        "observation_id": "e6b72ba5-91b3-49ea-9fcd-f45e6a7f8aac",
+        "source_key": "neis:SchoolSchedule:F10:7140327:2026:neis-98e2550aef12fb58d4065eec",
+        "document_content_sha256": "3ba9db4a54dc269fcc6e1d95d6799a1454aa7c1ef107396667469bf27d233efa",
+        "recomputed_segment_sha256": "3ba9db4a54dc269fcc6e1d95d6799a1454aa7c1ef107396667469bf27d233efa",
+        "captured_at": "2026-10-20T10:41:01.433870+00:00",
+        "last_checked_at": "2026-10-20T10:41:01.433870+00:00",
+        "locations": {
+          "input_file": "runtime/live-app/representative-final.json",
+          "event": "/details/9/event",
+          "observation": "/details/9/observations/0",
+          "document": "/details/9/documents/0",
+          "source_text": "/details/9/documents/0/segments/0/text"
+        },
+        "registry_link": {
+          "file": "runtime/provider-live/neis-registry.json",
+          "json_pointer": "/rows/5",
+          "provider": "neis",
+          "official_url": "https://open.neis.go.kr/hub/schoolInfo?ATPT_OFCDC_SC_CODE=F10&Type=json",
+          "source_as_of": "2026-10-20",
+          "source_hash_recorded": "395d7ead986d4e466f864faf5cefe842714c94e7508c39e319f6a448e1ed49a5",
+          "matched_external_key": "F10:7140327",
+          "matched_name": "고려고등학교"
+        }
+      }
+    ]
+  },
+  "historical": {
+    "academic_year": 2025,
+    "discovery_mode": "seeded_url",
+    "seeded_date": false,
+    "seeded_notice_url": true,
+    "current_season_result": false,
+    "publication_date": "2026-02-20",
+    "publication_start": "14:00",
+    "documents": [
+      {
+        "document_id": "9b5b6844-be74-4c63-b69b-02ed5dde04ef",
+        "observation_id": "cb4649e1-cb65-4f53-96e8-ad26900d6a66",
+        "source_url": "https://www.gist.ac.kr/kr/html/sub05/050209.html?mode=V&no=220361&GotoPage=1",
+        "document_content_sha256_recorded": "f57de53543b937deba32075422dd609fddbf797b85d2db2c560235c6d5f56b7d",
+        "raw_html_hash_independently_recomputed": false,
+        "raw_html_hash_note": "입력 JSON에는 원래 HTTP 응답 바이트가 없어 기록된 HTML 해시를 재계산하지 않았다. 읽은 segment 텍스트의 별도 해시를 계산했다.",
+        "reviewed_segment_sha256": "8493006822392a4cf678a63bdacecd1d1f735034dec00f92ddeac1ed80a023d0",
+        "captured_at": "2026-10-20T10:41:03.617410+00:00",
+        "last_checked_at": "2026-10-20T10:45:39.042948+00:00",
+        "ceremony_date": "2026-02-20",
+        "ceremony_start": "14:00",
+        "ceremony_end": "15:40",
+        "ceremony_quote": "1. 일시:\n2026년 2월\n20일(금) 14:00\n- 15:40 (예정)",
+        "admission_quote": "학위수여대상자는 2026. 2. 20.(금) 13:30\n까지 1층 출입구로 입장",
+        "gown_quote": "- 2차: 2026. 2. 20.(금) 10:00 - 17:00 (오룡관 206호)",
+        "checks": {
+          "academic_year_explicit_and_matches_historical_season": true,
+          "institution_in_ceremony_context": true,
+          "ceremony_date_matches_publication": true,
+          "ceremony_start_matches_publication": true,
+          "admission_1330_is_separate_role": true,
+          "gown_1000_is_separate_role": true,
+          "same_source_segment_contains_distinct_sections": true,
+          "current_2026_season_claim_absent": true,
+          "captured_official_https_document": true
+        },
+        "status": "matched",
+        "locations": {
+          "input_file": "runtime/live-app/historical-gist-publication.json",
+          "event": "/details/0/event",
+          "document": "/details/0/documents/0",
+          "source_text": "/details/0/documents/0/segments/0/text",
+          "observation": "/details/0/observations/0"
+        }
+      },
+      {
+        "document_id": "c2664199-0378-43fd-a23f-95d481ca96f3",
+        "observation_id": "6fdc4a73-d221-4511-af95-3a784e01d3ac",
+        "source_url": "https://www.gist.ac.kr/kr/html/sub05/050209.html?mode=V&no=220361&GotoPage=1",
+        "document_content_sha256_recorded": "143716a8a27708b9bd6f9e07141a9ca82b977fae012bcc80cbc2f826d1d05e28",
+        "raw_html_hash_independently_recomputed": false,
+        "raw_html_hash_note": "입력 JSON에는 원래 HTTP 응답 바이트가 없어 기록된 HTML 해시를 재계산하지 않았다. 읽은 segment 텍스트의 별도 해시를 계산했다.",
+        "reviewed_segment_sha256": "c85a775e1e180ba12fc9bd01a1c81969d339ba41b0958d3a5511928d99ed045c",
+        "captured_at": "2026-10-20T10:45:39.042948+00:00",
+        "last_checked_at": "2026-10-20T10:45:39.042948+00:00",
+        "ceremony_date": "2026-02-20",
+        "ceremony_start": "14:00",
+        "ceremony_end": "15:40",
+        "ceremony_quote": "1. 일시:\n2026년 2월\n20일(금) 14:00\n- 15:40 (예정)",
+        "admission_quote": "학위수여대상자는 2026. 2. 20.(금) 13:30\n까지 1층 출입구로 입장",
+        "gown_quote": "- 2차: 2026. 2. 20.(금) 10:00 - 17:00 (오룡관 206호)",
+        "checks": {
+          "academic_year_explicit_and_matches_historical_season": true,
+          "institution_in_ceremony_context": true,
+          "ceremony_date_matches_publication": true,
+          "ceremony_start_matches_publication": true,
+          "admission_1330_is_separate_role": true,
+          "gown_1000_is_separate_role": true,
+          "same_source_segment_contains_distinct_sections": true,
+          "current_2026_season_claim_absent": true,
+          "captured_official_https_document": true
+        },
+        "status": "matched",
+        "locations": {
+          "input_file": "runtime/live-app/historical-gist-publication.json",
+          "event": "/details/0/event",
+          "document": "/details/0/documents/1",
+          "source_text": "/details/0/documents/1/segments/0/text",
+          "observation": "/details/0/observations/1"
+        }
+      }
+    ]
+  },
+  "status": "matched",
+  "method_notes": [
+    "NEIS API의 공식 채널은 F10 전체 명부 URL로도 관계를 입증한다. 그 URL에 개별 학교코드가 없다는 사실을 코드 결함이나 날짜 불일치로 판정하지 않았다. 기관별 코드는 별도 캡처 명부의 external_key·name으로 대조했다."
+  ]
+}
