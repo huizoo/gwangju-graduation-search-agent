@@ -115,6 +115,7 @@ class ResearchRunner:
                 })
                 state["documents"].extend(result["documents"])
                 state["coverage"]["calendar"] = {key: value for key, value in result.items() if key != "documents"}
+                state["coverage"]["calendar"]["checked_at"] = utcnow()
                 if result["status"] not in {"ok", "no_data"}:
                     add_error(state, "neis", result["reason_codes"], result["status"])
                 await checkpoint(state, "calendar_collected")

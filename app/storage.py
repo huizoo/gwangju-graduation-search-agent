@@ -481,7 +481,7 @@ class Service:
         """
         result = {}
         names = set(SCHEMA["$defs"]["DocumentRead"]["properties"])
-        for saved in conn.execute("SELECT * FROM documents WHERE institution_id=?", (institution_id,)):
+        for saved in conn.execute("SELECT * FROM documents WHERE institution_id=? ORDER BY retrieved_at,id", (institution_id,)):
             row = dict(saved)
             for key in list(row):
                 if key.endswith("_json"):
@@ -572,6 +572,8 @@ class Service:
             event, context = self._project(conn, identity)
             observations = [item for item in context["observations"].values() if item["event_id"] == identity]
             docs = set(item["document_id"] for item in observations) | {field["manual"]["source_document_id"] for field in event["fields"].values() if field["manual"] and field["manual"]["source_document_id"]}
+            support_sources = {context["documents"][key]["source_key"] for key in docs if key in context["documents"]}
+            docs.update(key for key, document in context["documents"].items() if document["source_key"] in support_sources)
             history = [dict(row) for row in conn.execute("SELECT id,field,action,actor,recorded_at,summary FROM audit_log WHERE entity_type='event' AND entity_id=? ORDER BY seq DESC", (identity,))]
             return validate("EventDetail", {"event": event, "observations": observations, "documents": [doc for key, doc in context["documents"].items() if key in docs], "history": history, "content_revision": self.store.revision(conn)})
 
@@ -767,6 +769,8 @@ class Service:
                 all_docs = self._documents(conn, event["institution"]["id"])
                 refs = {row[0] for row in conn.execute("SELECT document_id FROM observations WHERE event_id=?", (event["id"],))}
                 refs.update(field["manual"]["source_document_id"] for field in event["fields"].values() if field["manual"] and field["manual"]["source_document_id"])
+                support_sources = {all_docs[key]["source_key"] for key in refs if key in all_docs}
+                refs.update(key for key, document in all_docs.items() if document["source_key"] in support_sources)
                 documents[event["id"]] = [item for key, item in all_docs.items() if key in refs]
             return {"season": season, "events": events, "documents": documents, "overview": self._overview(conn, season, events), "content_revision": self.store.revision(conn), "publication_policy_version": POLICY_VERSION, "generated_at": moment}
 
@@ -909,15 +913,20 @@ class Service:
             document["recheck"]["attempted_at"] = normalize_instant(document["recheck"]["attempted_at"])
         if document["authority_evidence"]:
             document["authority_evidence"]["verified_at"] = normalize_instant(document["authority_evidence"]["verified_at"])
-        existing = conn.execute("SELECT id FROM documents WHERE institution_id=? AND source_key=? AND content_hash IS ?", (institution_id, document["source_key"], document["content_hash"])).fetchone()
+        existing = conn.execute("SELECT id,authority FROM documents WHERE institution_id=? AND source_key=? AND content_hash IS ?", (institution_id, document["source_key"], document["content_hash"])).fetchone()
         if existing:
             identity = existing[0]
+            if existing["authority"] == "official" and document["acquisition"]["transport_status"] == "ok":
+                from app.publication import _authority
+                if not _authority(document, self._institution(conn, institution_id), datetime.now(timezone.utc)):
+                    document["recheck"] = {"status": "failed", "attempted_at": document["retrieved_at"], "reason_codes": ["source_unverified"]}
+                    document["last_checked_at"] = document["retrieved_at"]
             if document["recheck"]["status"] == "not_attempted" and document["status"] == "ok" and document["acquisition"]["transport_status"] == "ok" and document["reading"]["content_match"] == "expected" and document["reading"]["scope"] in ("full_text", "rendered_dom"):
                 document["recheck"] = {"status": "succeeded", "attempted_at": document["retrieved_at"], "reason_codes": []}
                 document["last_checked_at"] = document["retrieved_at"]
             # 반복 오류 버전도 직전 성공 재확인을 무효화해야 한다. 오류 기록만
             # 갱신하면 실패→성공→실패 순서에서 과거 성공이 현재로 잘못 남는다.
-            if document["status"] != "ok" and document["recheck"]["status"] == "failed":
+            if document["recheck"]["status"] == "failed":
                 conn.execute("UPDATE documents SET recheck_json=?,last_checked_at=? WHERE institution_id=? AND source_key=? AND status='ok'", (dumps(document["recheck"]), document["last_checked_at"], institution_id, document["source_key"]))
             elif document["content_hash"] and document["acquisition"]["transport_status"] == "ok":
                 changed = {"status": "failed", "attempted_at": document["retrieved_at"], "reason_codes": ["semantic_review_required"]}
@@ -938,7 +947,7 @@ class Service:
             # 동일 값을 재검증하면 독립 지원 경로로 현재 권한을 다시 얻는다.
             changed = {"status": "failed", "attempted_at": document["retrieved_at"], "reason_codes": ["semantic_review_required"]}
             conn.execute("UPDATE documents SET recheck_json=?,last_checked_at=? WHERE institution_id=? AND source_key=? AND id!=? AND status='ok' AND content_hash IS NOT ?", (dumps(changed), document["retrieved_at"], institution_id, document["source_key"], identity, document["content_hash"]))
-        if document["status"] != "ok" and document["recheck"]["status"] == "failed":
+        if document["recheck"]["status"] == "failed":
             # 실패 응답은 새 오류 기록으로 보존하고, 같은 지원 경로의 기존 버전에 표시한다.
             conn.execute("UPDATE documents SET recheck_json=?,last_checked_at=? WHERE institution_id=? AND source_key=? AND id!=? AND status='ok'", (dumps(document["recheck"]), document["last_checked_at"], institution_id, document["source_key"], identity))
         return identity
@@ -1025,6 +1034,49 @@ class Service:
             reasons = [] if disposition == "accepted" else ["semantic_review_required"] if context["registered_rules"] else ["rule_not_enabled"]
             conn.execute("UPDATE observations SET disposition=?,reason_codes_json=? WHERE id=?", (disposition, dumps(reasons), observation["id"]))
 
+    def _apply_calendar_recheck(self, conn, institution_id, season_id, result):
+        """실제 NEIS 조회 실패·행 누락을 그 시즌의 지원 근거에만 반영한다.
+
+        Args:
+            conn: 결과 저장과 공유하는 쓰기 연결.
+            institution_id: 조회한 기관 UUID.
+            season_id: 전체 기간을 조회한 시즌 UUID.
+            result: 문서와 calendar 조회 상태를 담은 내부 조사 결과.
+        """
+        coverage = result.get("coverage", {}).get("calendar", {})
+        status = coverage.get("status")
+        # 키 미설정·미시도·보조 검색 실패는 필요한 원문 재확인 실패가 아니다.
+        if status not in {"ok", "no_data", "provider_error"}:
+            return
+        checked_at = normalize_instant(coverage.get("checked_at") or utcnow())
+        complete = status in {"ok", "no_data"} and coverage.get("coverage_complete") is True
+        returned = {document["source_key"] for document in result.get("documents", [])
+                    if document.get("source_kind") == "official_api" and document.get("status") == "ok"
+                    and document.get("reading", {}).get("content_match") == "expected"}
+        rows = conn.execute(
+            "SELECT DISTINCT d.id,d.source_key,d.recheck_json FROM documents d "
+            "WHERE d.institution_id=? AND d.source_kind='official_api' AND d.status='ok' "
+            "AND (d.source_key LIKE 'neis:SchoolSchedule:%' OR d.source_key LIKE 'https://open.neis.go.kr/hub/SchoolSchedule?%') "
+            "AND (EXISTS(SELECT 1 FROM observations o WHERE o.document_id=d.id AND o.season_id=?) "
+            "OR EXISTS(SELECT 1 FROM manual_overrides m JOIN events e ON e.id=m.event_id "
+            "WHERE e.season_id=? AND m.active=1 AND (m.source_document_id=d.id "
+            "OR (m.source_document_id IS NULL AND m.source_url=d.display_url))))",
+            (institution_id, season_id, season_id),
+        ).fetchall()
+        valid_codes = set(SCHEMA["$defs"]["ReasonCode"]["enum"])
+        for row in rows:
+            if complete and row["source_key"] in returned:
+                continue
+            codes = ["recheck_failed", "not_found"] if complete else ["recheck_failed", *coverage.get("reason_codes", [])]
+            recheck = {"status": "failed", "attempted_at": checked_at, "reason_codes": sorted(set(codes) & valid_codes)}
+            previous = json.loads(row["recheck_json"])
+            if previous == recheck:
+                continue
+            conn.execute("UPDATE documents SET recheck_json=?,last_checked_at=? WHERE id=?",
+                         (dumps(recheck), checked_at, row["id"]))
+            _audit(conn, "document", row["id"], "calendar_recheck", previous, recheck,
+                   actor="system", summary="NEIS 재조회 실패 또는 전체 조회에서 기존 행사 행 미발견")
+
     def save_research(self, institution_id, season_id, result, conn=None):
         """내부 조사 결과를 검증·저장하고 자동값을 서버에서 평가한다.
 
@@ -1072,6 +1124,7 @@ class Service:
             conn.execute("INSERT INTO observations(id,institution_id,season_id,event_id,document_id,candidate_json,fingerprint,disposition,reason_codes_json,created_at) VALUES(?,?,?,?,?,?,?,'reference',?,?)", (identity, institution_id, season_id, event_id, document_id, dumps(candidate), digest, dumps(reasons), utcnow()))
             observations.append(identity)
             _audit(conn, "event" if event_id else "observation", event_id or identity, "research_candidate", after={"original_candidate": original, "observation_id": identity}, actor="system", summary="원문 후보 보존 및 서버 행사 연결")
+        self._apply_calendar_recheck(conn, institution_id, season_id, result)
         # 실패 재확인도 기존 행사에 반영되므로 신규 후보가 없어도 revision을 갱신한다.
         events.update(row[0] for row in conn.execute("SELECT id FROM events WHERE institution_id=? AND season_id=?", (institution_id, season_id)))
         success = any(document.get("status") == "ok" and document.get("reading", {}).get("content_match") == "expected" for document in result.get("documents", []))
