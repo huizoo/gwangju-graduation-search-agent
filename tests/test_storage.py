@@ -3,6 +3,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import pytest
 from app.domain import ApiError
+from app.rules import REGISTERED_RULES
 from app.storage import Store, Service
 
 
@@ -90,7 +91,8 @@ def test_runtime_settings_pin_rule_version(service):
     from types import SimpleNamespace
     service.settings = SimpleNamespace(data={"publication": {"auto_rule_ids": ["explicit_notice"]}})
     assert service._enabled_rules() == {}
-    service.settings.data["publication"]["auto_rule_ids"] = ["explicit_notice@1.0.0"]
-    assert service._enabled_rules() == {"explicit_notice": "1.0.0"}
+    version = REGISTERED_RULES["explicit_notice"]
+    service.settings.data["publication"]["auto_rule_ids"] = [f"explicit_notice@{version}"]
+    assert service._enabled_rules() == {"explicit_notice": version}
     service.settings.data["publication"]["auto_rule_ids"] = ["explicit_notice@99.0.0"]
     assert service._enabled_rules() == {}

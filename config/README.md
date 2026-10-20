@@ -28,4 +28,6 @@ OpenAI 키를 입력한 뒤 `LLM_BACKEND=openai`로 바꾸면 OpenAI 경로를 �
 
 Mac도 Ollama 앱이 백그라운드 서비스를 실행하면 터미널에서 `ollama serve`를 별도로 띄우지 않아도 됩니다. GUI 없이 CLI 서버로 실행할 때만 해당 명령을 사용하며 같은 포트의 중복 서버는 피합니다. 유치원·어린이집·LangSmith 관련 환경 변수는 해당 연동을 선택할 때만 추가합니다.
 
-이 파일들은 개발 전 설정 자료입니다. 실제 앱의 설정 로더와 서비스 연결은 아직 구현 대상입니다. 인계본의 `checks/configuration_reference.py`와 `check_configuration.py`는 합성 입력으로 로딩 규칙을 검증하는 참조 사양입니다.
+실제 설정 로더는 `app/config.py`, 병합·해시는 `app/configuration.py`, 지연 생성하는 선택 백엔드는 `app/providers.py`에 구현되어 있습니다. 인계본의 검사는 참조 사양으로 보존하며 실제 로더·API·재개 경로는 `tests/test_config.py`, `tests/test_jobs_api.py`로 별도 검사합니다.
+
+`publication.auto_rule_ids`는 실제 양성·반례 검사를 통과한 `규칙ID@버전`만 활성화합니다. 근거와 한계는 `config/rule-catalog.json`에 기록합니다. 이전 버전과 이름이 같아도 새 버전을 자동 승인하지 않습니다. `tracing.enabled=true`는 아직 지원하지 않아 시작 시 명시적으로 거절합니다. 브라우저 보조 읽기·HWP·이미지 OCR은 P0 수집 경로에 포함하지 않습니다.

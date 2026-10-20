@@ -1,0 +1,321 @@
+"""모델 동의와 분리된, 버전이 고정된 정형·명시 공지 원문 검사."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+import re
+from datetime import date
+
+from .providers import canonical, neis_identifier, neis_unit, official_channel, utcnow
+
+REGISTERED_RULES = {"neis_ceremony_row": "1.1.0", "explicit_notice": "1.1.0"}
+NEIS_EVENTS = {"졸업식": "graduation_ceremony", "졸업식 및 종업식": "graduation_and_completion",
+               "졸업식 및 수료식": "graduation_and_completion", "졸업식/종업식": "graduation_and_completion",
+               "졸업식,종업식": "graduation_and_completion", "종업식 및 졸업식": "graduation_and_completion",
+               "졸업식(종업식)": "graduation_and_completion"}
+EVIDENCE_FIELD = {"event_date": "date_evidence", "start_time": "time_evidence",
+                  "venue": "venue_evidence", "ceremony_status": "context_evidence"}
+
+
+def _evidence(segment_id, quote):
+    """원문 연속 인용을 계약 Evidence로 반환한다."""
+    return {"kind": "literal", "segment_id": segment_id, "quote": quote, "bbox": None}
+
+
+def _candidate(title, event_type, academic_year, day, segment_id, context, date_quote, time_value=None, time_quote=None):
+    """입장 시각 등 누락값을 보완하지 않은 후보를 구성한다."""
+    return {
+        "event_title": title, "event_type": event_type, "event_key_hint": "main", "audience": "졸업 대상 학생",
+        "campus_label": None, "academic_year": academic_year, "season_alignment": "explicit",
+        "ceremony_status": "scheduled", "event_date": {"precision": "day", "date": day, "month": None},
+        "start_time": time_value, "time_role": "ceremony_start" if time_value else None, "venue": None,
+        "context_evidence": [_evidence(segment_id, context)],
+        "date_evidence": [_evidence(segment_id, date_quote)],
+        "time_evidence": [_evidence(segment_id, time_quote)] if time_value else [], "venue_evidence": [],
+        "is_change_notice": False, "supersedes_text": None,
+    }
+
+
+def _neis_candidate(document: dict, season: dict) -> dict | None:
+    """정확히 등록한 졸업 행사명과 실제 날짜가 있는 API 한 행만 매핑한다."""
+    if document["source_kind"] != "official_api" or len(document["segments"]) != 1:
+        return None
+    segment = document["segments"][0]
+    try:
+        row = json.loads(segment["text"])
+        unit = neis_unit(row)
+        if not unit["course"]:
+            return None
+        name = re.sub(r"\s+", " ", row["EVENT_NM"]).strip()
+        event_type = NEIS_EVENTS.get(name)
+        if event_type is None or int(row["AY"]) != season["academic_year"]:
+            return None
+        raw_date = str(row["AA_YMD"])
+        if not re.fullmatch(r"\d{8}", raw_date):
+            return None
+        day = date(int(raw_date[:4]), int(raw_date[4:6]), int(raw_date[6:])).isoformat()
+        if not season["search_start"] <= day <= season["search_end"]:
+            return None
+        if re.search(r"취소|미개최|연기|예행|리허설|졸업여행", str(row.get("EVENT_CNTNT", ""))):
+            return None
+        candidate = _candidate(name, event_type, int(row["AY"]), day, segment["id"], segment["text"], raw_date)
+        candidate.update(event_key_hint=unit["key"], audience=unit["audience"])
+        return candidate
+    except (KeyError, ValueError, TypeError):
+        return None
+
+
+def _parse_notice_line(line: str, institution: dict, season: dict, segment_id: str) -> dict | None:
+    """한 문장에 연결된 기관·학년도·졸업식·행사일을 좁게 인식한다."""
+    if len(line) > 1200 or institution["name"] not in line or "졸업식" not in line:
+        return None
+    if re.search(r"취소|미개최|연기|변경|예행|리허설|졸업여행|지난|작년|지난해", line):
+        return None
+    academic = re.findall(r"(\d{4})\s*학년도", line)
+    dates = list(re.finditer(r"(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일", line))
+    if academic != [str(season["academic_year"])] or len(dates) != 1:
+        return None
+    matched = dates[0]
+    try:
+        day = date(*map(int, matched.groups())).isoformat()
+    except ValueError:
+        return None
+    if not season["search_start"] <= day <= season["search_end"]:
+        return None
+    time_value = time_quote = None
+    time_matches = list(re.finditer(
+        r"(?P<ampm>오전|오후)?\s*(?P<hour>\d{1,2})(?:시(?:\s*(?P<minute>\d{1,2})분)?|:(?P<colon>\d{2}))\s*(?:정각)?(?:에|부터)?\s*(?:졸업식(?:이|을)?\s*)?(?:시작|개식)",
+        line,
+    ))
+    if len(time_matches) == 1:
+        tm = time_matches[0]
+        prefix = line[:tm.start()]
+        last_ceremony = prefix.rfind("졸업식")
+        other_role = max((prefix.rfind(word) for word in ("입장", "집합", "출석", "등록", "가운", "사진", "포토", "운영")), default=-1)
+        hour, minute = int(tm["hour"]), int(tm["minute"] or tm["colon"] or "0")
+        # 마지막 역할이 입장·가운이면 '시작'이라는 동사만으로 행사 시작으로 바꾸지 않는다.
+        if other_role < last_ceremony and minute < 60 and (
+            (tm["ampm"] is not None and 1 <= hour <= 12) or (tm["ampm"] is None and 0 <= hour <= 23)
+        ):
+            if tm["ampm"]:
+                hour = hour % 12 + (12 if tm["ampm"] == "오후" else 0)
+            time_value, time_quote = f"{hour:02d}:{minute:02d}", tm.group(0)
+    return _candidate(f"{season['academic_year']}학년도 졸업식", "graduation_ceremony",
+        season["academic_year"], day, segment_id, line, matched.group(0), time_value, time_quote)
+
+
+def _parse_notice_section(text: str, institution: dict, season: dict, segment_id: str) -> list[dict]:
+    """제목 뒤의 명시적 행사개요 구간에서 같은 행사의 일시·장소만 읽는다.
+
+    Args:
+        text: 하나의 원문 segment.
+        institution: 대상 기관. 행사개요 구간에도 기관명이 있어야 한다.
+        season: 목표 학년도와 기간.
+        segment_id: 인용할 원문 구간 ID.
+    Returns:
+        연도·행사 제목·구간 경계·일시 역할을 모두 확인한 후보 목록.
+    """
+    pattern = re.compile(
+        r"(?P<context>(?P<year>\d{4})\s*학년도\s+(?P<ceremony>학위수여식|졸업식)[^\[\]]{0,400}"
+        r"\[행사개요\](?P<body>[^\[\]]{1,1500}))"
+    )
+    results = []
+    for match in pattern.finditer(text):
+        body = match["body"]
+        if institution["name"] not in body or int(match["year"]) != season["academic_year"]:
+            continue
+        years = set(re.findall(r"(\d{4})\s*학년도", match["context"]))
+        if years != {str(season["academic_year"])} or re.search(r"취소|연기|예행|리허설|가운|학위복|입장", body):
+            continue
+        timing = re.search(r"(?:^|\n)\s*1\.\s*일시\s*:\s*(?P<timing>[\s\S]*?)(?=\n\s*2\.\s*장소\s*:)", body)
+        if timing is None:
+            continue
+        dates = list(re.finditer(r"(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일", timing["timing"]))
+        if len(dates) != 1:
+            continue
+        raw_date = dates[0]
+        try:
+            day = date(*map(int, raw_date.groups())).isoformat()
+        except ValueError:
+            continue
+        if not season["search_start"] <= day <= season["search_end"]:
+            continue
+        after_date = timing["timing"][raw_date.end():]
+        # '행사개요 > 일시'의 단일 시간 범위만 실제 행사 시작과 종료로 해석한다.
+        time_range = re.fullmatch(
+            r"\s*(?:\([월화수목금토일]\))?\s*([01]?\d|2[0-3]):([0-5]\d)\s*[-~～]\s*([01]?\d|2[0-3]):([0-5]\d)\s*(?:\(예정\))?\s*",
+            after_date,
+        )
+        if time_range is None:
+            continue
+        hour, minute, end_hour, end_minute = map(int, time_range.groups())
+        if (hour, minute) >= (end_hour, end_minute):
+            continue
+        kind = "degree_award_ceremony" if match["ceremony"] == "학위수여식" else "graduation_ceremony"
+        candidate = _candidate(
+            f"{match['year']}학년도 {match['ceremony']}", kind, int(match["year"]), day,
+            segment_id, match["context"], raw_date.group(0), f"{hour:02d}:{minute:02d}", timing.group(0),
+        )
+        place = re.search(r"(?:^|\n)\s*2\.\s*장소\s*:\s*([^\n]+)", body)
+        if place:
+            candidate["venue"] = place.group(1).strip()
+            candidate["venue_evidence"] = [_evidence(segment_id, place.group(0))]
+        results.append(candidate)
+    return results
+
+
+def extract_candidates(document: dict, institution: dict, season: dict) -> list[dict]:
+    """검증 가능한 정형 매핑을 먼저 적용하여 불필요한 모델 호출을 줄인다.
+
+    Args:
+        document: 읽은 문서 버전.
+        institution: 대상 기관.
+        season: 목표 학년도와 기간.
+    Returns:
+        정형 또는 좁은 명시 공지 문법으로 추출한 후보. 최종 승인은 별도다.
+    """
+    if document["status"] != "ok":
+        return []
+    if document["source_kind"] == "official_api":
+        candidate = _neis_candidate(document, season)
+        return [candidate] if candidate else []
+    results = []
+    for segment in document["segments"]:
+        results.extend(_parse_notice_section(segment["text"], institution, season, segment["id"]))
+        # 표 전체나 다른 줄의 시간을 임의 결합하지 않고 하나의 명시 문장만 검사한다.
+        lines = re.split(r"\n|(?<=[.!?。])\s+(?=[가-힣A-Za-z])", segment["text"])
+        for line in lines:
+            candidate = _parse_notice_line(line.strip(), institution, season, segment["id"])
+            if candidate:
+                results.append(candidate)
+    return results
+
+
+def _present(evidence, document):
+    """모든 인용이 같은 불변 문서의 실제 연속 문자열인지 검사한다."""
+    segments = {item["id"]: item for item in document["segments"]}
+    return bool(evidence) and all(
+        item.get("kind") == "literal" and item.get("segment_id") in segments and item.get("quote")
+        and item["quote"] in segments[item["segment_id"]]["text"] for item in evidence
+    )
+
+
+def value_check(field: str, value, observation: dict, document: dict, event: dict, season: dict, *, institution=None) -> dict:
+    """원문·관측·기관·행사·시즌·정규값을 서버에서 다시 검사한다.
+
+    Args:
+        field: 확인할 계약 필드.
+        value: 확인할 정규값.
+        observation: 저장할 관측과 후보.
+        document: 관측에 연결한 불변 원문.
+        event: 서버가 묶은 행사 식별 정보.
+        season: 저장된 시즌.
+        institution: 공식 채널과 이름을 가진 기관.
+    Returns:
+        지원·모호·기각 결과와 정확한 검사 근거를 담은 ValueCheck.
+    """
+    institution = institution or event.get("institution", {})
+    checks = {key: "unknown" for key in ("institution", "content", "season", "event_identity",
+                                         "literal_presence", "normalized_value", "time_role")}
+    checks["time_role"] = "not_applicable" if field != "start_time" else "unknown"
+    rule = "neis_ceremony_row" if document.get("source_kind") == "official_api" else "explicit_notice"
+    result = {"status": "ambiguous", "rule_id": rule, "checks": checks,
+        "evidence_ids": [observation["id"]], "document_ids": [document["id"]], "reason_codes": [],
+        "checked_at": utcnow(), "policy_version": "4.0", "rule_version": REGISTERED_RULES[rule],
+        "field": field, "document_hashes": {document["id"]: document["content_hash"]} if document.get("content_hash") else {}}
+    candidate = observation["candidate"]
+    linked = (observation.get("document_id") == document["id"]
+              and observation.get("institution_id") == institution.get("id") == document.get("institution_id")
+              and observation.get("event_id") == event.get("id")
+              and observation.get("season_id") == season.get("id"))
+    if not linked:
+        checks["institution"] = "fail"
+        result.update(status="rejected", reason_codes=["evidence_link_invalid"])
+        return result
+    checks["content"] = "pass" if (document.get("status") == "ok" and not document.get("partial")
+        and document.get("authority") == "official" and document.get("authority_evidence")
+        and document.get("reading", {}).get("content_match") == "expected") else "fail"
+    checks["institution"] = "pass" if document.get("reading", {}).get("institution_match") == "matched" else "unknown"
+    checks["season"] = "pass" if candidate.get("academic_year") == season["academic_year"] and candidate.get("season_alignment") == "explicit" else "fail"
+    checks["event_identity"] = "pass" if (
+        candidate.get("event_type") == event.get("event_type") and candidate.get("event_type") in
+        {"graduation_ceremony", "graduation_and_completion", "degree_award_ceremony"}
+        and candidate.get("campus_label") == event.get("campus_label")
+        and candidate.get("audience") == event.get("audience")
+        and not candidate.get("is_change_notice")
+    ) else "fail"
+    evidence = candidate.get("context_evidence", []) + candidate.get(EVIDENCE_FIELD.get(field, ""), [])
+    checks["literal_presence"] = "pass" if _present(evidence, document) else "fail"
+    matched_candidates = []
+    if checks["content"] == "pass" and checks["institution"] == "pass":
+        matched_candidates = extract_candidates(document, institution, season)
+    if rule == "neis_ceremony_row":
+        try:
+            row = json.loads(document["segments"][0]["text"])
+            ids = neis_identifier(event.get("_identifiers", institution.get("identifiers", [])))
+            actual = (str(row["ATPT_OFCDC_SC_CODE"]), str(row["SD_SCHUL_CODE"]))
+            # 공식 API의 원문도 요청 기관의 공식 복합 코드와 연결되어야 한다.
+            checks["institution"] = "pass" if ids is not None and ids == actual and row.get("SCHUL_NM") == institution.get("name") else "fail"
+            checks["content"] = "pass" if checks["content"] == "pass" and (
+                document["content_hash"] == hashlib.sha256(canonical(row).encode()).hexdigest()
+                and document["authority_evidence"]["channel_url"] == "https://open.neis.go.kr/hub"
+            ) else "fail"
+        except (KeyError, ValueError, IndexError, TypeError):
+            checks["content"] = "fail"
+    elif not official_channel(institution, document.get("acquisition", {}).get("final_url") or document["display_url"]):
+        checks["content"] = "fail"
+    for parsed in matched_candidates:
+        # 후보가 인용한 문맥과 정형 파서가 해석한 문맥을 동일하게 묶는다.
+        same_context = any(
+            original["segment_id"] == parsed["context_evidence"][0]["segment_id"]
+            and original["quote"] == parsed["context_evidence"][0]["quote"]
+            for original in candidate["context_evidence"]
+        )
+        if (not same_context or parsed["event_date"] != candidate["event_date"] or
+                any(parsed[key] != candidate.get(key) for key in ("event_type", "audience", "campus_label"))):
+            continue
+        if field in parsed and parsed[field] == value and candidate.get(field) == value and value is not None:
+            checks["normalized_value"] = "pass"
+            if field == "start_time":
+                checks["time_role"] = "pass" if parsed["time_role"] == candidate.get("time_role") == "ceremony_start" else "fail"
+            break
+    if checks["normalized_value"] == "unknown":
+        result["reason_codes"].append("value_not_supported")
+    if checks["literal_presence"] == "fail":
+        result["reason_codes"].append("quote_absent")
+    if checks["institution"] != "pass":
+        result["reason_codes"].append("wrong_source")
+    if checks["event_identity"] == "fail":
+        result["reason_codes"].append("event_unclear")
+    if checks["season"] == "fail":
+        result["reason_codes"].append("season_unclear")
+    if checks["content"] == "fail":
+        result["reason_codes"].append("content_mismatch")
+    if all(value in {"pass", "not_applicable"} for value in checks.values()):
+        result["status"] = "supported"
+    elif "fail" in checks.values():
+        result["status"] = "rejected"
+    else:
+        result["reason_codes"].append("quote_support_ambiguous")
+    return result
+
+
+def verify(field, value, observation, document, event, season, *, institution=None) -> bool:
+    """게시 단계에서 같은 버전의 실제 검사를 반복해 승인 위조를 거부한다.
+
+    Args:
+        field: 확인할 필드.
+        value: 저장 평가의 정규값.
+        observation: 연결한 관측.
+        document: 저장 원문 버전.
+        event: 대상 행사.
+        season: 대상 시즌.
+        institution: 기관 정보. 생략 시 행사에서 가져온다.
+    Returns:
+        모든 필수 실제 검사가 통과했을 때만 True.
+    """
+    try:
+        return value_check(field, value, observation, document, event, season, institution=institution)["status"] == "supported"
+    except (KeyError, TypeError, ValueError, IndexError):
+        return False

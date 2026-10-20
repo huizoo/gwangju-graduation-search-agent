@@ -150,7 +150,8 @@ def _authority(document, institution, now):
     return any(
         channel.get("url") == authority.get("channel_url")
         and channel.get("verified_by_url") == authority.get("verified_by_url")
-        and channel.get("verified_at") == authority.get("verified_at")
+        # 원문 관계의 시각은 KST/Z/UTC 저장 표기가 달라도 같은 실제 시점이다.
+        and _instant(channel.get("verified_at")) == _instant(authority.get("verified_at"))
         and _url_under(document.get("display_url"), channel.get("url"), require_https=False)
         and _url_under((document.get("acquisition") or {}).get("final_url"), channel.get("url"))
         for channel in institution.get("official_channels", [])
