@@ -1,0 +1,13 @@
+{
+  "actions": [
+    {
+      "kind": "search_web",
+      "objective": "start_time",
+      "query": "가상빛초등학교 2026학년도 졸업식 시간",
+      "url": null
+    }
+  ],
+  "reason_codes": [
+    "time_missing"
+  ]
+}

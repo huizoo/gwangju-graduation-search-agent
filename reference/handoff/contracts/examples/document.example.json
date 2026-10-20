@@ -1,0 +1,50 @@
+{
+  "id": "00000000-0000-0000-0000-000000000004",
+  "institution_id": "00000000-0000-0000-0000-000000000001",
+  "source_key": "https://school.example/notices/1",
+  "display_url": "https://school.example/notices/1",
+  "title": "가상 졸업식 안내",
+  "authority": "official",
+  "source_kind": "html",
+  "content_type": "text/html",
+  "status": "ok",
+  "retrieved_at": "2026-10-20T06:00:00Z",
+  "last_checked_at": "2026-10-20T06:00:00Z",
+  "content_hash": "ac9b6d8f6e2a617435ba760e6b7a563e07786300a7d14ca015fc52485aa902fd",
+  "segments": [
+    {
+      "id": "s1",
+      "locator_kind": "html_text",
+      "location": "article text offsets 0..120",
+      "text": "2026학년도 가상빛초등학교 졸업식은 2027년 1월 7일 오전 11시에 시작합니다. 입장은 오전 10시 30분부터입니다.",
+      "unit_id": "main-ceremony"
+    }
+  ],
+  "partial": false,
+  "read_scope": "전체 공지 본문",
+  "reason_codes": [],
+  "acquisition": {
+    "method": "http",
+    "transport_status": "ok",
+    "http_status": 200,
+    "final_url": "https://school.example/notices/1",
+    "tls_verified": true
+  },
+  "reading": {
+    "method": "html_parser",
+    "scope": "full_text",
+    "content_match": "expected",
+    "institution_match": "matched"
+  },
+  "image_size": null,
+  "authority_evidence": {
+    "channel_url": "https://school.example",
+    "verified_by_url": "https://registry.example/schools",
+    "verified_at": "2026-10-20T06:00:00Z"
+  },
+  "recheck": {
+    "status": "not_attempted",
+    "attempted_at": null,
+    "reason_codes": []
+  }
+}

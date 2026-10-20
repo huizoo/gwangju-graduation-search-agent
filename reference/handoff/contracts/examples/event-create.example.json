@@ -1,0 +1,35 @@
+{
+  "institution_id": "00000000-0000-0000-0000-000000000001",
+  "season_id": "00000000-0000-0000-0000-000000000003",
+  "title": "졸업식",
+  "event_type": "graduation_ceremony",
+  "audience": null,
+  "campus_label": null,
+  "allow_separate_event": false,
+  "operations": [
+    {
+      "field": "ceremony_status",
+      "action": "set",
+      "value": "scheduled",
+      "basis": "user_recorded",
+      "confirmed_at": null,
+      "note": "기존 메모 입력",
+      "resolves_fingerprint": null,
+      "source_url": null
+    },
+    {
+      "field": "event_date",
+      "action": "set",
+      "value": {
+        "precision": "day",
+        "date": "2027-01-07",
+        "month": null
+      },
+      "basis": "user_recorded",
+      "confirmed_at": null,
+      "note": "확인일 미상",
+      "resolves_fingerprint": null,
+      "source_url": null
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "expected_revision": 3,
+  "operations": [
+    {
+      "field": "start_time",
+      "action": "clear",
+      "note": "시간 재확인 전에는 표시하지 않음"
+    }
+  ]
+}

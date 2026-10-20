@@ -1,0 +1,29 @@
+
+def run_search(filtered=False):
+    key, _ = load_project_credentials()
+    queries = [
+        ("광주 전남대학교 2027년 2월 학위수여식 날짜 공식 학사일정", "jnu.ac.kr"),
+        ("광주하나금융공동직장어린이집 졸업식 날짜 2026학년도", "info.childcare.go.kr"),
+    ]
+    results = []
+    for index, (query, domain) in enumerate(queries, 1):
+        result = {"id": f"search_{index}", "query": query, "started_at": stamp(),
+                  "provider": "OpenAI Responses web_search", "status": "blocked",
+                  "expected_domain": domain, "domain_filter": filtered}
+        if not key:
+            result["reason"] = "No configured API key"
+        else:
+            try:
+                data = api_post("responses", {
+                    "model": "gpt-4.1-mini", "store": False,
+                    "tools": [{"type": "web_search", "search_context_size": "low",
+                               **({"filters": {"allowed_domains": [domain]}} if filtered else {})}],
+                    "tool_choice": "required", "max_output_tokens": 900,
+                    "input": "학교/공공기관 공식 출처를 검색하라. 출처에 없는 날짜나 시간은 추정하지 말라. "
+                             "검색에서 찾은 정보와 미확인을 구분하라.\n" + query,
+                }, key)
+                sources, text = [], []
+                search_calls = []
+                for output in data.get("output", []):
+                    if output.get("type") == "web_search_call":
+                        search_calls.append(output)

@@ -1,0 +1,973 @@
+{
+  "generated_at": "2026-10-20T06:05:47.233040+00:00",
+  "scope": "Independent capability probes, not an autonomous collector or a citywide coverage study",
+  "http_fetch": {
+    "failed": 3,
+    "passed": 6,
+    "content_mismatch": 1
+  },
+  "fetch_cases": [
+    {
+      "id": "cic_kindergarten",
+      "status": "failed",
+      "http_status": null,
+      "error": "[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] ssl/tls alert handshake failure (_ssl.c:1016)",
+      "missing_markers": null
+    },
+    {
+      "id": "jnu_calendar",
+      "status": "passed",
+      "http_status": 200,
+      "error": null,
+      "missing_markers": []
+    },
+    {
+      "id": "chosun_no_ceremony",
+      "status": "content_mismatch",
+      "http_status": 200,
+      "error": null,
+      "missing_markers": [
+        "학위수여식",
+        "진행X"
+      ]
+    },
+    {
+      "id": "gwangju_graduate_notice",
+      "status": "passed",
+      "http_status": 200,
+      "error": null,
+      "missing_markers": []
+    },
+    {
+      "id": "gist_notice",
+      "status": "passed",
+      "http_status": 200,
+      "error": null,
+      "missing_markers": []
+    },
+    {
+      "id": "childcare_curriculum",
+      "status": "failed",
+      "http_status": null,
+      "error": "[Errno 54] Connection reset by peer",
+      "missing_markers": null
+    },
+    {
+      "id": "yongdu_graduation_notice",
+      "status": "passed",
+      "http_status": 200,
+      "error": null,
+      "missing_markers": []
+    },
+    {
+      "id": "childcare_pdf",
+      "status": "passed",
+      "http_status": 200,
+      "error": null,
+      "missing_markers": null
+    },
+    {
+      "id": "chosun_calendar_pdf",
+      "status": "passed",
+      "http_status": 200,
+      "error": null,
+      "missing_markers": null
+    },
+    {
+      "id": "cic_current_detail",
+      "status": "failed",
+      "http_status": null,
+      "error": "[SSL: SSLV3_ALERT_HANDSHAKE_FAILURE] ssl/tls alert handshake failure (_ssl.c:1016)",
+      "missing_markers": null
+    }
+  ],
+  "pdf_text": {
+    "passed": 2
+  },
+  "attachments": {
+    "passed": 3
+  },
+  "hwp": {
+    "task": "hwp_preview_extraction",
+    "started_at": "2026-10-20T05:57:27.285935+00:00",
+    "status": "passed",
+    "limitation": "Preview stream only; no full BodyText, HWPX, encrypted, or image-only HWP support",
+    "characters": 810,
+    "file": "artifacts/live/attachments/yongdu_hwp/preview.txt",
+    "relevant_lines": [
+      "<- 본교 졸업식 안내 -   󰊱 행사 일시: 2025. 1. 9.(목) 10:30~  (졸업생 하교 예정 시간 : 11:30~)   󰊲 행사 장소: 용두관 (본교 강당)   󰊳 참석 대상: 본교 졸업생 및 학부모>"
+    ]
+  },
+  "browser": {
+    "views": [
+      {
+        "id": "cic_index",
+        "url": "https://cic.jge.go.kr/xschedule/index.php",
+        "markers": [
+          "학사일정",
+          "학교명"
+        ],
+        "status": "passed",
+        "characters": 1469
+      },
+      {
+        "id": "childcare_curriculum",
+        "url": "https://info.childcare.go.kr/info_html5/pnis/search/preview/ChildCareCurriculumSlPu.jsp?STCODE_POP=29110000084&flag=BB&loginFlag=",
+        "markers": [
+          "연간 보육계획안",
+          "2026연안.pdf"
+        ],
+        "status": "passed",
+        "characters": 1213
+      }
+    ],
+    "cleanup": {
+      "state": "FINISHED",
+      "residuals": 0,
+      "cleanupMode": "exact-close"
+    }
+  },
+  "search": [
+    {
+      "id": "search_1",
+      "query": "광주 전남대학교 2027년 2월 학위수여식 날짜 공식 학사일정",
+      "started_at": "2026-10-20T05:52:55.180022+00:00",
+      "provider": "OpenAI Responses web_search",
+      "status": "wrong_source",
+      "search_calls": [
+        {
+          "id": "ws_032c9244a039f28a016ad701b7f06c87d0a83c814bfcb2e228",
+          "type": "web_search_call",
+          "status": "completed",
+          "action": {
+            "type": "search",
+            "queries": [
+              "\\ud559\\uad50/\\uacf5\\uacf5\\uae30\\uad00 \\uacf5\\uc2dd \\ucd9c\\ucc98\\ub97c \\uac80\\uc0c9\\ud558\\ub77c. \\ucd9c\\ucc98\\uc5d0 \\uc5c6\\ub294 \\ub0a0\\uc9dc\\ub098 \\uc2dc\\uac04\\uc740 \\ucd94\\uc815\\ud558\\uc9c0 \\ub9d0\\ub77c. \\uac80\\uc0c9\\uc5d0\\uc11c \\ucc3e\\uc740 \\uc815\\ubcf4\\uc640 \\ubbf8\\ud655\\uc778\\uc744 \\uad6c\\ubd84\\ud558\\ub77c.\\n\\uad11\\uc8fc \\uc804\\ub0a8\\ub300\\ud559\\uad50 2027\\ub144 2\\uc6d4 \\ud559\\uc704\\uc218\\uc5ec\\uc2dd \\ub0a0\\uc9dc \\uacf5\\uc2dd \\ud559\\uc0ac\\uc77c\\uc815"
+            ],
+            "query": "\\ud559\\uad50/\\uacf5\\uacf5\\uae30\\uad00 \\uacf5\\uc2dd \\ucd9c\\ucc98\\ub97c \\uac80\\uc0c9\\ud558\\ub77c. \\ucd9c\\ucc98\\uc5d0 \\uc5c6\\ub294 \\ub0a0\\uc9dc\\ub098 \\uc2dc\\uac04\\uc740 \\ucd94\\uc815\\ud558\\uc9c0 \\ub9d0\\ub77c. \\uac80\\uc0c9\\uc5d0\\uc11c \\ucc3e\\uc740 \\uc815\\ubcf4\\uc640 \\ubbf8\\ud655\\uc778\\uc744 \\uad6c\\ubd84\\ud558\\ub77c.\\n\\uad11\\uc8fc \\uc804\\ub0a8\\ub300\\ud559\\uad50 2027\\ub144 2\\uc6d4 \\ud559\\uc704\\uc218\\uc5ec\\uc2dd \\ub0a0\\uc9dc \\uacf5\\uc2dd \\ud559\\uc0ac\\uc77c\\uc815"
+          }
+        }
+      ],
+      "sources": [
+        {
+          "type": "url_citation",
+          "end_index": 192,
+          "start_index": 64,
+          "title": "통합검색",
+          "url": "https://moak.chonbuk.ac.kr/web/search.do?searchKeyword=2026%ED%95%99%EB%85%84%EB%8F%84&utm_source=openai"
+        }
+      ],
+      "answer": "전북대학교의 공식 학사일정에 따르면, 2026학년도 전기 학위수여식은 2027년 2월 22일에 예정되어 있습니다. ([moak.chonbuk.ac.kr](https://moak.chonbuk.ac.kr/web/search.do?searchKeyword=2026%ED%95%99%EB%85%84%EB%8F%84&utm_source=openai))\n\n그러나 현재까지 2027년 2월 학위수여식의 정확한 날짜는 공식적으로 발표되지 않았습니다. 일반적으로 학위수여식은 학사일정에 따라 진행되며, 이전 학위수여식이 2월 22일에 개최된 것을 고려할 때, 2027년에도 비슷한 시기에 진행될 가능성이 높습니다.\n\n정확한 일정은 전북대학교 공식 웹사이트나 학사일정을 통해 확인하시기 바랍니다. ",
+      "usage": {
+        "input_tokens": 8800,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 198,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 8998
+      },
+      "api_status": "passed",
+      "expected_domain": "jnu.ac.kr",
+      "matching_domain_sources": 0,
+      "validation_note": "Search execution and expected-institution source matching are separate checks."
+    },
+    {
+      "id": "search_2",
+      "query": "광주하나금융공동직장어린이집 졸업식 날짜 2026학년도",
+      "started_at": "2026-10-20T05:52:59.155060+00:00",
+      "provider": "OpenAI Responses web_search",
+      "status": "no_source",
+      "search_calls": [
+        {
+          "id": "ws_08f9bb0573ceb306016ad701bb919087d09b68e5a61c27f773",
+          "type": "web_search_call",
+          "status": "completed",
+          "action": {
+            "type": "search",
+            "queries": [
+              "\\ud559\\uad50/\\uacf5\\uacf5\\uae30\\uad00 \\uacf5\\uc2dd \\ucd9c\\ucc98\\ub97c \\uac80\\uc0c9\\ud558\\ub77c. \\ucd9c\\ucc98\\uc5d0 \\uc5c6\\ub294 \\ub0a0\\uc9dc\\ub098 \\uc2dc\\uac04\\uc740 \\ucd94\\uc815\\ud558\\uc9c0 \\ub9d0\\ub77c. \\uac80\\uc0c9\\uc5d0\\uc11c \\ucc3e\\uc740 \\uc815\\ubcf4\\uc640 \\ubbf8\\ud655\\uc778\\uc744 \\uad6c\\ubd84\\ud558\\ub77c.\\n\\uad11\\uc8fc\\ud558\\ub098\\uae08\\uc735\\uacf5\\ub3d9\\uc9c1\\uc7a5\\uc5b4\\ub9b0\\uc774\\uc9d1 \\uc878\\uc5c5\\uc2dd \\ub0a0\\uc9dc 2026\\ud559\\ub144\\ub3c4"
+            ],
+            "query": "\\ud559\\uad50/\\uacf5\\uacf5\\uae30\\uad00 \\uacf5\\uc2dd \\ucd9c\\ucc98\\ub97c \\uac80\\uc0c9\\ud558\\ub77c. \\ucd9c\\ucc98\\uc5d0 \\uc5c6\\ub294 \\ub0a0\\uc9dc\\ub098 \\uc2dc\\uac04\\uc740 \\ucd94\\uc815\\ud558\\uc9c0 \\ub9d0\\ub77c. \\uac80\\uc0c9\\uc5d0\\uc11c \\ucc3e\\uc740 \\uc815\\ubcf4\\uc640 \\ubbf8\\ud655\\uc778\\uc744 \\uad6c\\ubd84\\ud558\\ub77c.\\n\\uad11\\uc8fc\\ud558\\ub098\\uae08\\uc735\\uacf5\\ub3d9\\uc9c1\\uc7a5\\uc5b4\\ub9b0\\uc774\\uc9d1 \\uc878\\uc5c5\\uc2dd \\ub0a0\\uc9dc 2026\\ud559\\ub144\\ub3c4"
+          }
+        }
+      ],
+      "sources": [],
+      "answer": "죄송합니다만, 현재 제공된 정보로는 광주하나금융공동직장어린이집의 2026학년도 졸업식 날짜를 확인할 수 없습니다. 학교나 공공기관의 공식 웹사이트나 공지사항을 통해 해당 정보를 확인하실 수 있습니다. ",
+      "usage": {
+        "input_tokens": 8808,
+        "input_tokens_details": {
+          "cache_write_tokens": 0,
+          "cached_tokens": 0
+        },
+        "output_tokens": 66,
+        "output_tokens_details": {
+          "reasoning_tokens": 0
+        },
+        "total_tokens": 8874
+      },
+      "api_status": "passed",
+      "expected_domain": "info.childcare.go.kr",
+      "matching_domain_sources": 0,
+      "validation_note": "Search execution and expected-institution source matching are separate checks."
+    }
+  ],
+  "search_domain_filter": [
+    {
+      "id": "search_1",
+      "query": "광주 전남대학교 2027년 2월 학위수여식 날짜 공식 학사일정",
+      "started_at": "2026-10-20T05:58:19.349506+00:00",
+      "provider": "OpenAI Responses web_search",
+      "status": "failed",
+      "expected_domain": "jnu.ac.kr",
+      "domain_filter": true,
+      "error_type": "RuntimeError",
+      "error": "OpenAI HTTP 400; code=invalid_request_error"
+    },
+    {
+      "id": "search_2",
+      "query": "광주하나금융공동직장어린이집 졸업식 날짜 2026학년도",
+      "started_at": "2026-10-20T05:58:19.698582+00:00",
+      "provider": "OpenAI Responses web_search",
+      "status": "failed",
+      "expected_domain": "info.childcare.go.kr",
+      "domain_filter": true,
+      "error_type": "RuntimeError",
+      "error": "OpenAI HTTP 400; code=invalid_request_error"
+    }
+  ],
+  "neis_sample": {
+    "task": "neis_sample_api",
+    "started_at": "2026-10-20T05:52:59.423456+00:00",
+    "status": "passed",
+    "rows": [
+      {
+        "ATPT_OFCDC_SC_CODE": "F10",
+        "SD_SCHUL_CODE": "7140377",
+        "AY": "2026",
+        "AA_YMD": "20261201",
+        "ATPT_OFCDC_SC_NM": "전남광주통합특별시교육청(광주)",
+        "SCHUL_NM": "첨단고등학교",
+        "DGHT_CRSE_SC_NM": "주간",
+        "SCHUL_CRSE_SC_NM": "고등학교",
+        "EVENT_NM": "2학기 2차 정기시험(1,2)",
+        "EVENT_CNTNT": null,
+        "ONE_GRADE_EVENT_YN": "Y",
+        "TW_GRADE_EVENT_YN": "Y",
+        "THREE_GRADE_EVENT_YN": "N",
+        "FR_GRADE_EVENT_YN": "*",
+        "FIV_GRADE_EVENT_YN": "*",
+        "SIX_GRADE_EVENT_YN": "*",
+        "SBTR_DD_SC_NM": "해당없음",
+        "LOAD_DTM": "20261020"
+      },
+      {
+        "ATPT_OFCDC_SC_CODE": "F10",
+        "SD_SCHUL_CODE": "7140377",
+        "AY": "2026",
+        "AA_YMD": "20261202",
+        "ATPT_OFCDC_SC_NM": "전남광주통합특별시교육청(광주)",
+        "SCHUL_NM": "첨단고등학교",
+        "DGHT_CRSE_SC_NM": "주간",
+        "SCHUL_CRSE_SC_NM": "고등학교",
+        "EVENT_NM": "2학기 2차 정기시험(1,2)",
+        "EVENT_CNTNT": null,
+        "ONE_GRADE_EVENT_YN": "Y",
+        "TW_GRADE_EVENT_YN": "Y",
+        "THREE_GRADE_EVENT_YN": "N",
+        "FR_GRADE_EVENT_YN": "*",
+        "FIV_GRADE_EVENT_YN": "*",
+        "SIX_GRADE_EVENT_YN": "*",
+        "SBTR_DD_SC_NM": "해당없음",
+        "LOAD_DTM": "20261020"
+      },
+      {
+        "ATPT_OFCDC_SC_CODE": "F10",
+        "SD_SCHUL_CODE": "7140377",
+        "AY": "2026",
+        "AA_YMD": "20261203",
+        "ATPT_OFCDC_SC_NM": "전남광주통합특별시교육청(광주)",
+        "SCHUL_NM": "첨단고등학교",
+        "DGHT_CRSE_SC_NM": "주간",
+        "SCHUL_CRSE_SC_NM": "고등학교",
+        "EVENT_NM": "2학기 2차 정기시험(1,2)",
+        "EVENT_CNTNT": null,
+        "ONE_GRADE_EVENT_YN": "Y",
+        "TW_GRADE_EVENT_YN": "Y",
+        "THREE_GRADE_EVENT_YN": "N",
+        "FR_GRADE_EVENT_YN": "*",
+        "FIV_GRADE_EVENT_YN": "*",
+        "SIX_GRADE_EVENT_YN": "*",
+        "SBTR_DD_SC_NM": "해당없음",
+        "LOAD_DTM": "20261020"
+      },
+      {
+        "ATPT_OFCDC_SC_CODE": "F10",
+        "SD_SCHUL_CODE": "7140377",
+        "AY": "2026",
+        "AA_YMD": "20261204",
+        "ATPT_OFCDC_SC_NM": "전남광주통합특별시교육청(광주)",
+        "SCHUL_NM": "첨단고등학교",
+        "DGHT_CRSE_SC_NM": "주간",
+        "SCHUL_CRSE_SC_NM": "고등학교",
+        "EVENT_NM": "2학기 2차 정기시험(1,2)",
+        "EVENT_CNTNT": null,
+        "ONE_GRADE_EVENT_YN": "Y",
+        "TW_GRADE_EVENT_YN": "Y",
+        "THREE_GRADE_EVENT_YN": "N",
+        "FR_GRADE_EVENT_YN": "*",
+        "FIV_GRADE_EVENT_YN": "*",
+        "SIX_GRADE_EVENT_YN": "*",
+        "SBTR_DD_SC_NM": "해당없음",
+        "LOAD_DTM": "20261020"
+      },
+      {
+        "ATPT_OFCDC_SC_CODE": "F10",
+        "SD_SCHUL_CODE": "7140377",
+        "AY": "2026",
+        "AA_YMD": "20261205",
+        "ATPT_OFCDC_SC_NM": "전남광주통합특별시교육청(광주)",
+        "SCHUL_NM": "첨단고등학교",
+        "DGHT_CRSE_SC_NM": "주간",
+        "SCHUL_CRSE_SC_NM": "고등학교",
+        "EVENT_NM": "토요휴업일",
+        "EVENT_CNTNT": null,
+        "ONE_GRADE_EVENT_YN": "Y",
+        "TW_GRADE_EVENT_YN": "Y",
+        "THREE_GRADE_EVENT_YN": "Y",
+        "FR_GRADE_EVENT_YN": "*",
+        "FIV_GRADE_EVENT_YN": "*",
+        "SIX_GRADE_EVENT_YN": "*",
+        "SBTR_DD_SC_NM": "휴업일",
+        "LOAD_DTM": "20261020"
+      }
+    ],
+    "response_code": "INFO-000",
+    "note": "Unauthenticated five-row sample only; no full-coverage claim"
+  },
+  "neis_known_graduation_day": {
+    "task": "neis_sample_api",
+    "started_at": "2026-10-20T06:00:53.850101+00:00",
+    "status": "passed",
+    "rows": [
+      {
+        "ATPT_OFCDC_SC_CODE": "F10",
+        "SD_SCHUL_CODE": "7140377",
+        "AY": "2026",
+        "AA_YMD": "20270120",
+        "ATPT_OFCDC_SC_NM": "전남광주통합특별시교육청(광주)",
+        "SCHUL_NM": "첨단고등학교",
+        "DGHT_CRSE_SC_NM": "주간",
+        "SCHUL_CRSE_SC_NM": "고등학교",
+        "EVENT_NM": "졸업식",
+        "EVENT_CNTNT": null,
+        "ONE_GRADE_EVENT_YN": "N",
+        "TW_GRADE_EVENT_YN": "N",
+        "THREE_GRADE_EVENT_YN": "Y",
+        "FR_GRADE_EVENT_YN": "*",
+        "FIV_GRADE_EVENT_YN": "*",
+        "SIX_GRADE_EVENT_YN": "*",
+        "SBTR_DD_SC_NM": "해당없음",
+        "LOAD_DTM": "20261020"
+      },
+      {
+        "ATPT_OFCDC_SC_CODE": "F10",
+        "SD_SCHUL_CODE": "7140377",
+        "AY": "2026",
+        "AA_YMD": "20270120",
+        "ATPT_OFCDC_SC_NM": "전남광주통합특별시교육청(광주)",
+        "SCHUL_NM": "첨단고등학교",
+        "DGHT_CRSE_SC_NM": "주간",
+        "SCHUL_CRSE_SC_NM": "고등학교",
+        "EVENT_NM": "종업식(1,2학년)",
+        "EVENT_CNTNT": null,
+        "ONE_GRADE_EVENT_YN": "Y",
+        "TW_GRADE_EVENT_YN": "Y",
+        "THREE_GRADE_EVENT_YN": "N",
+        "FR_GRADE_EVENT_YN": "*",
+        "FIV_GRADE_EVENT_YN": "*",
+        "SIX_GRADE_EVENT_YN": "*",
+        "SBTR_DD_SC_NM": "해당없음",
+        "LOAD_DTM": "20261020"
+      }
+    ],
+    "response_code": "INFO-000",
+    "note": "Unauthenticated five-row sample only; no full-coverage claim",
+    "scope": "Known-date lookup; discovery of the graduation date is not tested here"
+  },
+  "local_model_initial": {
+    "counts": {
+      "failed": 8
+    },
+    "date_time_checks": [
+      {
+        "id": "jnu_calendar",
+        "passed": false
+      },
+      {
+        "id": "gist_notice",
+        "passed": false
+      },
+      {
+        "id": "gwangju_notice",
+        "passed": false
+      },
+      {
+        "id": "chosun_pdf",
+        "passed": false
+      },
+      {
+        "id": "yongdu_hwp",
+        "passed": false
+      },
+      {
+        "id": "gwangju_poster",
+        "passed": true
+      },
+      {
+        "id": "gwangju_rental_table",
+        "passed": false
+      }
+    ],
+    "cases": [
+      {
+        "id": "jnu_calendar",
+        "source_file": "fetch/jnu_calendar/text.txt",
+        "mode": "text",
+        "started_at": "2026-10-20T05:59:28.462364+00:00",
+        "model": "qwen3:8b",
+        "backend": "ollama",
+        "status": "failed",
+        "answer": {
+          "event_date": "2026-02-26",
+          "date_precision": "day",
+          "ceremony_start_time": "00:00",
+          "event_kind": "degree_award_date",
+          "target_school_year_match": true,
+          "evidence": [
+            "제74회 전기('26년 2월) 학위수여식"
+          ],
+          "notes": "학위수여식이 2026년 2월에 개최되었으며, 이는 2026학년도 전기 학위수여식으로, 2026년 말~2027년 초 졸업 시즌에 해당하는 행사로 판단됨."
+        },
+        "assertions": {
+          "event_date": "2027-02-26",
+          "ceremony_start_time": null,
+          "date_precision": "day"
+        },
+        "failures": [
+          {
+            "field": "event_date",
+            "expected": "2027-02-26",
+            "actual": "2026-02-26"
+          },
+          {
+            "field": "ceremony_start_time",
+            "expected": null,
+            "actual": "00:00"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 3904,
+          "completion_tokens": 167,
+          "total_duration_ns": 21119863666
+        },
+        "evidence_check": "literal_text_match"
+      },
+      {
+        "id": "gist_notice",
+        "source_file": "fetch/gist_notice/text.txt",
+        "mode": "text",
+        "started_at": "2026-10-20T05:59:49.614367+00:00",
+        "model": "qwen3:8b",
+        "backend": "ollama",
+        "status": "failed",
+        "answer": {
+          "event_date": "2026-02",
+          "date_precision": "month",
+          "ceremony_start_time": "14:00",
+          "event_kind": "degree_award_date",
+          "target_school_year_match": false,
+          "evidence": [
+            "2026년 2월 20일(금) 14:00 - 15:40 (예정)",
+            "2025학년도 학위수여식 개최 안내 (Notification of the 2025 Commencement Ceremony)"
+          ],
+          "notes": "원문에 명시된 '2025학년도 학위수여식'은 2026년 2월에 개최되므로, 2026학년도 졸업 시즌에 해당하는 행사로 판단됨. 그러나 원문의 날짜는 2025학년도에 해당하므로 target_school_year_match를 false로 설정."
+        },
+        "assertions": {
+          "event_date": "2026-02-20",
+          "ceremony_start_time": "14:00",
+          "target_school_year_match": false
+        },
+        "failures": [
+          {
+            "field": "event_date",
+            "expected": "2026-02-20",
+            "actual": "2026-02"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 2220,
+          "completion_tokens": 226,
+          "total_duration_ns": 15874115833
+        },
+        "evidence_check": "literal_text_match"
+      },
+      {
+        "id": "gwangju_notice",
+        "source_file": "fetch/gwangju_graduate_notice/text.txt",
+        "mode": "text",
+        "started_at": "2026-10-20T06:00:05.514152+00:00",
+        "model": "qwen3:8b",
+        "backend": "ollama",
+        "status": "failed",
+        "answer": {
+          "event_date": "2026-02",
+          "date_precision": "month",
+          "ceremony_start_time": "10:30",
+          "event_kind": "degree_award_date",
+          "target_school_year_match": true,
+          "evidence": [
+            "2026년 광주대학교 대학원 학위수여식이 있습니다.",
+            "일시:2026.2.20(금 10:30"
+          ],
+          "notes": "학위수여식이 2026년 2월에 진행되므로 2026학년도 졸업 시즌에 해당합니다."
+        },
+        "assertions": {
+          "event_date": "2026-02-20",
+          "ceremony_start_time": "10:30"
+        },
+        "failures": [
+          {
+            "field": "event_date",
+            "expected": "2026-02-20",
+            "actual": "2026-02"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1095,
+          "completion_tokens": 157,
+          "total_duration_ns": 10907033167
+        },
+        "evidence_check": "literal_text_match"
+      },
+      {
+        "id": "childcare_month_only",
+        "source_file": "documents/childcare_pdf/text.txt",
+        "mode": "text",
+        "started_at": "2026-10-20T06:00:16.480928+00:00",
+        "model": "qwen3:8b",
+        "backend": "ollama",
+        "status": "failed",
+        "answer": {
+          "event_date": "2026-02",
+          "date_precision": "month",
+          "ceremony_start_time": null,
+          "event_kind": "ceremony",
+          "target_school_year_match": true,
+          "evidence": [
+            "초등학교에 가는 나 / 설날/ 즐거웠던 어린이집 / 신학기 준비 기간 / 졸업식/ 책 전시회"
+          ],
+          "notes": "2월에 진행되는 졸업식/학위수여식으로, 2026학년도 전기 행사를 대상으로 추출했습니다."
+        },
+        "assertions": {
+          "ceremony_start_time": null,
+          "date_precision": "month"
+        },
+        "failures": [
+          {
+            "field": "evidence",
+            "unsupported_quotes": [
+              "초등학교에 가는 나 / 설날/ 즐거웠던 어린이집 / 신학기 준비 기간 / 졸업식/ 책 전시회"
+            ]
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1505,
+          "completion_tokens": 143,
+          "total_duration_ns": 10376894583
+        },
+        "evidence_check": "literal_text_match"
+      },
+      {
+        "id": "chosun_pdf",
+        "source_file": "documents/chosun_calendar_pdf/text.txt",
+        "mode": "text",
+        "started_at": "2026-10-20T06:00:26.909178+00:00",
+        "model": "qwen3:8b",
+        "backend": "ollama",
+        "status": "failed",
+        "answer": {
+          "event_date": "2027-02-25",
+          "date_precision": "day",
+          "ceremony_start_time": "00:00",
+          "event_kind": "degree_award_date",
+          "target_school_year_match": true,
+          "evidence": [
+            "2.25 2026학년도 전기 학위수여식"
+          ],
+          "notes": "2026학년도 전기 학위수여식은 2027년 2월 25일에 진행됩니다. 학년도와 다음 해 1~2월 관계로 연도를 해석했습니다."
+        },
+        "assertions": {
+          "event_date": "2027-02-25",
+          "ceremony_start_time": null,
+          "date_precision": "day"
+        },
+        "failures": [
+          {
+            "field": "ceremony_start_time",
+            "expected": null,
+            "actual": "00:00"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 3010,
+          "completion_tokens": 153,
+          "total_duration_ns": 13311626542
+        },
+        "evidence_check": "literal_text_match"
+      },
+      {
+        "id": "yongdu_hwp",
+        "source_file": "attachments/yongdu_hwp/preview.txt",
+        "mode": "text",
+        "started_at": "2026-10-20T06:00:40.250793+00:00",
+        "model": "qwen3:8b",
+        "backend": "ollama",
+        "status": "failed",
+        "answer": {
+          "event_date": "2025-01",
+          "date_precision": "month",
+          "ceremony_start_time": "10:30",
+          "event_kind": "ceremony",
+          "target_school_year_match": false,
+          "evidence": [
+            "행사 일시: 2025. 1. 9.(목) 10:30~",
+            "2024학년도 제14회 졸업식 안내"
+          ],
+          "notes": "원문은 2024학년도 졸업식 안내이므로 2026학년도 졸업식과는 관련이 없습니다."
+        },
+        "assertions": {
+          "event_date": "2025-01-09",
+          "ceremony_start_time": "10:30",
+          "target_school_year_match": false
+        },
+        "failures": [
+          {
+            "field": "event_date",
+            "expected": "2025-01-09",
+            "actual": "2025-01"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 973,
+          "completion_tokens": 159,
+          "total_duration_ns": 10825872292
+        },
+        "evidence_check": "literal_text_match"
+      },
+      {
+        "id": "gwangju_poster",
+        "source_file": "attachments/gwangju_poster_1/source.jpg",
+        "mode": "image",
+        "started_at": "2026-10-20T06:00:51.098395+00:00",
+        "model": "qwen3.5:2b",
+        "backend": "ollama",
+        "status": "failed",
+        "answer": {
+          "event_date": "2026-02-20",
+          "date_precision": "month",
+          "ceremony_start_time": "10:30",
+          "event_kind": "degree_award_date",
+          "target_school_year_match": false,
+          "evidence": [
+            "2026광주대학교대학원 학위수여식",
+            "2026년 2월 20일 (금) 10:30"
+          ],
+          "notes": "원문 날짜가 2026학년도 졸업 시즌(2026년 말~2027년 초)에 해당하므로, 원문 날짜를 그대로 추출하고 target_school_year_match=false로 한다."
+        },
+        "assertions": {
+          "event_date": "2026-02-20",
+          "ceremony_start_time": "10:30"
+        },
+        "failures": [
+          {
+            "field": "event_date",
+            "reason": "Invented day in month-only source"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1439,
+          "completion_tokens": 173,
+          "total_duration_ns": 9260802667
+        },
+        "evidence_check": "manual_image_review_required"
+      },
+      {
+        "id": "gwangju_rental_table",
+        "source_file": "attachments/gwangju_poster_2/source.png",
+        "mode": "image",
+        "started_at": "2026-10-20T06:01:00.387608+00:00",
+        "model": "qwen3.5:2b",
+        "backend": "ollama",
+        "status": "failed",
+        "answer": {
+          "event_date": "2026-02-09",
+          "date_precision": "month",
+          "ceremony_start_time": "09:00",
+          "event_kind": "ceremony",
+          "target_school_year_match": false,
+          "evidence": [
+            "2026. 02. 09.(월) 09:00~02. 12.(목) 17:00"
+          ],
+          "notes": "원문 날짜가 2026년 2월로 명시되어 있으므로, 목표 학년도인 2026학년도 졸업 시즌(2026년 말~2027년 초)에 해당한다. 따라서 연도를 그대로 해석한다."
+        },
+        "assertions": {
+          "event_date": "2026-02-20",
+          "ceremony_start_time": "10:30"
+        },
+        "failures": [
+          {
+            "field": "event_date",
+            "expected": "2026-02-20",
+            "actual": "2026-02-09"
+          },
+          {
+            "field": "ceremony_start_time",
+            "expected": "10:30",
+            "actual": "09:00"
+          },
+          {
+            "field": "event_date",
+            "reason": "Invented day in month-only source"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 875,
+          "completion_tokens": 183,
+          "total_duration_ns": 5221191875
+        },
+        "evidence_check": "manual_image_review_required"
+      }
+    ]
+  },
+  "local_model_clarified": {
+    "counts": {
+      "failed": 4
+    },
+    "date_time_checks": [
+      {
+        "id": "jnu_calendar",
+        "passed": false
+      },
+      {
+        "id": "gist_notice",
+        "passed": false
+      },
+      {
+        "id": "childcare_month_only",
+        "passed": true
+      },
+      {
+        "id": "gwangju_rental_table",
+        "passed": true
+      }
+    ],
+    "cases": [
+      {
+        "id": "jnu_calendar",
+        "source_file": "fetch/jnu_calendar/text.txt",
+        "mode": "text",
+        "started_at": "2026-10-20T06:02:30.160510+00:00",
+        "model": "qwen3:8b",
+        "backend": "ollama",
+        "prompt_version": "clarified",
+        "status": "failed",
+        "answer": {
+          "event_date": "2027-02-26",
+          "date_precision": "day",
+          "ceremony_start_time": "10:00",
+          "event_kind": "ceremony",
+          "target_school_year_match": true,
+          "evidence": [
+            "2027-02-26(금) ~ 2027-02-26(금) 제75회 전기('27년 2월) 학위수여식"
+          ],
+          "notes": "2026학년도 연간 계획에서 다음 해 1~2월은 2027년으로 해석합니다."
+        },
+        "assertions": {
+          "event_date": "2027-02-26",
+          "ceremony_start_time": null,
+          "date_precision": "day",
+          "event_kind": "ceremony"
+        },
+        "failures": [
+          {
+            "field": "ceremony_start_time",
+            "expected": null,
+            "actual": "10:00"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 4042,
+          "completion_tokens": 155,
+          "total_duration_ns": 19375538750
+        },
+        "evidence_check": "literal_text_match"
+      },
+      {
+        "id": "gist_notice",
+        "source_file": "fetch/gist_notice/text.txt",
+        "mode": "text",
+        "started_at": "2026-10-20T06:02:49.568619+00:00",
+        "model": "qwen3:8b",
+        "backend": "ollama",
+        "prompt_version": "clarified",
+        "status": "failed",
+        "answer": {
+          "event_date": "2026-02",
+          "date_precision": "month",
+          "ceremony_start_time": null,
+          "event_kind": "ceremony",
+          "target_school_year_match": true,
+          "evidence": [
+            "2025학년도 학위수여식 개최 안내 (Notification of the 2025 Commencement Ceremony)",
+            "1. 일시: 2026년 2월 20일(금) 14:00 - 15:40 (예정)",
+            "2026.1. Dear, degree candidates, Congratulations on your upcoming graduation!"
+          ],
+          "notes": "2025학년도 학위수여식은 2026년 2월에 개최되었으며, 2026학년도 연간 계획에서 2026년 2월은 2026년으로 해석합니다."
+        },
+        "assertions": {
+          "event_date": "2026-02-20",
+          "ceremony_start_time": "14:00",
+          "target_school_year_match": false,
+          "event_kind": "ceremony",
+          "date_precision": "day"
+        },
+        "failures": [
+          {
+            "field": "event_date",
+            "expected": "2026-02-20",
+            "actual": "2026-02"
+          },
+          {
+            "field": "ceremony_start_time",
+            "expected": "14:00",
+            "actual": null
+          },
+          {
+            "field": "target_school_year_match",
+            "expected": false,
+            "actual": true
+          },
+          {
+            "field": "date_precision",
+            "expected": "day",
+            "actual": "month"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 2358,
+          "completion_tokens": 220,
+          "total_duration_ns": 15225504666
+        },
+        "evidence_check": "literal_text_match"
+      },
+      {
+        "id": "childcare_month_only",
+        "source_file": "documents/childcare_pdf/text.txt",
+        "mode": "text",
+        "started_at": "2026-10-20T06:03:04.813960+00:00",
+        "model": "qwen3:8b",
+        "backend": "ollama",
+        "prompt_version": "clarified",
+        "status": "failed",
+        "answer": {
+          "event_date": "2027-02",
+          "date_precision": "month",
+          "ceremony_start_time": null,
+          "event_kind": "ceremony",
+          "target_school_year_match": true,
+          "evidence": [
+            "초등학교에 가는 나 / 설날/ 즐거웠던 어린이집 / 신학기 준비 기간 / 초등학교 갈 준비Ⅰ, Ⅱ / 졸업식/ 책 전시회"
+          ],
+          "notes": "2026학년도 연간 계획에서 다음 해 1~2월은 2027년으로 해석합니다."
+        },
+        "assertions": {
+          "ceremony_start_time": null,
+          "date_precision": "month",
+          "event_kind": "ceremony",
+          "event_date": "2027-02"
+        },
+        "failures": [
+          {
+            "field": "evidence",
+            "unsupported_quotes": [
+              "초등학교에 가는 나 / 설날/ 즐거웠던 어린이집 / 신학기 준비 기간 / 초등학교 갈 준비Ⅰ, Ⅱ / 졸업식/ 책 전시회"
+            ]
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1643,
+          "completion_tokens": 150,
+          "total_duration_ns": 10030493333
+        },
+        "evidence_check": "literal_text_match"
+      },
+      {
+        "id": "gwangju_rental_table",
+        "source_file": "attachments/gwangju_poster_2/source.png",
+        "mode": "image",
+        "started_at": "2026-10-20T06:03:14.886740+00:00",
+        "model": "qwen3.5:2b",
+        "backend": "ollama",
+        "prompt_version": "clarified",
+        "status": "failed",
+        "answer": {
+          "event_date": "2026-02-20",
+          "date_precision": "day",
+          "ceremony_start_time": "10:30",
+          "event_kind": "degree_award_date",
+          "target_school_year_match": true,
+          "evidence": [
+            "2026. 02. 20.(금) 10:30"
+          ],
+          "notes": "연도 해석: 2026학년도 연간 계획에서 다음 해 1~2월은 2027년이다."
+        },
+        "assertions": {
+          "event_date": "2026-02-20",
+          "ceremony_start_time": "10:30",
+          "event_kind": "ceremony",
+          "date_precision": "day"
+        },
+        "failures": [
+          {
+            "field": "event_kind",
+            "expected": "ceremony",
+            "actual": "degree_award_date"
+          }
+        ],
+        "usage": {
+          "prompt_tokens": 1004,
+          "completion_tokens": 140,
+          "total_duration_ns": 5762656542
+        },
+        "evidence_check": "manual_image_review_required"
+      }
+    ]
+  },
+  "openai_source_transfer": {
+    "status": "blocked_approval",
+    "executed": false,
+    "reason": "Automatic approval review rejected sending source documents and images to OpenAI without specific data-transfer approval. No extraction requests were made."
+  },
+  "limitations": [
+    "HWP preview only; no full BodyText, HWPX or encrypted-HWP verification",
+    "Image-only PDF OCR not tested; downloaded text PDFs were parsed with pdftotext",
+    "Search-domain matching is not proof of correct institution/date/time",
+    "Known-date NEIS lookup is not discovery or full-coverage retrieval",
+    "Model expectations are manually reviewed small cases, not population accuracy",
+    "Failure and missing data are preserved; no fabricated schedules substitute for a failed source"
+  ]
+}

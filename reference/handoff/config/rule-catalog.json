@@ -1,0 +1,82 @@
+{
+  "policy_version": "4.0",
+  "implementation_status": "designed_not_implemented_in_reported_probe",
+  "rules": [
+    {
+      "id": "neis_ceremony_row",
+      "fields": [
+        "ceremony_status",
+        "event_date"
+      ],
+      "requirements": [
+        "공식 응답의 교육청/학교 코드가 대상 기관과 일치",
+        "학년도/학사일자/실제 졸업식 행사명과 대상 학년 일치",
+        "JSON 경로의 실제 값에서 날짜 정규화",
+        "시간 전용 근거가 없으면 start_time은 null"
+      ],
+      "positive_tests": [
+        "명확한 졸업식 행의 날짜 게시"
+      ],
+      "negative_tests": [
+        "다른 학교 코드",
+        "과거 학년도",
+        "졸업식이 아닌 행사",
+        "sample을 전체 수집 완료로 오인"
+      ],
+      "remaining_test": "실제 키로 알려진 날짜 없이 전체 기간/페이지에서 발견하고 행-근거-게시 연결",
+      "version": "1.0.0"
+    },
+    {
+      "id": "explicit_notice",
+      "fields": [
+        "ceremony_status",
+        "event_date",
+        "start_time",
+        "venue"
+      ],
+      "requirements": [
+        "같은 행사 unit의 기관/학년도/졸업식/날짜 문맥 일치",
+        "YYYY-MM-DD/년월일 등 명시적 날짜의 정확한 정규화",
+        "시작/일시라는 역할 표현에 연결된 실제 시각만 정규화",
+        "입장/하교/대여/게시 시각과 다른 행사 값은 제외",
+        "시간이 없으면 기본 시각을 생성하지 않음"
+      ],
+      "positive_tests": [
+        "명시적 날짜+시간",
+        "날짜만 있는 공지"
+      ],
+      "negative_tests": [
+        "없는 00:00/10:00",
+        "다른 행사 시각",
+        "불일치 인용",
+        "월/일 precision 모순"
+      ],
+      "remaining_test": "제공된 원문/실패 출력으로 양성 통과 및 음성 차단 구현 시험",
+      "version": "1.0.0"
+    },
+    {
+      "id": "academic_calendar_row",
+      "fields": [
+        "ceremony_status",
+        "event_date"
+      ],
+      "requirements": [
+        "실제 연도/월 헤더와 해당 졸업식 행을 연결",
+        "여러 연도 중 목표 시즌을 선택",
+        "연간 계획의 1~2월은 원문 연도 범위로 해석",
+        "월만 있으면 month 보관, 일자 생성 금지"
+      ],
+      "positive_tests": [
+        "목표 연도 졸업식 행의 정확한 일자",
+        "월 계획의 안전한 보관"
+      ],
+      "negative_tests": [
+        "이전 연도 행 선택",
+        "떨어진 문구 합성",
+        "월 계획을 임의 일자로 변환"
+      ],
+      "remaining_test": "실제 calendar/PDF layout의 헤더-행 관계를 검증하고 모호하면 보류",
+      "version": "1.0.0"
+    }
+  ]
+}

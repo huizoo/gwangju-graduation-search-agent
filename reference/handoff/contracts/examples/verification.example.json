@@ -1,0 +1,31 @@
+{
+  "observation_ids": [
+    "00000000-0000-0000-0000-000000000005"
+  ],
+  "institution_matches": true,
+  "season_matches": true,
+  "is_actual_ceremony": true,
+  "event_match": "existing",
+  "event_id": "00000000-0000-0000-0000-000000000002",
+  "supersedes_observation_ids": [],
+  "field_decisions": [
+    {
+      "field": "event_date",
+      "decision": "accept",
+      "observation_ids": [
+        "00000000-0000-0000-0000-000000000005"
+      ],
+      "reason_codes": [],
+      "explanation": "해당 학년도 실제 졸업식 안내에 행사일 명시"
+    },
+    {
+      "field": "start_time",
+      "decision": "accept",
+      "observation_ids": [
+        "00000000-0000-0000-0000-000000000005"
+      ],
+      "reason_codes": [],
+      "explanation": "입장 시각과 구분되는 시작 표현"
+    }
+  ]
+}

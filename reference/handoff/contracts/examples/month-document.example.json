@@ -1,0 +1,57 @@
+{
+  "id": "00000000-0000-0000-0000-00000000002c",
+  "institution_id": "00000000-0000-0000-0000-00000000002b",
+  "source_key": "https://childcare.example/plan",
+  "display_url": "https://childcare.example/plan",
+  "title": "가상새봄어린이집 연간 계획",
+  "authority": "official",
+  "source_kind": "pdf",
+  "content_type": "application/pdf",
+  "status": "ok",
+  "retrieved_at": "2026-10-20T06:00:00Z",
+  "last_checked_at": "2026-10-20T06:00:00Z",
+  "content_hash": "f19b8dbc196e6c25f8123d327479bb6c17cdca044ffec2b895b4a7085f3bbbcb",
+  "segments": [
+    {
+      "id": "header",
+      "unit_id": "annual-plan",
+      "locator_kind": "pdf_layout",
+      "location": "page 1, heading",
+      "text": "가상새봄어린이집 2026학년도 연간 보육계획 (2026년 3월 ~ 2027년 2월)"
+    },
+    {
+      "id": "feb-row",
+      "unit_id": "annual-plan-feb",
+      "locator_kind": "pdf_layout",
+      "location": "page 1, table February row",
+      "text": "2월 | 졸업식"
+    }
+  ],
+  "partial": false,
+  "read_scope": "전체 공지 본문",
+  "reason_codes": [],
+  "acquisition": {
+    "method": "http",
+    "transport_status": "ok",
+    "http_status": 200,
+    "final_url": "https://childcare.example/plan",
+    "tls_verified": true
+  },
+  "reading": {
+    "method": "pdftotext_layout",
+    "scope": "full_text",
+    "content_match": "expected",
+    "institution_match": "matched"
+  },
+  "image_size": null,
+  "authority_evidence": {
+    "channel_url": "https://childcare.example",
+    "verified_by_url": "https://registry.example/childcare",
+    "verified_at": "2026-10-20T06:50:00Z"
+  },
+  "recheck": {
+    "status": "not_attempted",
+    "attempted_at": null,
+    "reason_codes": []
+  }
+}

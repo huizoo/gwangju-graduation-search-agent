@@ -1,0 +1,314 @@
+{
+  "id": "00000000-0000-0000-0000-00000000002e",
+  "institution": {
+    "id": "00000000-0000-0000-0000-00000000002b",
+    "name": "가상새봄어린이집",
+    "type": "childcare",
+    "district": "북구",
+    "address": "광주광역시 북구 가상로 1",
+    "campus_label": null,
+    "phone": null,
+    "homepage_url": "https://childcare.example",
+    "operation_status": "active",
+    "operation_effective_date": null,
+    "operation_evidence_url": "https://registry.example/schools",
+    "official_channels": [
+      {
+        "url": "https://childcare.example",
+        "verified_by_url": "https://registry.example/childcare",
+        "verified_at": "2026-10-20T06:50:00Z"
+      }
+    ],
+    "profile_original": {
+      "name": "가상새봄어린이집",
+      "address": "광주광역시 북구 가상로 1",
+      "district": "북구",
+      "phone": null,
+      "homepage_url": "https://childcare.example"
+    },
+    "profile_overrides": {},
+    "revision": 1,
+    "source_checked_at": "2026-10-20T06:00:00Z"
+  },
+  "season_id": "00000000-0000-0000-0000-000000000003",
+  "event_key": "main",
+  "title": "졸업식",
+  "event_type": "graduation_ceremony",
+  "audience": "졸업 대상 학생",
+  "campus_label": null,
+  "fields": {
+    "ceremony_status": {
+      "effective_value": "scheduled",
+      "effective_basis": "document_confirmed",
+      "usable": true,
+      "automatic": {
+        "status": "unchecked",
+        "value": null,
+        "bound_date": null,
+        "evidence_ids": [],
+        "assessment_id": "00000000-0000-0000-0000-00000000000b",
+        "fingerprint": "demo-field-ceremony_status",
+        "checked_at": "2026-10-20T06:00:00Z",
+        "reason_codes": [],
+        "value_check": {
+          "status": "unchecked",
+          "rule_id": null,
+          "checks": {
+            "institution": "unknown",
+            "content": "unknown",
+            "season": "unknown",
+            "event_identity": "unknown",
+            "literal_presence": "unknown",
+            "normalized_value": "unknown",
+            "time_role": "unknown"
+          },
+          "evidence_ids": [],
+          "document_ids": [],
+          "reason_codes": [],
+          "checked_at": null,
+          "policy_version": "4.0",
+          "rule_version": null,
+          "field": "ceremony_status",
+          "document_hashes": {}
+        },
+        "conflict_detected_at": null
+      },
+      "manual": {
+        "id": "00000000-0000-0000-0000-000000000030",
+        "mode": "set",
+        "value": "scheduled",
+        "basis": "document_confirmed",
+        "bound_date": null,
+        "confirmed_at": "2026-10-20T06:50:00Z",
+        "recorded_at": "2026-10-20T06:50:00Z",
+        "note": "월 계획의 행사명을 직접 확인한 가상 예시",
+        "acknowledged_fingerprint": null,
+        "resolved_fingerprint": null,
+        "source_url": "https://childcare.example/plan",
+        "source_document_id": null
+      },
+      "has_web_difference": false,
+      "review_required": false,
+      "reason_codes": []
+    },
+    "event_date": {
+      "effective_value": {
+        "precision": "month",
+        "date": null,
+        "month": "2027-02"
+      },
+      "effective_basis": "document_confirmed",
+      "usable": true,
+      "automatic": {
+        "status": "reference_only",
+        "value": {
+          "precision": "month",
+          "date": null,
+          "month": "2027-02"
+        },
+        "bound_date": null,
+        "evidence_ids": [
+          "00000000-0000-0000-0000-00000000002d"
+        ],
+        "assessment_id": "00000000-0000-0000-0000-00000000000c",
+        "fingerprint": "demo-field-event_date",
+        "checked_at": "2026-10-20T06:00:00Z",
+        "reason_codes": [],
+        "value_check": {
+          "status": "unchecked",
+          "rule_id": null,
+          "checks": {
+            "institution": "unknown",
+            "content": "unknown",
+            "season": "unknown",
+            "event_identity": "unknown",
+            "literal_presence": "unknown",
+            "normalized_value": "unknown",
+            "time_role": "unknown"
+          },
+          "evidence_ids": [],
+          "document_ids": [],
+          "reason_codes": [],
+          "checked_at": null,
+          "policy_version": "4.0",
+          "rule_version": null,
+          "field": "event_date",
+          "document_hashes": {}
+        },
+        "conflict_detected_at": null
+      },
+      "manual": {
+        "id": "00000000-0000-0000-0000-00000000002f",
+        "mode": "set",
+        "value": {
+          "precision": "month",
+          "date": null,
+          "month": "2027-02"
+        },
+        "basis": "document_confirmed",
+        "bound_date": null,
+        "confirmed_at": "2026-10-20T06:50:00Z",
+        "recorded_at": "2026-10-20T06:50:00Z",
+        "note": "가상 원문의 월 계획을 직접 확인한 예시",
+        "acknowledged_fingerprint": null,
+        "resolved_fingerprint": null,
+        "source_url": "https://childcare.example/plan",
+        "source_document_id": null
+      },
+      "has_web_difference": false,
+      "review_required": true,
+      "reason_codes": [
+        "month_only"
+      ]
+    },
+    "start_time": {
+      "effective_value": null,
+      "effective_basis": "none",
+      "usable": false,
+      "automatic": {
+        "status": "missing",
+        "value": null,
+        "bound_date": null,
+        "evidence_ids": [],
+        "assessment_id": "00000000-0000-0000-0000-00000000000d",
+        "fingerprint": "demo-field-start_time",
+        "checked_at": "2026-10-20T06:00:00Z",
+        "reason_codes": [],
+        "value_check": {
+          "status": "unchecked",
+          "rule_id": null,
+          "checks": {
+            "institution": "unknown",
+            "content": "unknown",
+            "season": "unknown",
+            "event_identity": "unknown",
+            "literal_presence": "unknown",
+            "normalized_value": "unknown",
+            "time_role": "unknown"
+          },
+          "evidence_ids": [],
+          "document_ids": [],
+          "reason_codes": [],
+          "checked_at": null,
+          "policy_version": "4.0",
+          "rule_version": null,
+          "field": "start_time",
+          "document_hashes": {}
+        },
+        "conflict_detected_at": null
+      },
+      "manual": null,
+      "has_web_difference": false,
+      "review_required": true,
+      "reason_codes": [
+        "time_missing"
+      ]
+    },
+    "venue": {
+      "effective_value": null,
+      "effective_basis": "none",
+      "usable": false,
+      "automatic": {
+        "status": "missing",
+        "value": null,
+        "bound_date": null,
+        "evidence_ids": [],
+        "assessment_id": "00000000-0000-0000-0000-00000000000e",
+        "fingerprint": "demo-field-venue",
+        "checked_at": "2026-10-20T06:00:00Z",
+        "reason_codes": [],
+        "value_check": {
+          "status": "unchecked",
+          "rule_id": null,
+          "checks": {
+            "institution": "unknown",
+            "content": "unknown",
+            "season": "unknown",
+            "event_identity": "unknown",
+            "literal_presence": "unknown",
+            "normalized_value": "unknown",
+            "time_role": "unknown"
+          },
+          "evidence_ids": [],
+          "document_ids": [],
+          "reason_codes": [],
+          "checked_at": null,
+          "policy_version": "4.0",
+          "rule_version": null,
+          "field": "venue",
+          "document_hashes": {}
+        },
+        "conflict_detected_at": null
+      },
+      "manual": null,
+      "has_web_difference": false,
+      "review_required": false,
+      "reason_codes": []
+    }
+  },
+  "review_required": true,
+  "reason_codes": [
+    "month_only",
+    "time_missing"
+  ],
+  "last_attempt_at": "2026-10-20T06:00:00Z",
+  "last_successful_source_check_at": "2026-10-20T06:00:00Z",
+  "change_check_status": "completed",
+  "revision": 3,
+  "publication": {
+    "policy_version": "4.0",
+    "state": "hold",
+    "calendar_eligible": false,
+    "calendar_date": null,
+    "calendar_time": null,
+    "calendar_venue": null,
+    "withheld_fields": [
+      "event_date",
+      "start_time",
+      "venue"
+    ],
+    "reason_codes": [
+      "manual_difference",
+      "publication_held"
+    ],
+    "sales_ready": false,
+    "current_date_allowed": false,
+    "current_time_allowed": false,
+    "field_permissions": {
+      "ceremony_status": {
+        "general_visible": true,
+        "current_allowed": true,
+        "confirmed_at": "2026-10-20T06:50:00Z",
+        "recheck_status": "not_applicable",
+        "reason_codes": []
+      },
+      "event_date": {
+        "general_visible": false,
+        "current_allowed": false,
+        "confirmed_at": null,
+        "recheck_status": "not_applicable",
+        "reason_codes": [
+          "manual_difference"
+        ]
+      },
+      "start_time": {
+        "general_visible": false,
+        "current_allowed": false,
+        "confirmed_at": null,
+        "recheck_status": "not_applicable",
+        "reason_codes": [
+          "publication_held"
+        ]
+      },
+      "venue": {
+        "general_visible": false,
+        "current_allowed": false,
+        "confirmed_at": null,
+        "recheck_status": "not_applicable",
+        "reason_codes": [
+          "publication_held"
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "policy_version": "4.0",
+  "state": "hold",
+  "calendar_eligible": false,
+  "calendar_date": null,
+  "calendar_time": null,
+  "calendar_venue": null,
+  "withheld_fields": [
+    "ceremony_status",
+    "event_date",
+    "start_time",
+    "venue"
+  ],
+  "reason_codes": [
+    "visual_grounding_unverified"
+  ],
+  "sales_ready": false,
+  "current_date_allowed": false,
+  "current_time_allowed": false,
+  "field_permissions": {
+    "ceremony_status": {
+      "general_visible": false,
+      "current_allowed": false,
+      "confirmed_at": null,
+      "recheck_status": "not_applicable",
+      "reason_codes": [
+        "visual_grounding_unverified"
+      ]
+    },
+    "event_date": {
+      "general_visible": false,
+      "current_allowed": false,
+      "confirmed_at": null,
+      "recheck_status": "not_applicable",
+      "reason_codes": [
+        "visual_grounding_unverified"
+      ]
+    },
+    "start_time": {
+      "general_visible": false,
+      "current_allowed": false,
+      "confirmed_at": null,
+      "recheck_status": "not_applicable",
+      "reason_codes": [
+        "visual_grounding_unverified"
+      ]
+    },
+    "venue": {
+      "general_visible": false,
+      "current_allowed": false,
+      "confirmed_at": null,
+      "recheck_status": "not_applicable",
+      "reason_codes": [
+        "visual_grounding_unverified"
+      ]
+    }
+  }
+}

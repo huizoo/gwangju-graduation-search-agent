@@ -1,0 +1,16 @@
+{
+  "expected_revision": 3,
+  "operations": [
+    {
+      "field": "start_time",
+      "action": "set",
+      "value": "10:00",
+      "basis": "phone_confirmed",
+      "confirmed_at": "2026-10-19T03:00:00Z",
+      "bound_date": "2027-01-07",
+      "note": "가상 전화 확인",
+      "resolves_fingerprint": null,
+      "source_url": null
+    }
+  ]
+}

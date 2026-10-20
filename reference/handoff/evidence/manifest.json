@@ -1,0 +1,41 @@
+{
+  "manifest_version": "4.0",
+  "reviewed_at": "2026-10-20",
+  "scope": "historical_probe_evidence_only_no_new_network_execution",
+  "original_probe_generated_at": "2026-10-20T06:05:47.233040+00:00",
+  "files": [
+    {
+      "file": "probe-summary.json",
+      "kind": "byte_identical_historical_probe_copy",
+      "original_path": "$HOME/workspace/week15/graduation_probe/artifacts/live/summary.json",
+      "sha256": "2ee8e98dffd4a8909c8351d11050e55fe377b8d77ac4ef10e387a0beeed77372",
+      "source_sha256": "2ee8e98dffd4a8909c8351d11050e55fe377b8d77ac4ef10e387a0beeed77372"
+    },
+    {
+      "file": "probe-README.md",
+      "kind": "byte_identical_historical_probe_copy",
+      "original_path": "$HOME/workspace/week15/graduation_probe/README.md",
+      "sha256": "aa70fb6d199f39db1641d53d77b36934b96bfb3dbb3999ce74fdbd600942bacf",
+      "source_sha256": "aa70fb6d199f39db1641d53d77b36934b96bfb3dbb3999ce74fdbd600942bacf"
+    },
+    {
+      "file": "probe-search-request-source.txt",
+      "kind": "verbatim_historical_source_excerpt",
+      "original_path": "$HOME/workspace/week15/graduation_probe/probe.py",
+      "line_start": 244,
+      "line_end": 272,
+      "sha256": "3bd119019ec460c5e61bc15f8cd0ab22ea89bc5bf096678444e03ba97e26174a",
+      "source_sha256": "8c641a04b6a8169039485f3b862096f56e8e9201efe0b132b0206aae19375384",
+      "purpose": "Evidence of the hardcoded Responses model and web_search request; source is not executed by this package."
+    },
+    {
+      "file": "probe-findings.json",
+      "kind": "prior_v3_user_report_reconstruction",
+      "original_path": "graduation-agent-comparison-20261020/incoming/graduation-agent-handoff/evidence/probe-findings.json",
+      "sha256": "c53d92cae23297de9498ce6607443f9e6150bf9c10815101436178302ea41ca4",
+      "source_sha256": null,
+      "note": "Preserved unchanged as provenance. Its provider_identified=false and raw_artifacts_inspected_here=false describe the v3 author environment, not the later original-file inspection. Do not use it over probe-summary.json for measured provider identity."
+    }
+  ],
+  "not_included": "Full source documents, attachment binaries, browser runtime and complete probe source are not embedded. They remain at the original probe root. This package is not a live schedule database or completed app."
+}

@@ -1,0 +1,10 @@
+{
+  "expected_revision": 4,
+  "operations": [
+    {
+      "field": "start_time",
+      "action": "release",
+      "note": "공식 확인값 사용"
+    }
+  ]
+}
