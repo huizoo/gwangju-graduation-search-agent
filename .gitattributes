@@ -1,0 +1,4 @@
+# 취득 원문의 해시를 유지하며 인코딩·개행·공백을 정규화하지 않는다.
+assets/registry/*.bin binary
+assets/registry/*.html binary
+assets/registry/children-file-1.csv binary
