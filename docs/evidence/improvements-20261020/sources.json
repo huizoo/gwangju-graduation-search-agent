@@ -1,0 +1,105 @@
+{
+  "scope": "실제 읽기 MCP → 등록 규칙 1.2.0 → 격리 SQLite → 실제 앱 API → HTML",
+  "started_at": "2026-10-20T13:14:10.873848+00:00",
+  "selected_backend": "ollama",
+  "model_calls": 0,
+  "unselected_backend_initialized": false,
+  "checks": [
+    {
+      "institution": "건국초등학교",
+      "academic_year": 2026,
+      "mode": "whole_window_no_date_seed",
+      "trace": [
+        {
+          "tool": "read_resource",
+          "resource": "policy://graduation/verification",
+          "at": "2026-10-20T13:14:11.021727Z",
+          "status": "ok"
+        },
+        {
+          "tool": "get_school_calendar",
+          "at": "2026-10-20T13:14:11.296942Z",
+          "status": "ok",
+          "institution_id": "dccaa9d9-9618-49a6-bd35-bf2eca00e1e2"
+        }
+      ],
+      "documents": [
+        {
+          "id": "1bf43398-8d52-4025-a10c-6e6a63769d79",
+          "status": "ok",
+          "source_kind": "official_api",
+          "hash": "e9198990a319f3c69c6de74a2b8025f21f3d09a2030f0d6300d65742ec3a1ac2",
+          "url": "https://open.neis.go.kr/hub/SchoolSchedule?ATPT_OFCDC_SC_CODE=F10&SD_SCHUL_CODE=7392163&AY=2026&AA_FROM_YMD=20261201&AA_TO_YMD=20270331",
+          "retrieved_at": "2026-10-20T13:14:11.296151Z"
+        }
+      ],
+      "candidate_count": 1,
+      "rows": [
+        {
+          "institution_id": "dccaa9d9-9618-49a6-bd35-bf2eca00e1e2",
+          "event_ids": [
+            "43bd5288-4f45-4b62-a648-8d1ad3f4a32f"
+          ],
+          "name": "건국초등학교",
+          "event_label": "",
+          "date": "2027-01-06",
+          "start_time": null,
+          "address": "전남광주통합특별시 북구 첨단연신로108번길 86",
+          "url": "http://geonkuk.gen.es.kr/",
+          "status": null
+        }
+      ],
+      "passed": true,
+      "html_sha256": "c8680ec0f5af68d9f93fb2f85bb0eee70d43599685b511e67bec55bcb851bce0"
+    },
+    {
+      "institution": "광주과학기술원",
+      "academic_year": 2025,
+      "mode": "seeded_historical_url",
+      "trace": [
+        {
+          "tool": "read_resource",
+          "resource": "policy://graduation/verification",
+          "at": "2026-10-20T13:14:12.318963Z",
+          "status": "ok"
+        },
+        {
+          "tool": "read_public_document",
+          "at": "2026-10-20T13:14:13.199513Z",
+          "status": "ok",
+          "institution_id": "a447a350-c421-4806-b449-8c249e47abf1"
+        }
+      ],
+      "documents": [
+        {
+          "id": "3b91a150-8ada-4634-91ad-2c114553e357",
+          "status": "ok",
+          "source_kind": "html",
+          "hash": "12f4360eda8c8c695ba44741ef3917f35bc8d1b06cd22023fd9861ccb5ed70be",
+          "url": "https://www.gist.ac.kr/kr/html/sub05/050209.html?mode=V&no=220361&GotoPage=1",
+          "retrieved_at": "2026-10-20T13:14:12.460558Z"
+        }
+      ],
+      "candidate_count": 1,
+      "rows": [
+        {
+          "institution_id": "a447a350-c421-4806-b449-8c249e47abf1",
+          "event_ids": [
+            "ad0298ce-5398-419f-bdba-1f6e7e2eb5f6"
+          ],
+          "name": "광주과학기술원",
+          "event_label": "본교",
+          "date": "2026-02-20",
+          "start_time": "14:00",
+          "address": "광주광역시 북구 첨단과기로 123",
+          "url": "https://www.gist.ac.kr/kr/html/sub05/050209.html?mode=V&no=220361&GotoPage=1",
+          "status": null
+        }
+      ],
+      "passed": true,
+      "html_sha256": "8957f66c9b6ea9e2f342f560a02139ac66810af6516465344a4d8a82ce324056"
+    }
+  ],
+  "finished_at": "2026-10-20T13:14:13.795703+00:00",
+  "passed": true
+}
