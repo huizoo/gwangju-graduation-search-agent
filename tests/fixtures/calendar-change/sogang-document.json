@@ -1,0 +1,46 @@
+{
+  "id": "b268402a-8ef9-4b20-b079-3718d7fe3b02",
+  "institution_id": "25d640cc-ea2e-4e5f-a8b5-504449023364",
+  "source_key": "https://scc.sogang.ac.kr/front/cmsboardview.do?bbsConfigFK=6633&pkid=921120&siteId=lic",
+  "display_url": "https://scc.sogang.ac.kr/front/cmsboardview.do?bbsConfigFK=6633&pkid=921120&siteId=lic",
+  "title": "로욜라국제대학 - 공지사항",
+  "authority": "unverified",
+  "source_kind": "html",
+  "content_type": "text/html",
+  "status": "ok",
+  "retrieved_at": "2026-10-20T11:05:17.062922Z",
+  "last_checked_at": "2026-10-20T11:05:17.062922Z",
+  "content_hash": "a766327df558085b5d2831052cbfacae39cf91c4496d67a156ab223e10dae726",
+  "segments": [
+    {
+      "id": "s1",
+      "locator_kind": "html_text",
+      "location": "text offsets 0..430",
+      "text": "[수업,수강신청] 2025학년도 학부 학사력 변경 안내\n로욜라국제대학\n2025.04.16 14:09:44\n- 2025학년도 학사력 변경 -\n■ 학사력 변경 내용\n- 임시공휴일 지정\n대통령선거 2025.6.3(화)\n- 서강문화제\n(변경전) 2025.9.25(목)~26(금) → (변경후) 2025.9.22(월)~26(금)\n- 동계 계절수업 종강일\n(변경전) 2026.1.12(월) → (변경후) 2026.1.14(수)\n- 제63회 학위수여식\n(변경전) 2026.2.23(월) → (변경후) 2026.2.20(금)\n- 전학년 수강신청\n(변경전) 2026.2.24(화) → (변경후) 2026.2.25(수)\n2025. 4. 16\n학사지원팀\n첨부파일\n목록\n다음글\n[국내교류] 2025학년도 하계학기 서울대학교 교류 수학 안내\n이전글\ne-병무지갑을 활용한 군휴학 신청 방법 안내",
+      "unit_id": "body"
+    }
+  ],
+  "partial": false,
+  "read_scope": "HTML 본문 텍스트",
+  "reason_codes": [],
+  "acquisition": {
+    "method": "http",
+    "transport_status": "ok",
+    "http_status": 200,
+    "final_url": "https://scc.sogang.ac.kr/front/cmsboardview.do?bbsConfigFK=6633&pkid=921120&siteId=lic",
+    "tls_verified": true
+  },
+  "reading": {
+    "method": "html_parser",
+    "scope": "full_text",
+    "content_match": "expected",
+    "institution_match": "unclear"
+  },
+  "image_size": null,
+  "authority_evidence": null,
+  "recheck": {
+    "status": "not_attempted",
+    "attempted_at": null,
+    "reason_codes": []
+  }
+}

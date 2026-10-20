@@ -18,6 +18,15 @@
       "activation_basis": "실제 GIST 2025학년도 공식 학위수여식 공지의 행사개요에서 2026-02-20 14:00과 장소를 원문 대조했다. 입장 13:30·가운 대여 10:00과 현재 시즌으로의 오분류 반례를 차단했다.",
       "evidence": ["docs/research.md", "tests/test_rules.py", "runtime/provider-live/historical-gist-rule-check.json"],
       "limitations": "실제 명시 공지의 제한된 문장·행사개요 구조를 지원한다. URL을 사람이 선정한 과거 사례의 검사이며 현재 시즌의 자동 발견율이나 모든 공지 형식의 정확성을 뜻하지 않는다."
+    },
+    {
+      "id": "academic_calendar_row",
+      "version": "1.0.0",
+      "enabled": true,
+      "scope": ["ceremony_status", "event_date"],
+      "activation_basis": "실제 서강대 2025학년도 학사력 변경 원문에서 제63회 학위수여식 2026-02-23→2026-02-20을 읽고 새 날짜와 연속 인용을 대조했다. 공식성 미확인 문서는 그대로 거절하며, 독립 합성 원문의 공식 관계·같은 행사 대체·순환 충돌·수기 보호를 저장과 게시까지 검사했다.",
+      "evidence": ["docs/evidence/calendar-change-rule.json", "tests/test_calendar_change.py", "tests/test_change_storage.py"],
+      "limitations": "학부/대학원과 학년도, 회차, 변경전/변경후, 두 완전한 날짜와 화살표가 명시된 좁은 행만 지원한다. 날짜 변경만 처리하며 시각·장소 변경, 다른 표 문법, 생략 연도는 추측하지 않는다. 실제 원문은 광주 밖 과거 사례이고 운영 명부에 import하지 않았다. 원문 파서 검증과 합성 대체관계 검증을 실제 광주 일정 변경의 종단 성과로 합산하지 않는다."
     }
   ]
 }

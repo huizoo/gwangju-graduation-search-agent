@@ -1,0 +1,46 @@
+{
+  "id": "971a2482-118f-4a65-b8f4-71dc9f092744",
+  "institution_id": "1e4dcb76-4a77-46cb-a7d1-838d3cb2332f",
+  "source_key": "https://school.cbe.go.kr/cbbh-h/M010301/view/5068123?s_idx=15",
+  "display_url": "https://school.cbe.go.kr/cbbh-h/M010301/view/5068123?s_idx=15",
+  "title": "공지사항<학교소식<충북비즈니스고등학교",
+  "authority": "unverified",
+  "source_kind": "html",
+  "content_type": "text/html",
+  "status": "ok",
+  "retrieved_at": "2026-10-20T11:05:17.844955Z",
+  "last_checked_at": "2026-10-20T11:05:17.844955Z",
+  "content_hash": "75dff3c7b333dc0a1703e55027a999c3444242e3150e31e2ff31bcde237650a3",
+  "segments": [
+    {
+      "id": "s1",
+      "locator_kind": "html_text",
+      "location": "text offsets 0..583",
+      "text": "메인메뉴 바로가기\n본문내용 바로가기\n로그인\n사이트맵\n퀵메뉴\n학교폭력신고\nS2B 수의계약 공개\n오늘의급식\n생활공감정책\n학교알리미\n충북사이버가정학습\n110수화(화상)채팅상담\n지방교육재정알리미\ne-도서관(전자책)\n학부모서비스\n다채움\n메인 컨텐츠\n학교소식\n공지사항\n학사일정\n학교앨범\n학교앨범\n언론 보도자료\n가정통신문\n급식이야기\n월간식단표\n급식게시판\n영양 상담실\n식생활관 소리함\n보건이야기\n보건이야기\n고충상담창구\n신입생 입학안내\n2027년 신입생 입학전형\n취업희망자 특별전형\n체육특기자 전형\n신입생 입학안내 게시판\n운동부소식(클린보드)\n공지사항\n홈\n>\n학교소식\n>\n공지사항\n2023. 종업식 및 졸업식 일정 변경 안내\n작성자\n충북비즈니스고\n등록일\n23.10.25\n조회수\n239\n8. 10. (\n목\n)\n제\n6\n호 태풍\n‘\n카눈\n’\n으로 인한 학사 운영 휴업 결정으로 인한\n2023. 종업식 및 졸업식 일정 변경 안내\n: 종업식 및 졸업식 2023. 12. 15.(금)에서\n12. 18.(월)\n로 변경\n이전글\n2024학년도 충북비즈니스고등학교 입학전형 시행 요강 및 특별전형 양식\n다음글\n[안내] 2023. 학부모 배움길 특강(29~30) 신청 안내\n목록",
+      "unit_id": "body"
+    }
+  ],
+  "partial": false,
+  "read_scope": "HTML 본문 텍스트",
+  "reason_codes": [],
+  "acquisition": {
+    "method": "http",
+    "transport_status": "ok",
+    "http_status": 200,
+    "final_url": "https://school.cbe.go.kr/cbbh-h/M010301/view/5068123?s_idx=15",
+    "tls_verified": true
+  },
+  "reading": {
+    "method": "html_parser",
+    "scope": "full_text",
+    "content_match": "expected",
+    "institution_match": "matched"
+  },
+  "image_size": null,
+  "authority_evidence": null,
+  "recheck": {
+    "status": "not_attempted",
+    "attempted_at": null,
+    "reason_codes": []
+  }
+}

@@ -1,0 +1,267 @@
+{
+  "checked_at": "2026-10-20T11:14:12.909404+00:00",
+  "rule_id": "academic_calendar_row",
+  "rule_version": "1.0.0",
+  "status": "passed",
+  "evidence_class": "captured_real_notice_parser_and_isolated_authority_boundary",
+  "scope": {
+    "actual_capture_documents": 3,
+    "gwangju_documents": 0,
+    "production_database_imports": 0,
+    "network_requests_in_this_validation": 0,
+    "actual_official_supersession_end_to_end": false,
+    "test_case_count": 25,
+    "actual_capture_cases": 7,
+    "separate_synthetic_grammar_cases": 18
+  },
+  "interpretation": [
+    "서강대 실제 2025학년도 문서에서 새 날짜2026-02-20 및 명시적 변경 전후 문장을 추출했다.",
+    "시작 시각은 원문에 없어 null로 유지하며 게시 시각을 사용하지 않는다.",
+    "이 캡처는 authority=unverified이고 공식 관계 증명이 운영 채널에 등록되지 않았다. ValueCheck 및 Publication은 거절/보류한다.",
+    "실제 미확인 문서를 official로 바꾸지 않았다. 기관·행사 연결용 임시 검증 컨텍스트만 메모리에서 만들었다.",
+    "현재2026학년도에 과거 공지를 적용하지 않는다. 다른 표문법 CKU와 학년도 미명시 CBBH는 후보를 생성하지 않는다.",
+    "광주 밖 자료의 파서 규칙 검사이며 운영 목록 적재·현재 광주 일정 성과·실제 변경관계 자동 대체 전체 검증으로 주장하지 않는다."
+  ],
+  "captures": [
+    {
+      "tag": "sogang",
+      "institution": "서강대학교",
+      "academic_year_context": 2025,
+      "source_url": "https://scc.sogang.ac.kr/front/cmsboardview.do?bbsConfigFK=6633&pkid=921120&siteId=lic",
+      "source_captured_at": "2026-10-20T11:05:17.062922Z",
+      "document_id": "b268402a-8ef9-4b20-b079-3718d7fe3b02",
+      "document_content_sha256": "a766327df558085b5d2831052cbfacae39cf91c4496d67a156ab223e10dae726",
+      "fixture_path": "tests/fixtures/calendar-change/sogang-document.json",
+      "fixture_file_sha256": "a65765793f1534dbffa707e8347040c97227ad6efadde297ce3aa90e836ab97b",
+      "original_capture_path": "runtime/change-notice-search/sogang-document.json",
+      "byte_identical_to_original": true,
+      "authority_unchanged": "unverified",
+      "authority_evidence_unchanged": null,
+      "source_location": "/segments/0/text",
+      "candidate_count": 1,
+      "candidates": [
+        {
+          "event_title": "제63회 학위수여식",
+          "event_type": "degree_award_ceremony",
+          "event_key_hint": "academic-calendar:제63회 학위수여식:학부",
+          "audience": "학부 졸업 대상 학생",
+          "campus_label": null,
+          "academic_year": 2025,
+          "season_alignment": "explicit",
+          "ceremony_status": "scheduled",
+          "event_date": {
+            "precision": "day",
+            "date": "2026-02-20",
+            "month": null
+          },
+          "start_time": null,
+          "time_role": null,
+          "venue": null,
+          "context_evidence": [
+            {
+              "kind": "literal",
+              "segment_id": "s1",
+              "quote": "- 제63회 학위수여식\n(변경전) 2026.2.23(월) → (변경후) 2026.2.20(금)",
+              "bbox": null
+            }
+          ],
+          "date_evidence": [
+            {
+              "kind": "literal",
+              "segment_id": "s1",
+              "quote": "2026.2.20",
+              "bbox": null
+            }
+          ],
+          "time_evidence": [],
+          "venue_evidence": [],
+          "is_change_notice": true,
+          "supersedes_text": "(변경전) 2026.2.23(월) → (변경후) 2026.2.20(금)"
+        }
+      ]
+    },
+    {
+      "tag": "cku",
+      "institution": "가톨릭관동대학교",
+      "academic_year_context": 2026,
+      "source_url": "https://www.cku.ac.kr/health/3352/subview.do?enc=Zm5jdDF8QEB8JTJGYmJzJTJGaGVhbHRoJTJGMTcyJTJGMzY4MTE4JTJGYXJ0Y2xWaWV3LmRvJTNG",
+      "source_captured_at": "2026-10-20T11:05:17.437983Z",
+      "document_id": "a03291a1-80c9-4874-9195-8c8f3212ca8d",
+      "document_content_sha256": "8a9e2355f236373fdab6b16d08cfb8b60f2420257aa3ec920248377aebf31af9",
+      "fixture_path": "tests/fixtures/calendar-change/cku-document.json",
+      "fixture_file_sha256": "285f68da91048387e7a63a38e5e2c7c79eac9b9d01683f68843b35d1045fd355",
+      "original_capture_path": "runtime/change-notice-search/cku-document.json",
+      "byte_identical_to_original": true,
+      "authority_unchanged": "unverified",
+      "authority_evidence_unchanged": null,
+      "source_location": "/segments/0/text",
+      "candidate_count": 0,
+      "candidates": []
+    },
+    {
+      "tag": "cbbh",
+      "institution": "충북비즈니스고등학교",
+      "academic_year_context": 2023,
+      "source_url": "https://school.cbe.go.kr/cbbh-h/M010301/view/5068123?s_idx=15",
+      "source_captured_at": "2026-10-20T11:05:17.844955Z",
+      "document_id": "971a2482-118f-4a65-b8f4-71dc9f092744",
+      "document_content_sha256": "75dff3c7b333dc0a1703e55027a999c3444242e3150e31e2ff31bcde237650a3",
+      "fixture_path": "tests/fixtures/calendar-change/cbbh-document.json",
+      "fixture_file_sha256": "8c41eb27e7063fdc4332c3028155489b54c7634f422f76199219373935a90a70",
+      "original_capture_path": "runtime/change-notice-search/cbbh-document.json",
+      "byte_identical_to_original": true,
+      "authority_unchanged": "unverified",
+      "authority_evidence_unchanged": null,
+      "source_location": "/segments/0/text",
+      "candidate_count": 0,
+      "candidates": []
+    }
+  ],
+  "actual_current_2026_season_candidate_count": 0,
+  "actual_unverified_value_checks": {
+    "event_date": {
+      "status": "rejected",
+      "rule_id": "academic_calendar_row",
+      "checks": {
+        "institution": "unknown",
+        "content": "fail",
+        "season": "pass",
+        "event_identity": "pass",
+        "literal_presence": "pass",
+        "normalized_value": "unknown",
+        "time_role": "not_applicable"
+      },
+      "evidence_ids": [
+        "06fa7193-bf7f-4e7b-8486-1e40c253b271"
+      ],
+      "document_ids": [
+        "b268402a-8ef9-4b20-b079-3718d7fe3b02"
+      ],
+      "reason_codes": [
+        "value_not_supported",
+        "wrong_source",
+        "content_mismatch"
+      ],
+      "checked_at": "2026-10-20T11:14:12.602119Z",
+      "policy_version": "4.0",
+      "rule_version": "1.0.0",
+      "field": "event_date",
+      "document_hashes": {
+        "b268402a-8ef9-4b20-b079-3718d7fe3b02": "a766327df558085b5d2831052cbfacae39cf91c4496d67a156ab223e10dae726"
+      }
+    },
+    "ceremony_status": {
+      "status": "rejected",
+      "rule_id": "academic_calendar_row",
+      "checks": {
+        "institution": "unknown",
+        "content": "fail",
+        "season": "pass",
+        "event_identity": "pass",
+        "literal_presence": "pass",
+        "normalized_value": "unknown",
+        "time_role": "not_applicable"
+      },
+      "evidence_ids": [
+        "06fa7193-bf7f-4e7b-8486-1e40c253b271"
+      ],
+      "document_ids": [
+        "b268402a-8ef9-4b20-b079-3718d7fe3b02"
+      ],
+      "reason_codes": [
+        "value_not_supported",
+        "wrong_source",
+        "content_mismatch"
+      ],
+      "checked_at": "2026-10-20T11:14:12.602138Z",
+      "policy_version": "4.0",
+      "rule_version": "1.0.0",
+      "field": "ceremony_status",
+      "document_hashes": {
+        "b268402a-8ef9-4b20-b079-3718d7fe3b02": "a766327df558085b5d2831052cbfacae39cf91c4496d67a156ab223e10dae726"
+      }
+    }
+  },
+  "actual_unverified_publication": {
+    "policy_version": "4.0",
+    "state": "hold",
+    "calendar_eligible": false,
+    "calendar_date": null,
+    "calendar_time": null,
+    "calendar_venue": null,
+    "withheld_fields": [
+      "ceremony_status",
+      "event_date",
+      "start_time",
+      "venue"
+    ],
+    "reason_codes": [
+      "publication_held"
+    ],
+    "sales_ready": false,
+    "current_date_allowed": false,
+    "current_time_allowed": false,
+    "field_permissions": {
+      "ceremony_status": {
+        "general_visible": false,
+        "current_allowed": false,
+        "confirmed_at": null,
+        "recheck_status": "not_applicable",
+        "reason_codes": [
+          "publication_held"
+        ]
+      },
+      "event_date": {
+        "general_visible": false,
+        "current_allowed": false,
+        "confirmed_at": null,
+        "recheck_status": "not_applicable",
+        "reason_codes": [
+          "publication_held"
+        ]
+      },
+      "start_time": {
+        "general_visible": false,
+        "current_allowed": false,
+        "confirmed_at": null,
+        "recheck_status": "not_applicable",
+        "reason_codes": [
+          "publication_held"
+        ]
+      },
+      "venue": {
+        "general_visible": false,
+        "current_allowed": false,
+        "confirmed_at": null,
+        "recheck_status": "not_applicable",
+        "reason_codes": [
+          "publication_held"
+        ]
+      }
+    }
+  },
+  "synthetic_cases": [
+    "다른 학년도",
+    "서로 다른 학년도 헤더",
+    "대상 학부/대학원 누락",
+    "서로 다른 대상 헤더",
+    "회차 누락",
+    "이전 연도 누락",
+    "새 연도 누락",
+    "존재하지 않는 날짜",
+    "이전 날짜 범위",
+    "새 날짜 범위",
+    "입학식",
+    "학위복 대여",
+    "예행연습",
+    "조사기간 밖 이전 날짜",
+    "동일 날짜 변경",
+    "같은 변경 행에 붙은 게시 시각",
+    "회차/대상은 각각 다른 행사키 유지",
+    "다른 줄의 게시 시각은 행사 시작에 사용하지 않음"
+  ],
+  "test_command": ".venv/bin/python -m pytest tests/test_calendar_change.py -q",
+  "test_exit_code": 0,
+  "test_stdout": ".........................                                                [100%]\n25 passed in 0.05s\n",
+  "test_stderr": ""
+}

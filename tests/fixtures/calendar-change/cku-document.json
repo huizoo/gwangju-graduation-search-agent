@@ -1,0 +1,46 @@
+{
+  "id": "a03291a1-80c9-4874-9195-8c8f3212ca8d",
+  "institution_id": "1fc6c5ac-7c2e-41fd-aa60-09ca2a589954",
+  "source_key": "https://www.cku.ac.kr/health/3352/subview.do?enc=Zm5jdDF8QEB8JTJGYmJzJTJGaGVhbHRoJTJGMTcyJTJGMzY4MTE4JTJGYXJ0Y2xWaWV3LmRvJTNG",
+  "display_url": "https://www.cku.ac.kr/health/3352/subview.do?enc=Zm5jdDF8QEB8JTJGYmJzJTJGaGVhbHRoJTJGMTcyJTJGMzY4MTE4JTJGYXJ0Y2xWaWV3LmRvJTNG",
+  "title": "공지사항",
+  "authority": "unverified",
+  "source_kind": "html",
+  "content_type": "text/html",
+  "status": "ok",
+  "retrieved_at": "2026-10-20T11:05:17.437983Z",
+  "last_checked_at": "2026-10-20T11:05:17.437983Z",
+  "content_hash": "8a9e2355f236373fdab6b16d08cfb8b60f2420257aa3ec920248377aebf31af9",
+  "segments": [
+    {
+      "id": "s1",
+      "locator_kind": "html_text",
+      "location": "text offsets 0..284",
+      "text": "fnctId=bbs,fnctNo=172\n글번호\n368118\n2026학년도 학사일정 변경(학위수여식) 안내\n수정일\n2026.10.05\n작성자\n[비식별 처리]\n조회수\n80\n등록일\n2026.10.05\n2026학년도 학사일정 변경 사항을 아래와 같이 안내드립니다.\n(자세한 사항은 \"학교 홈페이지\" - \"교육정보\" - \"학사일정\"에서 확인 가능)\n구분\n내용\n변경 전\n변경 후\n2026-2\n학기\n2026\n학년도 전기 학위수여식\n2027. 2. 19.(\n금\n)\n2027. 2. 18.(\n목\n)\n첨부파일\n첨부파일이(가) 없습니다.",
+      "unit_id": "body"
+    }
+  ],
+  "partial": false,
+  "read_scope": "HTML 본문 텍스트",
+  "reason_codes": [],
+  "acquisition": {
+    "method": "http",
+    "transport_status": "ok",
+    "http_status": 200,
+    "final_url": "https://www.cku.ac.kr/health/3352/subview.do?enc=Zm5jdDF8QEB8JTJGYmJzJTJGaGVhbHRoJTJGMTcyJTJGMzY4MTE4JTJGYXJ0Y2xWaWV3LmRvJTNG",
+    "tls_verified": true
+  },
+  "reading": {
+    "method": "html_parser",
+    "scope": "full_text",
+    "content_match": "expected",
+    "institution_match": "unclear"
+  },
+  "image_size": null,
+  "authority_evidence": null,
+  "recheck": {
+    "status": "not_attempted",
+    "attempted_at": null,
+    "reason_codes": []
+  }
+}

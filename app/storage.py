@@ -976,7 +976,7 @@ class Service:
             refreshed_document_ids: 이번 조사에서 본문을 실제 성공적으로 읽은 문서 ID.
         """
         from app.publication import _support
-        from app.rules import value_check
+        from app.rules import supersession_edges, value_check
         event, context = self._project(conn, event_id)
         season = self._season(conn, event["season_id"])
         event["_identifiers"] = {item["provider"]: item["external_key"] for item in conn.execute("SELECT provider,external_key FROM institution_identifiers WHERE institution_id=?", (event["institution"]["id"],))}
@@ -1005,11 +1005,28 @@ class Service:
                     supports, failures = _support(name, automatic, event, season, probe_context, datetime.now(timezone.utc))
                     if supports and not failures:
                         supported.append((observation, automatic))
-                        accepted_ids.add(observation["id"])
                         break
                     proof["status"] = "rejected"
                     proof["reason_codes"] = failures or ["evidence_invalidated"]
                     proof["checks"]["content"] = "fail"
+            # 최신 문서라는 이유만으로 교체하지 않는다. 원문·이전값·새값의
+            # 대체 관계를 서버 규칙이 검증한 필드에서만 이전 근거를 제외한다.
+            edges = supersession_edges(name, supported, context["documents"], event, season)
+            superseded = {edge["old_id"] for edge in edges}
+            if edges:
+                recorded = {dumps(json.loads(row[0])) for row in conn.execute(
+                    "SELECT after_json FROM audit_log WHERE entity_type='event' AND entity_id=? "
+                    "AND action='supersede_observation' AND field=?",
+                    (event_id, name),
+                )}
+                for edge in edges:
+                    serialized = dumps(edge)
+                    if serialized not in recorded:
+                        _audit(conn, "event", event_id, "supersede_observation", after=edge,
+                               field=name, actor="system", summary="공식 변경 공지의 필드별 대체 관계 확인")
+                        recorded.add(serialized)
+                supported = [(observation, value) for observation, value in supported
+                             if observation["id"] not in superseded]
             automatic = empty_automatic()
             automatic.update(assessment_id=new_id(), checked_at=now)
             if supported:
@@ -1033,6 +1050,10 @@ class Service:
                 automatic.update(status="reference_only", value=references[-1][1], bound_date=references[-1][0]["candidate"]["event_date"].get("date") if name in ("start_time", "venue") else None, evidence_ids=[item[0]["id"] for item in references], reason_codes=["semantic_review_required"] if context["registered_rules"] else ["rule_not_enabled"], fingerprint=fingerprint([{name: value} for _, value in references]))
             else:
                 automatic.update(status="missing", reason_codes=["date_missing" if name == "event_date" else "time_missing" if name == "start_time" else "not_found"])
+            if automatic["status"] in {"official_confirmed", "conflict"}:
+                # 관측 상태는 전역이므로 미대체 필드가 여전히 사용하는 근거는
+                # accepted로 남기고, 어느 필드에도 쓰이지 않는 관측만 reference로 둔다.
+                accepted_ids.update(automatic["evidence_ids"])
             old = event["fields"][name]["automatic"]
             if automatic["status"] == old["status"] == "official_confirmed" and automatic["fingerprint"] == old["fingerprint"] and not (set(automatic["value_check"]["document_ids"]) & set(refreshed_document_ids or [])):
                 # 재확인 실패·기각 처리만으로 과거 값의 실제 확인시각을 새로 만들지 않는다.

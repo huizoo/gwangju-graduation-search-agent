@@ -9,13 +9,18 @@ from datetime import date
 
 from .providers import canonical, neis_identifier, neis_unit, official_channel, utcnow
 
-REGISTERED_RULES = {"neis_ceremony_row": "1.1.0", "explicit_notice": "1.1.0"}
+REGISTERED_RULES = {"neis_ceremony_row": "1.1.0", "explicit_notice": "1.1.0", "academic_calendar_row": "1.0.0"}
 NEIS_EVENTS = {"졸업식": "graduation_ceremony", "졸업식 및 종업식": "graduation_and_completion",
                "졸업식 및 수료식": "graduation_and_completion", "졸업식/종업식": "graduation_and_completion",
                "졸업식,종업식": "graduation_and_completion", "종업식 및 졸업식": "graduation_and_completion",
                "졸업식(종업식)": "graduation_and_completion"}
 EVIDENCE_FIELD = {"event_date": "date_evidence", "start_time": "time_evidence",
                   "venue": "venue_evidence", "ceremony_status": "context_evidence"}
+_CHANGE_ROW = re.compile(
+    r"(?P<line>\(변경\s*전\)\s*(?P<before>\d{4}\s*\.\s*\d{1,2}\s*\.\s*\d{1,2})"
+    r"\.?\s*(?:\([월화수목금토일]\))?\s*→\s*\(변경\s*후\)\s*"
+    r"(?P<after>\d{4}\s*\.\s*\d{1,2}\s*\.\s*\d{1,2})\.?\s*(?:\([월화수목금토일]\))?)"
+)
 
 
 def _evidence(segment_id, quote):
@@ -165,6 +170,50 @@ def _parse_notice_section(text: str, institution: dict, season: dict, segment_id
     return results
 
 
+def _parse_calendar_change(text: str, season: dict, segment_id: str) -> list[dict]:
+    """학사력의 학부·회차·변경 전후 날짜가 명시된 한 행사 행만 읽는다.
+
+    Args:
+        text: 실제 원문 구간. 기관 관계는 별도 공식 채널 검사에서 확인한다.
+        season: 대상 학년도와 전체 조사 기간.
+        segment_id: 인용 구간 식별자.
+    Returns:
+        명시된 새 날짜 후보. 시작 시각과 변경 관계의 이전 관측은 추측하지 않는다.
+    """
+    headers = list(re.finditer(r"(\d{4})\s*학년도\s*(학부|대학원)?\s*학사력\s*변경", text))
+    if not headers or {match[1] for match in headers} != {str(season["academic_year"])}:
+        return []
+    groups = {match[2] for match in headers if match[2]}
+    if len(groups) != 1:
+        return []
+    group = groups.pop()
+    pattern = re.compile(
+        r"(?:^|\n)\s*-\s*(?P<title>제\s*\d+\s*회\s*(?P<kind>학위수여식|졸업식))\s*\n"
+        r"(?P<row>[^\n]+)"
+    )
+    result = []
+    for matched in pattern.finditer(text):
+        change = _CHANGE_ROW.fullmatch(matched["row"].strip())
+        if change is None:
+            continue
+        try:
+            before, after = [date(*map(int, re.findall(r"\d+", change[key]))).isoformat()
+                             for key in ("before", "after")]
+        except ValueError:
+            continue
+        if before == after or not all(season["search_start"] <= day <= season["search_end"] for day in (before, after)):
+            continue
+        title = re.sub(r"\s+", "", matched["title"]).replace(matched["kind"], " " + matched["kind"])
+        # 회차와 학부/대학원을 분리하여 다른 학과·회차의 과거값을 대체하지 않는다.
+        candidate = _candidate(title, "degree_award_ceremony" if matched["kind"] == "학위수여식" else "graduation_ceremony",
+                               season["academic_year"], after, segment_id, matched.group(0).strip(),
+                               change["after"])
+        candidate.update(event_key_hint=f"academic-calendar:{title}:{group}", audience=f"{group} 졸업 대상 학생",
+                         is_change_notice=True, supersedes_text=change["line"])
+        result.append(candidate)
+    return result
+
+
 def extract_candidates(document: dict, institution: dict, season: dict) -> list[dict]:
     """검증 가능한 정형 매핑을 먼저 적용하여 불필요한 모델 호출을 줄인다.
 
@@ -182,6 +231,7 @@ def extract_candidates(document: dict, institution: dict, season: dict) -> list[
         return [candidate] if candidate else []
     results = []
     for segment in document["segments"]:
+        results.extend(_parse_calendar_change(segment["text"], season, segment["id"]))
         results.extend(_parse_notice_section(segment["text"], institution, season, segment["id"]))
         # 표 전체나 다른 줄의 시간을 임의 결합하지 않고 하나의 명시 문장만 검사한다.
         lines = re.split(r"\n|(?<=[.!?。])\s+(?=[가-힣A-Za-z])", segment["text"])
@@ -219,12 +269,13 @@ def value_check(field: str, value, observation: dict, document: dict, event: dic
     checks = {key: "unknown" for key in ("institution", "content", "season", "event_identity",
                                          "literal_presence", "normalized_value", "time_role")}
     checks["time_role"] = "not_applicable" if field != "start_time" else "unknown"
-    rule = "neis_ceremony_row" if document.get("source_kind") == "official_api" else "explicit_notice"
+    candidate = observation["candidate"]
+    rule = ("neis_ceremony_row" if document.get("source_kind") == "official_api"
+            else "academic_calendar_row" if candidate.get("is_change_notice") else "explicit_notice")
     result = {"status": "ambiguous", "rule_id": rule, "checks": checks,
         "evidence_ids": [observation["id"]], "document_ids": [document["id"]], "reason_codes": [],
         "checked_at": utcnow(), "policy_version": "4.0", "rule_version": REGISTERED_RULES[rule],
         "field": field, "document_hashes": {document["id"]: document["content_hash"]} if document.get("content_hash") else {}}
-    candidate = observation["candidate"]
     linked = (observation.get("document_id") == document["id"]
               and observation.get("institution_id") == institution.get("id") == document.get("institution_id")
               and observation.get("event_id") == event.get("id")
@@ -243,7 +294,7 @@ def value_check(field: str, value, observation: dict, document: dict, event: dic
         {"graduation_ceremony", "graduation_and_completion", "degree_award_ceremony"}
         and candidate.get("campus_label") == event.get("campus_label")
         and candidate.get("audience") == event.get("audience")
-        and not candidate.get("is_change_notice")
+        and (not candidate.get("is_change_notice") or rule == "academic_calendar_row")
     ) else "fail"
     evidence = candidate.get("context_evidence", []) + candidate.get(EVIDENCE_FIELD.get(field, ""), [])
     checks["literal_presence"] = "pass" if _present(evidence, document) else "fail"
@@ -273,7 +324,10 @@ def value_check(field: str, value, observation: dict, document: dict, event: dic
             for original in candidate["context_evidence"]
         )
         if (not same_context or parsed["event_date"] != candidate["event_date"] or
-                any(parsed[key] != candidate.get(key) for key in ("event_type", "audience", "campus_label"))):
+                any(parsed[key] != candidate.get(key) for key in
+                    ("event_type", "audience", "campus_label", "is_change_notice", "supersedes_text"))):
+            continue
+        if rule == "academic_calendar_row" and parsed["event_title"] != candidate.get("event_title"):
             continue
         if field in parsed and parsed[field] == value and candidate.get(field) == value and value is not None:
             checks["normalized_value"] = "pass"
@@ -299,6 +353,69 @@ def value_check(field: str, value, observation: dict, document: dict, event: dic
     else:
         result["reason_codes"].append("quote_support_ambiguous")
     return result
+
+
+def supersession_edges(field, supported, documents, event, season) -> list[dict]:
+    """검증된 변경 행의 이전값과 같은 행사 관측만 대체 관계로 연결한다.
+
+    Args:
+        field: 현재 평가할 필드. 현재 지원 범위는 날짜다.
+        supported: 원문·공식성·활성 규칙 검사를 통과한 관측과 자동 평가 쌍.
+        documents: 같은 저장 snapshot의 문서 사전.
+        event: 같은 기관·회차·대상·시즌의 행사.
+        season: 해당 행사의 학년도와 기간.
+    Returns:
+        순환하는 변경 주장을 제외한 방향 있는 관계 목록. 원래 관측은 삭제하지 않는다.
+    """
+    if field != "event_date":
+        return []
+    edges = []
+    for new, automatic in supported:
+        candidate = new["candidate"]
+        if not candidate.get("is_change_notice"):
+            continue
+        proof = automatic.get("value_check") or {}
+        document = documents.get(new["document_id"], {})
+        if (proof.get("rule_id") != "academic_calendar_row"
+                or proof.get("rule_version") != REGISTERED_RULES["academic_calendar_row"]
+                or not verify(field, candidate[field], new, document, event, season)):
+            continue
+        change = _CHANGE_ROW.fullmatch(candidate.get("supersedes_text") or "")
+        if change is None:
+            continue
+        try:
+            before = date(*map(int, re.findall(r"\d+", change["before"]))).isoformat()
+        except ValueError:
+            continue
+        for old, old_automatic in supported:
+            old_candidate = old["candidate"]
+            if (old["id"] == new["id"] or old_candidate.get("event_date", {}).get("date") != before
+                    or any(old.get(key) != new.get(key) for key in ("institution_id", "season_id", "event_id"))
+                    or any(old_candidate.get(key) != candidate.get(key) for key in
+                           ("event_key_hint", "event_title", "event_type", "audience", "campus_label"))
+                    or not verify(field, old_automatic["value"], old, documents.get(old["document_id"], {}), event, season)):
+                continue
+            edges.append({"old_id": old["id"], "new_id": new["id"], "field": field,
+                          "source_document_id": new["document_id"], "rule_id": proof["rule_id"],
+                          "rule_version": proof["rule_version"]})
+    adjacency = {}
+    for edge in edges:
+        adjacency.setdefault(edge["old_id"], set()).add(edge["new_id"])
+
+    def reaches(start, target):
+        """변경 관계가 출발 관측으로 되돌아오는지 확인한다."""
+        pending, seen = [start], set()
+        while pending:
+            node = pending.pop()
+            if node == target:
+                return True
+            if node not in seen:
+                seen.add(node)
+                pending.extend(adjacency.get(node, ()))
+        return False
+
+    # 게시 순서를 추측하지 않고 A→B와 B→A는 충돌로 남겨 재확인을 요구한다.
+    return [edge for edge in edges if not reaches(edge["new_id"], edge["old_id"])]
 
 
 def verify(field, value, observation, document, event, season, *, institution=None) -> bool:
