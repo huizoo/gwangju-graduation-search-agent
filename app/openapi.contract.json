@@ -1708,6 +1708,46 @@
           }
         }
       }
+    },
+    "/api/results": {
+      "get": {
+        "summary": "현재 허용 필드의 단일 일정표",
+        "operationId": "get_schedule_result",
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./domain.schema.json#/$defs/ScheduleResult"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured error: 400/403/404/409/422/503",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./domain.schema.json#/$defs/Error"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "season_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "security": []
+      }
     }
   },
   "components": {

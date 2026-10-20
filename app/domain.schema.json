@@ -8077,6 +8077,107 @@
         "event_blockers",
         "use_fixture_rules"
       ]
+    },
+    "ScheduleRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "institution_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "event_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "name": {
+          "type": "string"
+        },
+        "event_label": {
+          "type": "string"
+        },
+        "date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "start_time": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+        },
+        "address": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        },
+        "status": {
+          "enum": [
+            null,
+            "cancelled",
+            "not_held"
+          ]
+        }
+      },
+      "required": [
+        "institution_id",
+        "event_ids",
+        "name",
+        "event_label",
+        "date",
+        "start_time",
+        "address",
+        "url",
+        "status"
+      ]
+    },
+    "ScheduleResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "presentation_version": {
+          "const": "1.0"
+        },
+        "rows": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/ScheduleRow"
+          }
+        },
+        "season_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "request_job_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "presentation_version",
+        "rows",
+        "season_id",
+        "request_job_id"
+      ],
+      "description": "사용자 표현 계약 1.0: 현재 허용 필드만 제공. 조사 대상과 직접 기록 기관을 포함하며 과거 보류값, 검증 상세, 사적 메모는 포함하지 않는다."
     }
   }
 }

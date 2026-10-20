@@ -153,12 +153,13 @@ class Application:
 
     def export_result(self, season_id: str) -> dict:
         """검증된 같은 정책 파일만 현재 일정 URL로 제공한다."""
+        from .exporting import current_export
         with self.store.transaction() as conn:
             season = conn.execute("SELECT * FROM seasons WHERE id=?", (season_id,)).fetchone()
             if season is None:
                 raise ApiError("not_found", "시즌을 찾을 수 없습니다.", 404)
             row = conn.execute("SELECT * FROM exports WHERE season_id=?", (season_id,)).fetchone()
-            valid = row and row["publication_policy_version"] == "4.0" and row["file_ref"] and Path(row["file_ref"]).is_file()
+            valid = row and row["publication_policy_version"] == "4.0" and row["file_ref"] and current_export(row["file_ref"])
             return {
                 "season_id": season_id, "status": row["status"] if row else "pending",
                 "content_revision": self.store.revision(conn), "exported_revision": row["exported_revision"] if valid else None,
@@ -216,6 +217,11 @@ class Application:
             return service.get_institution(identity) if method == "get" else service.patch_institution(identity, body)
         if path == "/api/overview":
             return service.overview(query["season_id"])
+        if path == "/api/results":
+            from .results import result_rows, PRESENTATION_VERSION
+            snapshot = service.snapshot(query["season_id"])
+            return {"presentation_version": PRESENTATION_VERSION, "rows": result_rows(snapshot),
+                    "season_id": query["season_id"], "request_job_id": snapshot["request_job_id"]}
         if path == "/api/events":
             if method == "post":
                 return service.create_event(body)
@@ -278,9 +284,10 @@ class Application:
                 raise ApiError("not_found", "백업을 찾을 수 없습니다.", 404)
             return FileResponse(target, filename="졸업식-기록-백업.sqlite3", media_type="application/vnd.sqlite3")
         if path == "/exports/{export_key}/schedule.html":
+            from .exporting import current_export
             with self.store.transaction() as conn:
                 row = conn.execute("SELECT e.file_ref,e.publication_policy_version FROM exports e JOIN seasons s ON s.id=e.season_id WHERE s.export_key=?", (request.path_params["export_key"],)).fetchone()
-            if not row or row["publication_policy_version"] != "4.0" or not row["file_ref"] or not Path(row["file_ref"]).is_file():
+            if not row or row["publication_policy_version"] != "4.0" or not row["file_ref"] or not current_export(row["file_ref"]):
                 raise ApiError("not_found", "현재 정책으로 저장한 일정표가 없습니다.", 404)
             return FileResponse(row["file_ref"], media_type="text/html; charset=utf-8")
         if path == "/api/app/shutdown":

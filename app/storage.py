@@ -777,7 +777,12 @@ class Service:
                 support_sources = {all_docs[key]["source_key"] for key in refs if key in all_docs}
                 refs.update(key for key, document in all_docs.items() if document["source_key"] in support_sources)
                 documents[event["id"]] = [item for key, item in all_docs.items() if key in refs]
-            return {"season": season, "events": events, "documents": documents, "overview": self._overview(conn, season, events), "content_revision": self.store.revision(conn), "publication_policy_version": POLICY_VERSION, "generated_at": moment}
+            latest = conn.execute("SELECT id FROM jobs WHERE kind='schedule_scan' AND season_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1", (season_id,)).fetchone()
+            target_ids = {row[0] for row in conn.execute("SELECT institution_id FROM job_items WHERE job_id=? AND institution_id IS NOT NULL", (latest[0],))} if latest else {event["institution"]["id"] for event in events}
+            # 직접 기록도 그 기관을 결과에 넣어 달라는 요청이다. 전체 명부를 임의로 출력하지 않는다.
+            target_ids.update(row[0] for row in conn.execute("SELECT DISTINCT e.institution_id FROM events e JOIN manual_overrides m ON m.event_id=e.id WHERE e.season_id=? AND m.active=1", (season_id,)))
+            return {"season": season, "events": events, "targets": [self._institution(conn, key) for key in sorted(target_ids)],
+                    "request_job_id": latest[0] if latest else None, "documents": documents, "overview": self._overview(conn, season, events), "content_revision": self.store.revision(conn), "publication_policy_version": POLICY_VERSION, "generated_at": moment}
 
     def registry_preview(self, payload):
         """공식 목록의 행별 오류·중복을 먼저 저장해 검토 가능하게 한다.
