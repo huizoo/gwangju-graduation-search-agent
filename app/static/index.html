@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <title>광주 졸업식 일정 도우미</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='12' fill='%23eaf2e6'/%3E%3Ctext x='24' y='37' font-size='42' text-anchor='middle' fill='%235f8542'%3E✿%3C/text%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/styles.css">
+  <script src="/static/app.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">본문으로 바로가기</a>
+  <header class="app-header">
+    <div class="brand-mark" aria-hidden="true">✿</div>
+    <div class="brand"><span class="eyebrow">꽃다발 준비를 조금 더 편하게</span><h1>광주 졸업식 일정 도우미</h1></div>
+    <span id="mode-badge" class="badge neutral">연결 중</span>
+    <button id="settings-button" class="quiet">연결 상태</button>
+  </header>
+  <main id="main">
+    <section class="season-toolbar" aria-label="조사 시즌">
+      <label class="season-label">보고 있는 시즌<select id="season-select" aria-label="보고 있는 시즌"></select></label>
+      <div><p id="season-range" class="muted">저장된 시즌을 불러오고 있습니다.</p><button id="edit-season" class="text-button">기간·이름 수정</button></div>
+      <button id="add-season" class="quiet">+ 새 시즌</button>
+      <div class="toolbar-spacer"></div>
+      <button id="refresh-button" class="quiet">새로고침</button>
+      <button id="export-button" class="primary">HTML 일정표 저장</button>
+    </section>
+    <div id="message" role="status" aria-live="polite" hidden></div>
+    <section class="intro">
+      <div><span class="eyebrow">확인된 정보로 차근차근</span><h2 id="page-title">우리 동네 졸업식 일정</h2>
+      <p id="page-description">날짜와 실제 시작 시각, 언제 어떻게 확인했는지 함께 살펴보세요.</p></div>
+      <button id="new-event-button" class="primary">+ 직접 확인한 일정 입력</button>
+    </section>
+    <section id="overview" class="metrics" aria-label="확인 현황"></section>
+    <p id="coverage-note" class="coverage-note"></p>
+    <nav class="tabs" aria-label="주요 목록">
+      <button data-view="calendar" class="active" aria-current="page">일반 일정표 <span id="calendar-count"></span></button>
+      <button data-view="sales">판매 준비 가능</button>
+      <button data-view="review">확인할 기관 <span id="review-count"></span></button>
+      <button data-view="all">모든 기록</button>
+      <button data-view="institutions">기관 관리</button>
+      <button data-view="jobs">조사 현황</button>
+    </nav>
+    <section id="list-filters" class="filters" aria-label="목록 필터">
+      <label class="search-label"><span>기관 이름 검색</span><input id="search" type="search" placeholder="예: 광주, 전남대학교" maxlength="100"></label>
+      <label>지역<select id="district-filter"><option value="">전체 지역</option><option>동구</option><option>서구</option><option>남구</option><option>북구</option><option>광산구</option></select></label>
+      <label>기관 종류<select id="type-filter"><option value="">전체 종류</option></select></label>
+      <label class="date-filter">시작 날짜<input id="from-date" type="date"></label>
+      <label class="date-filter">종료 날짜<input id="to-date" type="date"></label>
+      <button id="reset-filters" class="quiet">필터 초기화</button>
+    </section>
+    <section class="list-toolbar">
+      <p id="result-count" role="status">불러오는 중…</p>
+      <div id="research-actions" class="button-row">
+        <select id="scan-mode" aria-label="조사 방법"><option value="initial">새로 조사</option><option value="missing_only">부족한 정보 조사</option><option value="recheck">기존 근거 재확인</option></select>
+        <button id="scan-selected" class="quiet">선택 기관 조사 <span id="selected-count">0</span></button>
+        <button id="scan-all" class="primary">전체 기관 조사</button>
+      </div>
+      <div id="institution-actions" class="button-row" hidden>
+        <button id="add-institution" class="primary">+ 기관 추가</button>
+        <button id="import-registry" class="quiet">공식 목록 파일 가져오기</button>
+        <button id="prepared-registry" class="quiet">준비된 공식 명부</button>
+        <button id="sync-registry" class="quiet">공식 API 목록 가져오기</button>
+      </div>
+    </section>
+    <div id="view-notice" class="notice" hidden></div>
+    <section id="results" aria-label="조회 결과" aria-live="polite"></section>
+    <div class="load-more-wrap"><button id="load-more" class="quiet" hidden>다음 결과 더 보기</button></div>
+    <section id="registry-status" hidden></section>
+    <footer class="app-footer">
+      <p>확인되지 않은 날짜·시각은 채우지 않습니다. 과거 확인값은 현재 사용 가능 여부와 함께 표시합니다.</p>
+      <div class="button-row"><button id="backup-button" class="text-button">데이터 백업</button><button id="shutdown-button" class="text-button">저장하고 프로그램 종료</button></div>
+    </footer>
+  </main>
+  <dialog id="dialog" aria-labelledby="dialog-title">
+    <div class="dialog-header"><h2 id="dialog-title"></h2><button id="close-dialog" class="icon-button" aria-label="창 닫기">×</button></div>
+    <div id="dialog-content"></div>
+  </dialog>
+  <noscript>이 프로그램은 JavaScript가 필요합니다. 저장한 HTML 일정표의 내용은 JavaScript 없이도 읽을 수 있습니다.</noscript>
+</body>
+</html>
