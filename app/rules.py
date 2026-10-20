@@ -8,8 +8,9 @@ import re
 from datetime import date
 
 from .providers import canonical, neis_identifier, neis_unit, official_channel, utcnow
+from .identity import same_event
 
-REGISTERED_RULES = {"neis_ceremony_row": "1.1.0", "explicit_notice": "1.1.0", "academic_calendar_row": "1.0.0"}
+REGISTERED_RULES = {"neis_ceremony_row": "1.2.0", "explicit_notice": "1.2.0", "academic_calendar_row": "1.0.0"}
 NEIS_EVENTS = {"졸업식": "graduation_ceremony", "졸업식 및 종업식": "graduation_and_completion",
                "졸업식 및 수료식": "graduation_and_completion", "졸업식/종업식": "graduation_and_completion",
                "졸업식,종업식": "graduation_and_completion", "종업식 및 졸업식": "graduation_and_completion",
@@ -20,6 +21,11 @@ _CHANGE_ROW = re.compile(
     r"(?P<line>\(변경\s*전\)\s*(?P<before>\d{4}\s*\.\s*\d{1,2}\s*\.\s*\d{1,2})"
     r"\.?\s*(?:\([월화수목금토일]\))?\s*→\s*\(변경\s*후\)\s*"
     r"(?P<after>\d{4}\s*\.\s*\d{1,2}\s*\.\s*\d{1,2})\.?\s*(?:\([월화수목금토일]\))?)"
+)
+_NEGATIVE = re.compile(
+    r"(?:올해\s*)?(?:(?:개최|실시)(?:를)?\s*)?"
+    r"(?P<status>취소(?:합니다|되었습니다|됐습니다|안내)?|미실시(?:합니다|안내)?|미개최(?:합니다|안내)?|"
+    r"(?:개최|실시)하지\s*않(?:습니다|기로\s*했습니다))\s*[.!。]?"
 )
 
 
@@ -62,26 +68,72 @@ def _neis_candidate(document: dict, season: dict) -> dict | None:
         day = date(int(raw_date[:4]), int(raw_date[4:6]), int(raw_date[6:])).isoformat()
         if not season["search_start"] <= day <= season["search_end"]:
             return None
-        if re.search(r"취소|미개최|연기|예행|리허설|졸업여행", str(row.get("EVENT_CNTNT", ""))):
+        content = str(row.get("EVENT_CNTNT", "")).strip()
+        status_text = re.sub(r"^(?:졸업식|학위수여식)(?:은|는|이|을)?\s*", "", content)
+        negative = _NEGATIVE.fullmatch(status_text)
+        if not negative and re.search(r"취소|미개최|미실시|하지\s*않|연기|예행|리허설|졸업여행", content):
             return None
         candidate = _candidate(name, event_type, int(row["AY"]), day, segment["id"], segment["text"], raw_date)
         candidate.update(event_key_hint=unit["key"], audience=unit["audience"])
+        if negative:
+            candidate.update(ceremony_status="cancelled" if "취소" in negative["status"] else "not_held",
+                             event_date={"precision": "unknown", "date": None, "month": None}, date_evidence=[])
         return candidate
     except (KeyError, ValueError, TypeError):
         return None
 
 
+def _notice_subject(line: str, institution: dict, season: dict):
+    """기관명이 행사의 주어인 명시 문장만 반환한다.
+
+    Args:
+        line: 한 문장.
+        institution: 대상 기관.
+        season: 조사 학년도.
+    Returns:
+        행사 이름 뒤 부분 또는 연결을 확인할 수 없으면 None.
+    """
+    if re.findall(r"(\d{4})\s*학년도", line) != [str(season["academic_year"])]:
+        return None
+    # '초등학교 병설유치원 졸업식'과 '졸업식 준비 설명회'는 다른 명사구다.
+    subject = re.search(re.escape(institution["name"]) +
+        r"\s*(?:\d{4}\s*학년도\s*)?(?:제\s*\d+\s*회\s*)?(졸업식|학위수여식)(?:은|는|이|을)?(?=\s|[:：]|$)", line)
+    return line[subject.end():].strip() if subject else None
+
+
+def _parse_negative(line, institution, season, segment_id):
+    """같은 기관·학년도의 행사 자체에 붙은 부정 서술을 읽는다."""
+    tail = _notice_subject(line, institution, season)
+    if tail is None:
+        return None
+    tail = re.sub(r"^\d{4}년\s*\d{1,2}월\s*\d{1,2}일(?:\([월화수목금토일]\))?\s*(?:예정이었으나\s*)?", "", tail)
+    negative = _NEGATIVE.fullmatch(tail)
+    if not negative:
+        return None
+    candidate = _candidate(f"{season['academic_year']}학년도 졸업식",
+        "degree_award_ceremony" if "학위수여식" in line else "graduation_ceremony",
+        season["academic_year"], None, segment_id, line, None)
+    candidate.update(ceremony_status="cancelled" if "취소" in negative["status"] else "not_held",
+                     event_date={"precision": "unknown", "date": None, "month": None}, date_evidence=[])
+    return candidate
+
+
 def _parse_notice_line(line: str, institution: dict, season: dict, segment_id: str) -> dict | None:
     """한 문장에 연결된 기관·학년도·졸업식·행사일을 좁게 인식한다."""
-    if len(line) > 1200 or institution["name"] not in line or "졸업식" not in line:
+    if len(line) > 1200:
         return None
-    if re.search(r"취소|미개최|연기|변경|예행|리허설|졸업여행|지난|작년|지난해", line):
+    tail = _notice_subject(line, institution, season)
+    if tail is None or re.search(r"취소|미개최|미실시|하지\s*않|연기|변경|지난|작년|지난해", tail):
         return None
     academic = re.findall(r"(\d{4})\s*학년도", line)
     dates = list(re.finditer(r"(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일", line))
     if academic != [str(season["academic_year"])] or len(dates) != 1:
         return None
     matched = dates[0]
+    # 날짜 앞에는 행사 조사·일시 연결어만 허용한다. 다른 행사 명사를 건너뛰지 않는다.
+    before_date = tail.split(matched.group(0), 1)[0]
+    if not re.fullmatch(r"(?:(?:개최\s*)?안내|일시)?\s*[:：]?\s*", before_date):
+        return None
     try:
         day = date(*map(int, matched.groups())).isoformat()
     except ValueError:
@@ -93,19 +145,20 @@ def _parse_notice_line(line: str, institution: dict, season: dict, segment_id: s
         r"(?P<ampm>오전|오후)?\s*(?P<hour>\d{1,2})(?:시(?:\s*(?P<minute>\d{1,2})분)?|:(?P<colon>\d{2}))\s*(?:정각)?(?:에|부터)?\s*(?:졸업식(?:이|을)?\s*)?(?:시작|개식)",
         line,
     ))
-    if len(time_matches) == 1:
-        tm = time_matches[0]
-        prefix = line[:tm.start()]
-        last_ceremony = prefix.rfind("졸업식")
-        other_role = max((prefix.rfind(word) for word in ("입장", "집합", "출석", "등록", "가운", "사진", "포토", "운영")), default=-1)
+    valid_times = []
+    for tm in time_matches:
+        prefix = line[matched.end():tm.start()].strip()
+        explicit_subject = re.search(r"(?:졸업식|본식)(?:은|는|이)?\s*$", prefix)
         hour, minute = int(tm["hour"]), int(tm["minute"] or tm["colon"] or "0")
         # 마지막 역할이 입장·가운이면 '시작'이라는 동사만으로 행사 시작으로 바꾸지 않는다.
-        if other_role < last_ceremony and minute < 60 and (
+        if (explicit_subject or re.fullmatch(r"(?:\([월화수목금토일]\))?\s*[,，:]?\s*", prefix)) and minute < 60 and (
             (tm["ampm"] is not None and 1 <= hour <= 12) or (tm["ampm"] is None and 0 <= hour <= 23)
         ):
             if tm["ampm"]:
                 hour = hour % 12 + (12 if tm["ampm"] == "오후" else 0)
-            time_value, time_quote = f"{hour:02d}:{minute:02d}", tm.group(0)
+            valid_times.append((f"{hour:02d}:{minute:02d}", tm.group(0)))
+    if len(valid_times) == 1:
+        time_value, time_quote = valid_times[0]
     return _candidate(f"{season['academic_year']}학년도 졸업식", "graduation_ceremony",
         season["academic_year"], day, segment_id, line, matched.group(0), time_value, time_quote)
 
@@ -131,7 +184,7 @@ def _parse_notice_section(text: str, institution: dict, season: dict, segment_id
         if institution["name"] not in body or int(match["year"]) != season["academic_year"]:
             continue
         years = set(re.findall(r"(\d{4})\s*학년도", match["context"]))
-        if years != {str(season["academic_year"])} or re.search(r"취소|연기|예행|리허설|가운|학위복|입장", body):
+        if years != {str(season["academic_year"])} or re.search(r"취소|미실시|미개최|하지\s*않|연기|예행|리허설|가운|학위복|입장", body):
             continue
         timing = re.search(r"(?:^|\n)\s*1\.\s*일시\s*:\s*(?P<timing>[\s\S]*?)(?=\n\s*2\.\s*장소\s*:)", body)
         if timing is None:
@@ -236,7 +289,8 @@ def extract_candidates(document: dict, institution: dict, season: dict) -> list[
         # 표 전체나 다른 줄의 시간을 임의 결합하지 않고 하나의 명시 문장만 검사한다.
         lines = re.split(r"\n|(?<=[.!?。])\s+(?=[가-힣A-Za-z])", segment["text"])
         for line in lines:
-            candidate = _parse_notice_line(line.strip(), institution, season, segment["id"])
+            candidate = (_parse_negative(line.strip(), institution, season, segment["id"])
+                         or _parse_notice_line(line.strip(), institution, season, segment["id"]))
             if candidate:
                 results.append(candidate)
     return results
@@ -290,10 +344,8 @@ def value_check(field: str, value, observation: dict, document: dict, event: dic
     checks["institution"] = "pass" if document.get("reading", {}).get("institution_match") == "matched" else "unknown"
     checks["season"] = "pass" if candidate.get("academic_year") == season["academic_year"] and candidate.get("season_alignment") == "explicit" else "fail"
     checks["event_identity"] = "pass" if (
-        candidate.get("event_type") == event.get("event_type") and candidate.get("event_type") in
+        same_event(candidate, event, institution) and candidate.get("event_type") in
         {"graduation_ceremony", "graduation_and_completion", "degree_award_ceremony"}
-        and candidate.get("campus_label") == event.get("campus_label")
-        and candidate.get("audience") == event.get("audience")
         and (not candidate.get("is_change_notice") or rule == "academic_calendar_row")
     ) else "fail"
     evidence = candidate.get("context_evidence", []) + candidate.get(EVIDENCE_FIELD.get(field, ""), [])

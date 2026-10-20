@@ -94,12 +94,8 @@ class ResearchRunner:
                 success = document["status"] == "ok" and document["reading"]["content_match"] == "expected"
                 document["recheck"] = {"status": "succeeded" if success else "failed",
                     "attempted_at": document["last_checked_at"], "reason_codes": [] if success else ["recheck_failed"]}
-            if document["authority"] == "official" and any(
-                re.search(r"(?:졸업식|학위수여식)[^\n]{0,70}(?:취소|연기|미개최)", segment["text"])
-                for segment in document["segments"]
-            ):
-                state["event_blockers"].append({"source_key": document["source_key"], "document_id": document["id"],
-                                               "reason_codes": ["cancelled_notice"]})
+            # 취소도 같은 기관·학년도·행사의 후보로 검증한다. URL이나 단어
+            # 근접만으로 다른 과정의 취소를 이 기관 전체에 적용하지 않는다.
             state["documents"].append(document)
             if document["status"] != "ok":
                 add_error(state, "reader", document["reason_codes"], document["status"])

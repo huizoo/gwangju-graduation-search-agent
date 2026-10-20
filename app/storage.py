@@ -1035,6 +1035,12 @@ class Service:
             automatic = empty_automatic()
             automatic.update(assessment_id=new_id(), checked_at=now)
             if supported:
+                # 검증된 행사 취소는 과거 개최 안내와 평균내거나 날짜가 없다고 버리지 않는다.
+                # 다시 개최한다는 해제는 별도 직접 재확인 경로에서 이력을 남긴다.
+                negative = [pair for pair in supported if name == "ceremony_status"
+                            and pair[1]["value"] in {"cancelled", "not_held"}]
+                if negative:
+                    supported = negative
                 grouped = {}
                 for observation, value in supported:
                     grouped.setdefault(fingerprint({"value": value["value"], "bound_date": value["bound_date"]}), []).append((observation, value))
@@ -1149,13 +1155,25 @@ class Service:
             if candidate["event_key_hint"] and candidate["academic_year"] == season["academic_year"] and candidate["season_alignment"] == "explicit" and candidate["event_type"] != "unknown":
                 event_key = fingerprint({"institution_id": institution_id, "season_id": season_id, "hint": candidate["event_key_hint"], "event_type": candidate["event_type"], "audience": candidate["audience"], "campus_label": candidate["campus_label"]})
                 existing = conn.execute("SELECT id FROM events WHERE institution_id=? AND season_id=? AND event_key=?", (institution_id, season_id, event_key)).fetchone()
+                if not existing:
+                    from .identity import same_event
+                    matches = [dict(row) for row in conn.execute(
+                        "SELECT * FROM events WHERE institution_id=? AND season_id=?", (institution_id, season_id))
+                        if same_event(candidate, dict(row), institution)]
+                    if len(matches) == 1:
+                        existing = (matches[0]["id"],)
+                        event_key = matches[0]["event_key"]
+                    elif len(matches) > 1:
+                        # 이미 여러 행사에 연결될 수 있으면 새 중복 행사도 만들지 않는다.
+                        candidate["event_key_hint"] = None
                 if existing:
                     event_id = existing[0]
-                else:
+                elif candidate["event_key_hint"]:
                     event_id = self._insert_event(conn, {"institution_id": institution_id, "season_id": season_id, "title": candidate["event_title"], "event_type": candidate["event_type"], "audience": candidate["audience"], "campus_label": candidate["campus_label"]}, event_key)
-                candidate["event_key_hint"] = event_key
-                events.add(event_id)
-                reasons = ["rule_not_enabled"]
+                if event_id:
+                    candidate["event_key_hint"] = event_key
+                    events.add(event_id)
+                    reasons = ["rule_not_enabled"]
             identity = new_id()
             digest = fingerprint({"institution_id": institution_id, "season_id": season_id, "event_id": event_id, "document_id": document_id, "candidate": candidate})
             existing_observation = conn.execute("SELECT id FROM observations WHERE fingerprint=?", (digest,)).fetchone()

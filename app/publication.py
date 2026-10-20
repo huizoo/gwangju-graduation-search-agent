@@ -241,6 +241,7 @@ def _support(field, automatic, event, season, context, now):
     Returns:
         지원 문서 목록과 거절 사유 목록.
     """
+    from .identity import same_event
     proof = automatic.get("value_check") or {}
     rule = proof.get("rule_id")
     registered = context.get("registered_rules", {})
@@ -268,11 +269,9 @@ def _support(field, automatic, event, season, context, now):
             or observation.get("season_id") != season["id"]
             or observation.get("event_id") != event["id"]
             or candidate.get("academic_year") != season["academic_year"]
-            or candidate.get("event_type") != event.get("event_type")
+            or not same_event(candidate, event, event["institution"])
             or candidate.get("event_type") not in GRADUATION_EVENTS
             or candidate.get("event_key_hint") != event.get("event_key")
-            or candidate.get("audience") != event.get("audience")
-            or candidate.get("campus_label") != event.get("campus_label")
             or candidate.get("season_alignment") != "explicit"
             or candidate.get(field) != automatic.get("value")
             or document_id not in proof.get("document_ids", [])

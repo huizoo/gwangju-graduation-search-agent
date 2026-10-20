@@ -76,8 +76,8 @@
   "publication": {
     "policy_version": "4.0",
     "auto_rule_ids": [
-      "neis_ceremony_row@1.1.0",
-      "explicit_notice@1.1.0",
+      "neis_ceremony_row@1.2.0",
+      "explicit_notice@1.2.0",
       "academic_calendar_row@1.0.0"
     ]
   },

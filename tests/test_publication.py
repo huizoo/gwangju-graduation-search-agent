@@ -180,12 +180,12 @@ def test_changed_source_without_new_support_withholds_current_sales(service):
     changed["retrieved_at"] = changed["last_checked_at"] = utcnow()
     changed["recheck"] = {"status": "succeeded", "attempted_at": changed["retrieved_at"], "reason_codes": []}
     result = result_for(changed, i, s)
-    assert not result["candidates"]
+    assert result["candidates"][0]["candidate"]["ceremony_status"] == "cancelled"
     service.save_research(i["id"], s["id"], result)
     after = service.event_detail(saved["event_ids"][0])["event"]["publication"]
-    assert after["calendar_date"] == "2027-01-07"
+    assert after["calendar_date"] is None
     assert not after["sales_ready"]
-    assert after["field_permissions"]["event_date"]["recheck_status"] == "failed"
+    assert after["state"] == "excluded"
 
 
 def test_cancellation_warning_holds_event_until_real_reconfirmation(service):

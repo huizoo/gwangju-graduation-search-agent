@@ -435,6 +435,13 @@ class JobManager:
                 raise ApiError("revision_conflict", "작업 상태가 변경되었습니다.", 409, {"current_revision": row["revision"]})
             if row["status"] != "paused":
                 raise ApiError("job_not_resumable", "잠시 멈춘 작업만 이어갈 수 있습니다.", 409)
+            active = conn.execute(
+                "SELECT id FROM jobs WHERE id<>? AND status IN ('queued','running','pausing','cancelling')",
+                (job_id,),
+            ).fetchone()
+            if active:
+                raise ApiError("job_active", "진행 중인 조사를 먼저 멈추거나 취소해 주세요.", 409,
+                               {"existing_job_id": active["id"]})
             if json.loads(row["scope_snapshot_json"])["source_config_hash"] != self.settings.source_config_hash:
                 raise ApiError("settings_changed", "설정이 바뀌었습니다. 이전 설정을 복원하거나 새 조사를 시작해 주세요.", 409, {"reason_codes": ["configuration_required"]})
             limits = json.loads(row["limits_json"])
