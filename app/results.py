@@ -82,6 +82,13 @@ def result_rows(snapshot: dict) -> list[dict]:
         groups = {}
         for event in selected:
             groups.setdefault(scope(event, institution), []).append(event)
+        if len(groups) > 1:
+            # 과거의 대상 미분리 후보는 '별도 행사'의 증거가 아니다. 실제 과정
+            # 행이 있으면 지원도 수기도 없는 generic 후보를 추가 행사로 표시하지 않는다.
+            groups = {key: group for key, group in groups.items() if not (
+                key[1] in {"", "졸업 대상 학생"} and all(
+                    not e["publication"]["current_date_allowed"] and e["publication"].get("state") != "excluded"
+                    and not any(f.get("manual") for f in e.get("fields", {}).values()) for e in group))}
         if not groups:
             groups[None] = []
         for key, group in groups.items():
@@ -109,6 +116,8 @@ def result_rows(snapshot: dict) -> list[dict]:
             address = institution.get("address") if institution.get("source_checked_at") else None
             # 수기 프로필 수정은 원래의 공식 주소 증명을 자동 상속하지 않는다.
             if "address" in institution.get("profile_overrides", {}):
+                address = None
+            if group and group[0].get("campus_label") not in (None, institution.get("campus_label")):
                 address = None
             label = ""
             if len(groups) > 1 and group:

@@ -36,6 +36,8 @@ class Store:
                 version = conn.execute("SELECT value FROM app_meta WHERE key='schema_version'").fetchone() if "app_meta" in tables else None
                 if not version or version[0] != "4.0":
                     raise ApiError("migration_required", "기존 DB를 보존했습니다. 4.0 마이그레이션이 필요합니다.", 409)
+        from .migrations import install_extensions
+        install_extensions(self, existing=bool(tables))
 
     def connect(self) -> sqlite3.Connection:
         """필수 SQLite 보호 설정을 적용한 연결을 연다.
@@ -197,6 +199,8 @@ class Service:
         """
         self.store, self.settings = store, settings
         self._configure_rules()
+        from .migrations import reconcile_rules
+        reconcile_rules(self)
 
     def _configure_rules(self):
         """구현이 존재하는 규칙만 서버 레지스트리에 연결한다."""
@@ -422,9 +426,13 @@ class Service:
         with self.store.transaction(True) as conn:
             _one(conn, "institutions", data["institution_id"])
             self._season(conn, data["season_id"])
-            existing = conn.execute("SELECT id FROM events WHERE institution_id=? AND season_id=? AND event_type=? AND audience IS ? AND campus_label IS ?", (data["institution_id"], data["season_id"], data["event_type"], data["audience"], data["campus_label"])).fetchall()
+            from .identity import same_event
+            institution = self._institution(conn, data["institution_id"])
+            existing = [row for row in conn.execute(
+                "SELECT * FROM events WHERE institution_id=? AND season_id=? AND id NOT IN(SELECT old_id FROM event_aliases)",
+                (data["institution_id"], data["season_id"])) if same_event(data, dict(row), institution)]
             if existing and not data["allow_separate_event"]:
-                raise ApiError("event_match_required", "비슷한 행사가 있습니다. 기존 행사를 선택하거나 별도 행사임을 확인해 주세요.", 409, {"candidate_ids": [row[0] for row in existing]})
+                raise ApiError("event_match_required", "비슷한 행사가 있습니다. 기존 행사를 선택하거나 별도 행사임을 확인해 주세요.", 409, {"candidate_ids": [row["id"] for row in existing]})
             identity = self._insert_event(conn, data)
             event, context = self._project(conn, identity)
             apply_operations(conn, event, data["operations"], context)
@@ -462,6 +470,9 @@ class Service:
         from app.manual import apply_operations
         data = validate("OverridePatch", payload)
         with self.store.transaction(True) as conn:
+            alias = conn.execute("SELECT current_id FROM event_aliases WHERE old_id=?", (identity,)).fetchone()
+            if alias:
+                raise ApiError("event_match_required", "연결된 최신 행사에서 수정해 주세요.", 409, {"candidate_ids": [alias[0]]})
             row = _one(conn, "events", identity)
             _expect(row, data["expected_revision"])
             event, context = self._project(conn, identity)
@@ -589,7 +600,7 @@ class Service:
         """
         self._season(conn, season_id)
         moment = now or utcnow()
-        return [self._project(conn, row[0], moment)[0] for row in conn.execute("SELECT id FROM events WHERE season_id=? ORDER BY created_at,id", (season_id,))]
+        return [self._project(conn, row[0], moment)[0] for row in conn.execute("SELECT id FROM events WHERE season_id=? AND id NOT IN(SELECT old_id FROM event_aliases) ORDER BY created_at,id", (season_id,))]
 
     def events(self, season_id, view="all", **filters):
         """같은 게시 판정에서 일반·판매·관리 조회를 선택한다.
@@ -777,7 +788,7 @@ class Service:
                 support_sources = {all_docs[key]["source_key"] for key in refs if key in all_docs}
                 refs.update(key for key, document in all_docs.items() if document["source_key"] in support_sources)
                 documents[event["id"]] = [item for key, item in all_docs.items() if key in refs]
-            latest = conn.execute("SELECT id FROM jobs WHERE kind='schedule_scan' AND season_id=? ORDER BY created_at DESC,rowid DESC LIMIT 1", (season_id,)).fetchone()
+            latest = conn.execute("SELECT id FROM jobs WHERE kind='schedule_scan' AND season_id=? ORDER BY (status='cancelled'),created_at DESC,rowid DESC LIMIT 1", (season_id,)).fetchone()
             target_ids = {row[0] for row in conn.execute("SELECT institution_id FROM job_items WHERE job_id=? AND institution_id IS NOT NULL", (latest[0],))} if latest else {event["institution"]["id"] for event in events}
             # 직접 기록도 그 기관을 결과에 넣어 달라는 요청이다. 전체 명부를 임의로 출력하지 않는다.
             target_ids.update(row[0] for row in conn.execute("SELECT DISTINCT e.institution_id FROM events e JOIN manual_overrides m ON m.event_id=e.id WHERE e.season_id=? AND m.active=1", (season_id,)))
@@ -1071,6 +1082,17 @@ class Service:
                 # accepted로 남기고, 어느 필드에도 쓰이지 않는 관측만 reference로 둔다.
                 accepted_ids.update(automatic["evidence_ids"])
             old = event["fields"][name]["automatic"]
+            natural = conn.execute("SELECT before_json,after_json FROM audit_log WHERE entity_type='event' AND entity_id=? AND field=? AND action='natural_conflict' ORDER BY seq DESC LIMIT 1", (event_id, name)).fetchone()
+            if natural and old["status"] == "conflict":
+                baseline, proposed = map(json.loads, natural)
+                if proposed.get("assessment_fingerprint") == old.get("fingerprint") and (
+                    automatic["fingerprint"] == baseline.get("fingerprint")
+                    or automatic["status"] in {"missing", "reference_only"}
+                ):
+                    # 같은 웹값을 다시 읽었다는 이유로 직접 입력의 미해결 충돌이나
+                    # 그 충돌에 대한 사람의 재확인을 없애지 않는다.
+                    automatic = copy.deepcopy(old)
+                    automatic["assessment_id"] = new_id()
             if automatic["status"] == old["status"] == "official_confirmed" and automatic["fingerprint"] == old["fingerprint"] and not (set(automatic["value_check"]["document_ids"]) & set(refreshed_document_ids or [])):
                 # 재확인 실패·기각 처리만으로 과거 값의 실제 확인시각을 새로 만들지 않는다.
                 automatic["checked_at"] = old["checked_at"]
@@ -1160,10 +1182,15 @@ class Service:
             if candidate["event_key_hint"] and candidate["academic_year"] == season["academic_year"] and candidate["season_alignment"] == "explicit" and candidate["event_type"] != "unknown":
                 event_key = fingerprint({"institution_id": institution_id, "season_id": season_id, "hint": candidate["event_key_hint"], "event_type": candidate["event_type"], "audience": candidate["audience"], "campus_label": candidate["campus_label"]})
                 existing = conn.execute("SELECT id FROM events WHERE institution_id=? AND season_id=? AND event_key=?", (institution_id, season_id, event_key)).fetchone()
+                if existing:
+                    alias = conn.execute("SELECT current_id FROM event_aliases WHERE old_id=?", (existing[0],)).fetchone()
+                    if alias:
+                        existing = alias
+                        event_key = _one(conn, "events", alias[0])["event_key"]
                 if not existing:
                     from .identity import same_event
                     matches = [dict(row) for row in conn.execute(
-                        "SELECT * FROM events WHERE institution_id=? AND season_id=?", (institution_id, season_id))
+                        "SELECT * FROM events WHERE institution_id=? AND season_id=? AND id NOT IN(SELECT old_id FROM event_aliases)", (institution_id, season_id))
                         if same_event(candidate, dict(row), institution)]
                     if len(matches) == 1:
                         existing = (matches[0]["id"],)
@@ -1190,7 +1217,7 @@ class Service:
             _audit(conn, "event" if event_id else "observation", event_id or identity, "research_candidate", after={"original_candidate": original, "observation_id": identity}, actor="system", summary="원문 후보 보존 및 서버 행사 연결")
         self._apply_calendar_recheck(conn, institution_id, season_id, result)
         # 실패 재확인도 기존 행사에 반영되므로 신규 후보가 없어도 revision을 갱신한다.
-        events.update(row[0] for row in conn.execute("SELECT id FROM events WHERE institution_id=? AND season_id=?", (institution_id, season_id)))
+        events.update(row[0] for row in conn.execute("SELECT id FROM events WHERE institution_id=? AND season_id=? AND id NOT IN(SELECT old_id FROM event_aliases)", (institution_id, season_id)))
         success = any(document.get("status") == "ok" and document.get("reading", {}).get("content_match") == "expected" for document in result.get("documents", []))
         for blocker in result.get("event_blockers", []):
             source_key = blocker.get("source_key")

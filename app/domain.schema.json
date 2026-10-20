@@ -8178,6 +8178,108 @@
         "request_job_id"
       ],
       "description": "사용자 표현 계약 1.0: 현재 허용 필드만 제공. 조사 대상과 직접 기록 기관을 포함하며 과거 보류값, 검증 상세, 사적 메모는 포함하지 않는다."
+    },
+    "NaturalRecordRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "season_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 4000,
+          "pattern": "\\S"
+        },
+        "conversation_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "expected_revision": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1
+        }
+      },
+      "required": [
+        "season_id",
+        "text",
+        "conversation_id",
+        "expected_revision"
+      ]
+    },
+    "NaturalRecordResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "revision": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "status": {
+          "enum": [
+            "saved",
+            "question",
+            "noted",
+            "research_request"
+          ]
+        },
+        "message": {
+          "type": "string"
+        },
+        "questions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "event_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "institution_ids": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "changed_fields": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "ceremony_status",
+              "event_date",
+              "start_time",
+              "venue"
+            ]
+          }
+        }
+      },
+      "required": [
+        "id",
+        "revision",
+        "status",
+        "message",
+        "questions",
+        "event_id",
+        "institution_ids",
+        "changed_fields"
+      ]
     }
   }
 }

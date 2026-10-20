@@ -1748,6 +1748,61 @@
         ],
         "security": []
       }
+    },
+    "/api/records/natural": {
+      "post": {
+        "summary": "자연어 직접 기록과 짧은 후속 질문",
+        "operationId": "record_natural_confirmation",
+        "responses": {
+          "default": {
+            "description": "Structured error: 400/403/404/409/422/503",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./domain.schema.json#/$defs/Error"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "./domain.schema.json#/$defs/NaturalRecordResult"
+                }
+              }
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "Idempotency-Key",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 8,
+              "maxLength": 128
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "./domain.schema.json#/$defs/NaturalRecordRequest"
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "LocalToken": []
+          }
+        ]
+      }
     }
   },
   "components": {

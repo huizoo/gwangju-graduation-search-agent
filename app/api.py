@@ -222,6 +222,9 @@ class Application:
             snapshot = service.snapshot(query["season_id"])
             return {"presentation_version": PRESENTATION_VERSION, "rows": result_rows(snapshot),
                     "season_id": query["season_id"], "request_job_id": snapshot["request_job_id"]}
+        if path == "/api/records/natural":
+            from .natural import NaturalRecorder
+            return NaturalRecorder(service).record(body)
         if path == "/api/events":
             if method == "post":
                 return service.create_event(body)
