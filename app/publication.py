@@ -406,9 +406,11 @@ def calculate_publication(event, season, validated_context):
     event_day = (values.get("event_date") or {}).get("date")
     closed_on = institution.get("operation_effective_date")
     closed_before_event = institution.get("operation_status") == "closed_confirmed" and bool(closed_on and event_day and closed_on <= event_day)
-    excluded = status in ("cancelled", "not_held") or closed_before_event
+    excluded = (status in ("cancelled", "not_held") and permissions["ceremony_status"]["current_allowed"]) or closed_before_event
     if global_reasons or excluded or status != "scheduled":
         for name in FIELDS:
+            if name == "ceremony_status" and excluded and not global_reasons and permissions[name]["current_allowed"]:
+                continue
             permissions[name] = _permission(reasons=global_reasons or ["cancelled_notice" if excluded else "publication_held"])
             values[name] = None
     day_claim = values["event_date"]

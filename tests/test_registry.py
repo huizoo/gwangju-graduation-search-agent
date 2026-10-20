@@ -8,6 +8,7 @@ import pytest
 
 from app.providers import ProviderError
 from app.registry import TYPES, district_for, load_official_file, neis_registry, validate_registry_import
+from app.registry import normalize_homepage
 
 
 def payload():
@@ -27,6 +28,17 @@ def test_official_file_contract_supports_every_target_type():
     assert preview["accepted_rows"] == 9 and not preview["rejected_rows"]
     assert preview["source_verified"] is False and preview["coverage_complete"] is False
     assert original == payload()
+
+
+@pytest.mark.parametrize("raw", [None,"None","null","","https://none/","http://null/"])
+def test_missing_homepage_never_becomes_a_clickable_host(raw):
+    """공식 명부의 결측값으로 가짜 학교 홈페이지를 만들지 않는다."""
+    assert normalize_homepage(raw) is None
+
+
+def test_real_homepage_keeps_original_scheme_or_adds_missing_scheme():
+    assert normalize_homepage("http://school.gen.hs.kr/") == "http://school.gen.hs.kr/"
+    assert normalize_homepage("school.gen.hs.kr") == "https://school.gen.hs.kr"
 
 
 def test_duplicate_outside_gwangju_and_unknown_campus_remain_rejected():

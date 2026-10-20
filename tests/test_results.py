@@ -54,3 +54,15 @@ def test_verified_cancellation_masks_date_time_but_retains_internal_evidence(sou
     assert row["date"] is row["start_time"] is None
     assert snapshot["events"][0]["fields"]["event_date"]["automatic"]["value"]["date"] == "2027-01-07"
     assert len(snapshot["documents"][snapshot["events"][0]["id"]]) == 2
+
+
+def test_failed_recheck_does_not_publish_old_cancellation_as_current(source_context):
+    """현재 확인할 수 없는 과거 취소 표시도 경고 없이 확정 정보로 내보내지 않는다."""
+    from app.domain import dumps, utcnow
+    service, _, season = source_context
+    save_notice(source_context, "2026학년도 검증초등학교 졸업식은 취소 안내.", "cancel")
+    assert result_rows(service.snapshot(season["id"]))[0]["status"] == "cancelled"
+    with service.store.transaction(True) as conn:
+        conn.execute("UPDATE documents SET recheck_json=?", (dumps({"status":"failed","attempted_at":utcnow(),"reason_codes":["recheck_failed"]}),))
+    row = result_rows(service.snapshot(season["id"]))[0]
+    assert row["status"] is row["date"] is row["start_time"] is None

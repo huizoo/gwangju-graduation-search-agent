@@ -24,7 +24,7 @@ _CHANGE_ROW = re.compile(
 )
 _NEGATIVE = re.compile(
     r"(?:올해\s*)?(?:(?:개최|실시)(?:를)?\s*)?"
-    r"(?P<status>취소(?:합니다|되었습니다|됐습니다|안내)?|미실시(?:합니다|안내)?|미개최(?:합니다|안내)?|"
+    r"(?P<status>취소(?:합니다|되었습니다|됐습니다|\s*안내)?|미실시(?:합니다|\s*안내)?|미개최(?:합니다|\s*안내)?|"
     r"(?:개최|실시)하지\s*않(?:습니다|기로\s*했습니다))\s*[.!。]?"
 )
 
@@ -110,7 +110,9 @@ def _parse_negative(line, institution, season, segment_id):
     negative = _NEGATIVE.fullmatch(tail)
     if not negative:
         return None
-    candidate = _candidate(f"{season['academic_year']}학년도 졸업식",
+    sequence = re.search(r"제\s*(\d+)\s*회", line)
+    title = f"{season['academic_year']}학년도 " + (f"제{sequence[1]}회 " if sequence else "") + ("학위수여식" if "학위수여식" in line else "졸업식")
+    candidate = _candidate(title,
         "degree_award_ceremony" if "학위수여식" in line else "graduation_ceremony",
         season["academic_year"], None, segment_id, line, None)
     candidate.update(ceremony_status="cancelled" if "취소" in negative["status"] else "not_held",
@@ -159,7 +161,10 @@ def _parse_notice_line(line: str, institution: dict, season: dict, segment_id: s
             valid_times.append((f"{hour:02d}:{minute:02d}", tm.group(0)))
     if len(valid_times) == 1:
         time_value, time_quote = valid_times[0]
-    return _candidate(f"{season['academic_year']}학년도 졸업식", "graduation_ceremony",
+    sequence = re.search(r"제\s*(\d+)\s*회", line)
+    degree = "학위수여식" in line
+    title = f"{season['academic_year']}학년도 " + (f"제{sequence[1]}회 " if sequence else "") + ("학위수여식" if degree else "졸업식")
+    return _candidate(title, "degree_award_ceremony" if degree else "graduation_ceremony",
         season["academic_year"], day, segment_id, line, matched.group(0), time_value, time_quote)
 
 

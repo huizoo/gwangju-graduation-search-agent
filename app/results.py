@@ -19,7 +19,7 @@ def human_url(value: object) -> str | None:
     try:
         raw = str(value or "")
         url = urlsplit(raw)
-        if url.scheme not in {"https", "http"} or not url.hostname or url.username or url.password:
+        if url.scheme not in {"https", "http"} or not url.hostname or "." not in url.hostname or url.username or url.password:
             return None
         if any(ord(c) < 32 for c in raw):
             return None
@@ -105,7 +105,7 @@ def result_rows(snapshot: dict) -> list[dict]:
                 manual = status_field.get("manual")
                 automatic = status_field.get("automatic", {})
                 # excluded는 서버가 상태 근거를 검증한 결과다. 후보의 취소 단어를 표시하지 않는다.
-                if pub.get("state") == "excluded":
+                if pub.get("state") == "excluded" and permissions["ceremony_status"]["current_allowed"]:
                     state = manual.get("value") if manual else automatic.get("value")
                     if state in {"cancelled", "not_held"}:
                         statuses.add(state)

@@ -148,3 +148,13 @@ def test_api_link_falls_back_to_school_and_missing_target_is_in_same_table():
     assert "open.neis" not in html and 'href="https://school.example"' in html
     assert "일정 없는 학교" in html
     assert html.count('data-label="학교명"') == 2
+
+
+def test_missing_homepage_is_not_replaced_by_fake_none_url():
+    """홈페이지도 미확인인 학교에는 허위 링크를 만들지 않는다."""
+    event = _event()
+    event["institution"]["homepage_url"] = "https://none/"
+    event["institution"]["official_channels"][0]["url"] = "https://none/"
+    html = render_export({"events":[event]})
+    assert 'href=' not in html
+    assert "https://none" not in html and "광주 확인학교" in html

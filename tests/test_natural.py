@@ -72,6 +72,14 @@ def test_guess_and_research_request_are_not_confirmations(source_context):
     assert not service.events(season["id"])["items"]
 
 
+def test_research_intent_survives_school_clarification(source_context):
+    """학교명 후속 답변을 수기 사실 확인으로 잘못 바꾸지 않는다."""
+    first = record(source_context, "졸업식 날짜를 조사해줘.")
+    assert first["status"] == "question"
+    second = record(source_context, "검증초등학교", first)
+    assert second["status"] == "research_request" and not second["questions"]
+
+
 def test_invalid_date_and_outside_season_are_not_saved(source_context):
     """달력에 없는 날짜와 다른 시즌을 보완 추측하지 않는다."""
     service, _, season = source_context

@@ -26,6 +26,29 @@ NEIS_TYPES = {"초등학교": "elementary", "중학교": "middle", "고등학교
               "각종학교(중)": "other_school", "각종학교(고)": "other_school"}
 
 
+def normalize_homepage(value) -> str | None:
+    """명부의 null을 문자열 URL로 바꾸지 않고 공개 주소 형식만 보존한다.
+
+    Args:
+        value: 공식 명부의 홈페이지 값.
+    Returns:
+        HTTP(S) URL 또는 실제 주소가 없으면 None.
+    """
+    if not isinstance(value, str) or value.strip().lower() in {"", "none", "null", "nan", "-"}:
+        return None
+    raw = value.strip()
+    raw = raw if raw.startswith(("http://", "https://")) else "https://" + raw
+    try:
+        parsed = urlsplit(raw)
+        if not parsed.hostname or "." not in parsed.hostname or parsed.username or parsed.password:
+            return None
+        if any(char.isspace() or ord(char) < 32 for char in raw):
+            return None
+        return raw
+    except ValueError:
+        return None
+
+
 def _validator(name: str):
     """동봉한 4.0 계약의 지정 정의를 검사하는 검증기를 반환한다."""
     return VALIDATORS[name]
@@ -144,9 +167,7 @@ def neis_registry(rows: list[dict]) -> dict:
         code, name = str(row.get("SD_SCHUL_CODE", "")), str(row.get("SCHUL_NM", "")).strip()
         if not code.isdigit() or not name:
             raise ProviderError("provider_error", "NEIS 필수 학교 코드·이름이 없습니다.", "registry")
-        homepage = str(row.get("HMPG_ADRES", "")).strip() or None
-        if homepage and not homepage.startswith(("http://", "https://")):
-            homepage = "https://" + homepage
+        homepage = normalize_homepage(row.get("HMPG_ADRES"))
         output.append({"external_key": f"F10:{code}", "name": name, "type": institution_type,
             "district": district, "address": address, "campus_label": None,
             "phone": row.get("ORG_TELNO") or None, "homepage_url": homepage,

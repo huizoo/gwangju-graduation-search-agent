@@ -1,6 +1,6 @@
 header{margin-bottom:26px}.eyebrow{color:#627763;font-size:15px;letter-spacing:.05em}header h1{margin:4px 0 16px}
 h2{font-size:23px;margin:0 0 16px}.season-bar{display:flex;gap:18px;align-items:center;flex-wrap:wrap}.season-bar span,.hint{font-size:15px;color:#627064}.season-bar select{margin-left:8px}
-.input-panels{display:grid;grid-template-columns:1fr 1fr;gap:20px}.panel{padding:24px;background:#fff;border:1px solid #dde4d9;border-radius:16px}
+.input-panels{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}.panel{min-width:0;padding:24px;background:#fff;border:1px solid #dde4d9;border-radius:16px}
 .panel input[type=search],textarea{width:100%;margin:7px 0 12px}textarea{resize:vertical;border:1px solid #8a9d91;border-radius:10px;padding:12px;line-height:1.6}
 .primary{background:#23614a;color:white;border-color:#23614a}.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.check{display:flex;gap:8px;align-items:center;margin:12px 0;font-size:16px}.check input{min-height:24px;width:22px;height:22px}
 .school-options{display:grid;gap:6px;max-height:220px;overflow:auto}.school-options button{text-align:left;font-size:16px;background:#f6f8f2}
@@ -11,4 +11,4 @@ h2{font-size:23px;margin:0 0 16px}.season-bar{display:flex;gap:18px;align-items:
 footer{display:flex;justify-content:space-between;gap:20px;align-items:start;margin-top:36px;padding:20px 0;color:#586d60;font-size:15px}summary{cursor:pointer;margin-bottom:12px}
 dialog{border:1px solid #8a9d91;border-radius:16px;padding:24px;max-width:95vw}dialog label{display:grid;margin-bottom:12px}dialog::backdrop{background:#1234}
 .sr-only{position:absolute;clip-path:inset(100%);width:1px;height:1px;overflow:hidden}
-@media(max-width:780px){.input-panels{grid-template-columns:1fr}.panel{padding:20px}.results-heading{align-items:start}.season-bar{gap:8px}.season-bar label{display:grid;width:100%}.season-bar select{margin:0}footer{flex-direction:column}.results-heading .actions{width:100%}.results-heading button{flex:1}}
+@media(max-width:780px){.input-panels{grid-template-columns:minmax(0,1fr)}.panel{padding:20px}.results-heading{align-items:start}.season-bar{gap:8px}.season-bar label{display:grid;width:100%;min-width:0}.season-bar select{margin:0;min-width:0;width:100%}footer{flex-direction:column}.results-heading .actions{width:100%}.results-heading button{flex:1}}

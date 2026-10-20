@@ -6237,7 +6237,8 @@
           "format": "uuid"
         },
         "include_notes": {
-          "type": "boolean"
+          "type": "boolean",
+          "description": "이전 요청 호환용. 표현 계약 1.0의 네 열 HTML에는 값과 무관하게 사적 메모를 포함하지 않는다."
         },
         "publication_policy_version": {
           "const": "4.0"
@@ -7601,7 +7602,8 @@
             }
           }
         }
-      ]
+      ],
+      "description": "내부 근거·이력 호환 계약. 사용자 표시에는 ScheduleResult를 사용하며 current_allowed 필드만 제공한다. general_visible과 sales_ready는 사용자 화면 선택지가 아니다."
     },
     "ReportedProbeCase": {
       "type": "object",

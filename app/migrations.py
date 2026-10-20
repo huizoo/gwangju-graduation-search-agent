@@ -4,7 +4,7 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
-from .domain import dumps, fingerprint, utcnow
+from .domain import ApiError, dumps, fingerprint, utcnow
 from .identity import scope
 
 EXTENSION_SQL = """
@@ -33,6 +33,8 @@ def install_extensions(store, *, existing: bool):
         marker = conn.execute("SELECT value FROM app_meta WHERE key='experience_schema'").fetchone()
     if marker and marker[0] == "1":
         return
+    if marker:
+        raise ApiError("migration_required", "지원하지 않는 기록 확장 버전입니다. 기존 DB를 보존했습니다.", 409)
     if existing:
         store.backup(store.path.parent / "backups" / f"before-experience-1-{fingerprint(utcnow())[:12]}.sqlite3")
     with store.transaction(True) as conn:
@@ -49,6 +51,7 @@ def reconcile_rules(service):
         service: 현재 허용 규칙이 설정된 서비스.
     """
     from .storage import _audit
+    repair_null_homepages(service)
     rules = service._enabled_rules()
     if not rules:
         return
@@ -93,4 +96,34 @@ def reconcile_rules(service):
             service._apply_source_blockers(conn, row[0])
         conn.execute("INSERT INTO app_meta VALUES('assessed_rules',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value", (marker,))
         if has_events:
+            service.store.touch(conn)
+
+
+def repair_null_homepages(service):
+    """과거 null 문자열 변환 오류만 원본 이력과 함께 정정한다.
+
+    Args:
+        service: 기존 공식 명부·프로필을 가진 서비스.
+    """
+    from urllib.parse import urlsplit
+    from .storage import _audit
+    def placeholder(value):
+        return isinstance(value, str) and urlsplit(value).hostname in {"none", "null", "nan"}
+    with service.store.transaction() as conn:
+        if conn.execute("SELECT 1 FROM app_meta WHERE key='null_homepage_repair'").fetchone():
+            return
+        affected = [dict(row) for row in conn.execute("SELECT id,homepage_url,official_channels_json FROM institutions")
+                    if placeholder(row["homepage_url"])]
+    if affected:
+        service.store.backup(service.store.path.parent/"backups"/f"before-url-repair-{fingerprint(utcnow())[:12]}.sqlite3")
+    with service.store.transaction(True) as conn:
+        for row in affected:
+            channels = [c for c in json.loads(row["official_channels_json"]) if not placeholder(c["url"])]
+            conn.execute("UPDATE institutions SET homepage_url=NULL,official_channels_json=?,revision=revision+1,updated_at=? WHERE id=?",
+                         (dumps(channels),utcnow(),row["id"]))
+            _audit(conn,"institution",row["id"],"repair_null_homepage",before=row,
+                   after={"homepage_url":None,"official_channels":channels},actor="system",
+                   summary="NEIS null을 주소 문자열로 변환했던 오류 정정. 원본 명부와 사용자 프로필은 보존")
+        conn.execute("INSERT INTO app_meta VALUES('null_homepage_repair','1')")
+        if affected:
             service.store.touch(conn)

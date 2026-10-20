@@ -148,3 +148,13 @@ def test_different_special_school_courses_remain_separate(source_context):
         service.save_research(school["id"], season["id"], {"documents": [doc], "candidates": [
             {"document_id": doc["id"], "candidate": extract_candidates(doc, school, season)[0]}]})
     assert len(service.events(season["id"], view="calendar")["items"]) == 2
+
+
+def test_explicit_different_ceremony_sequences_are_not_merged(source_context):
+    """회차가 명시적으로 다른 두 본식을 날짜 충돌 하나로 합치지 않는다."""
+    service, _, season = source_context
+    for sequence, day in [(1,7),(2,8)]:
+        save_notice(source_context, f"2026학년도 검증초등학교 제{sequence}회 졸업식은 2027년 1월 {day}일 오전 10시에 시작합니다.", f"sequence-{sequence}")
+    events = service.events(season["id"], view="calendar")["items"]
+    assert len(events) == 2
+    assert {e["publication"]["calendar_date"] for e in events} == {"2027-01-07","2027-01-08"}

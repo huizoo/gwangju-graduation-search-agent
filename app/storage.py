@@ -451,6 +451,9 @@ class Service:
         """
         data = validate("EventMetadataPatch", payload)
         with self.store.transaction(True) as conn:
+            alias = conn.execute("SELECT current_id FROM event_aliases WHERE old_id=?", (identity,)).fetchone()
+            if alias:
+                raise ApiError("event_match_required", "연결된 최신 행사에서 수정해 주세요.", 409, {"candidate_ids": [alias[0]]})
             old = _one(conn, "events", identity)
             _expect(old, data["expected_revision"])
             conn.execute("UPDATE events SET title=?,event_type=?,audience=?,campus_label=?,revision=revision+1,updated_at=? WHERE id=?", (data["title"], data["event_type"], data["audience"], data["campus_label"], utcnow(), identity))
@@ -1180,7 +1183,9 @@ class Service:
             event_id = None
             reasons = ["event_match_required"]
             if candidate["event_key_hint"] and candidate["academic_year"] == season["academic_year"] and candidate["season_alignment"] == "explicit" and candidate["event_type"] != "unknown":
-                event_key = fingerprint({"institution_id": institution_id, "season_id": season_id, "hint": candidate["event_key_hint"], "event_type": candidate["event_type"], "audience": candidate["audience"], "campus_label": candidate["campus_label"]})
+                from .identity import scope
+                event_key = fingerprint({"institution_id": institution_id, "season_id": season_id,
+                                         "scope": scope(candidate, institution)})
                 existing = conn.execute("SELECT id FROM events WHERE institution_id=? AND season_id=? AND event_key=?", (institution_id, season_id, event_key)).fetchone()
                 if existing:
                     alias = conn.execute("SELECT current_id FROM event_aliases WHERE old_id=?", (existing[0],)).fetchone()

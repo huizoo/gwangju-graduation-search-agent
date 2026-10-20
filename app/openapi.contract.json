@@ -750,7 +750,7 @@
           }
         ],
         "security": [],
-        "description": "calendar returns only publication.calendar_eligible rows; all is the administrative view, including held/day/month candidates. Render final schedule from publication.calendar_* only."
+        "description": "내부 전체 기록·이력 호환 조회. 사용자 일정표는 /api/results를 사용한다."
       },
       "post": {
         "summary": "직접 확인한 행사 등록",
