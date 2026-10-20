@@ -682,7 +682,12 @@ class Service:
                 reasons.add("date_missing")
             if not any(event["publication"]["current_time_allowed"] for event in items):
                 reasons.add("time_missing")
-            latest = conn.execute("SELECT ji.status,ji.last_attempt_at FROM job_items ji JOIN jobs j ON j.id=ji.job_id WHERE ji.institution_id=? AND j.season_id=? ORDER BY j.created_at DESC LIMIT 1", (institution["id"], season["id"])).fetchone()
+            latest = conn.execute("SELECT ji.status,ji.last_attempt_at,ji.reason_codes_json,ji.history_json FROM job_items ji JOIN jobs j ON j.id=ji.job_id WHERE ji.institution_id=? AND j.season_id=? ORDER BY j.created_at DESC LIMIT 1", (institution["id"], season["id"])).fetchone()
+            if latest:
+                reasons.update(json.loads(latest["reason_codes_json"]))
+                history = json.loads(latest["history_json"])
+                codes = {error.get("code") for entry in history for error in entry.get("errors", [])}
+                reasons.update(codes & set(SCHEMA["$defs"]["ReasonCode"]["enum"]))
             questions = []
             if "date_missing" in reasons:
                 questions.append("졸업식의 정확한 날짜가 언제인가요?")
