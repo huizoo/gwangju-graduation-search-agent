@@ -1,6 +1,6 @@
 # 구현 진행 기록
 
-**현재 상태:** 후속 사용자 요청의 단일 일정표·자연어 기록·정확성 수정과 검증을 완료했다. 최신 진행은 [IMPROVEMENTS.md](IMPROVEMENTS.md), 최종 264개 검사와 브라우저·실제 자료원 증빙은 [IMPROVEMENT_VALIDATION.md](IMPROVEMENT_VALIDATION.md)를 따른다. 아래는 이전 P0 개발의 역사 기록이며 판매 준비 화면·별도 확인 목록은 현재 요구가 아니다.
+**현재 기록:** 2026-10-21의 조사 Agent·인원·결과 2.0 변경은 [진행 기록](RESEARCH_V2_PROGRESS.md)과 [검증 기록](RESEARCH_V2_VALIDATION.md)을 따른다. 아래는 이전 P0 개발의 역사 기록이다.
 
 기준: 2026-10-20, 인계 계약·게시 정책 4.0.
 

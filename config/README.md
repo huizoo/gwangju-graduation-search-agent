@@ -1,6 +1,6 @@
 # 설정 파일의 역할
 
-현재 선택은 Ollama이며 `.env.example`은 OpenAI 전환용 키 칸을 포함한 여섯 항목만 제공합니다. `qwen3:8b`는 기존 실험 재현값이고 OpenAI 기본값 `gpt-6.1-sol`도 실제 일정 추출 정확성을 검증한 추천 모델을 뜻하지 않습니다. 선택 모델에서 정상·반례 자료를 검증합니다.
+현재 선택은 Ollama이며 `.env.example`은 백엔드 선택·연결 정보와 자료원 키 입력 칸을 제공합니다. `qwen3:8b`는 기존 실험 재현값이고 OpenAI 기본값 `gpt-6.1-sol`도 실제 일정 추출 정확성을 검증한 추천 모델을 뜻하지 않습니다. 선택 모델의 검증 범위는 [실행 기록](../docs/RESEARCH_V2_VALIDATION.md)에 남깁니다.
 
 | 파일 | 역할 |
 | --- | --- |
@@ -20,14 +20,17 @@ API 키는 실행 중 메모리에서만 결합하고 설정 JSON, 작업 snapsh
 - `OLLAMA_TEXT_MODEL`: Ollama의 설치된 모델 목록에서 정확한 이름과 태그를 확인합니다. `ollama list`로 확인할 수 있습니다. 모델 설치 여부와 호출 성공은 일정 추출 정확성의 증거가 아닙니다.
 - `OPENAI_API_KEY`: OpenAI를 선택할 때만 https://platform.openai.com/api-keys 에서 발급한 키를 `.env`에 입력합니다. Ollama 사용 중에는 비워 둡니다.
 - `NEIS_API_KEY`: https://open.neis.go.kr/portal/guide/apiGuidePage.do 의 인증키 신청 절차로 발급받아 `.env`에만 입력합니다.
+- `SCHOOLINFO_API_KEY`: 학교알리미의 학년별 학생 수 공개 API 인증키를 `.env`에만 입력합니다. 앱은 학교 소재 구에 맞는 필수 `sggCode`와 공식 시도 코드를 전달합니다. 키가 없는 경우 공개 공시 페이지 경로도 시도하며, 전체 학생 수를 졸업 학년 인원으로 대체하지 않습니다.
 - `TAVILY_API_KEY`: https://app.tavily.com 에서 가입·로그인 후 대시보드의 API 키를 `.env`에만 입력합니다.
 
 OpenAI 키를 입력한 뒤 `LLM_BACKEND=openai`로 바꾸면 OpenAI 경로를 선택합니다. `OPENAI_FAST_MODEL`은 config 기본 모델의 선택적 재정의이며 `OPENAI_QUALITY_MODEL`이 비어 있으면 fast 모델을 재사용합니다. 선택한 백엔드만 초기화·검사하므로 OpenAI 선택에는 Ollama가 필요하지 않습니다. 키만 입력해서는 선택이 바뀌지 않으며 키 누락·장애 시 자동 fallback도 하지 않습니다.
 
 `llm_profiles`는 텍스트·이미지 전송 허용값만 포함합니다. Ollama/fake의 기본 외부 전송값은 모두 false이고 OpenAI 선택은 공개 문서의 필요한 텍스트 구간을 OpenAI로 보내는 선택입니다. openai profile의 텍스트만 true이며 이미지와 사적 수기 메모는 포함하지 않습니다. 명시한 `ALLOW_EXTERNAL_DOCUMENT_TEXT=false`는 profile보다 우선하고 실행환경의 별도 승인/거절도 적용합니다. 사용자 지정 원격 Ollama 주소 역시 외부 전송 검사 대상입니다.
 
-Mac도 Ollama 앱이 백그라운드 서비스를 실행하면 터미널에서 `ollama serve`를 별도로 띄우지 않아도 됩니다. GUI 없이 CLI 서버로 실행할 때만 해당 명령을 사용하며 같은 포트의 중복 서버는 피합니다. 유치원·어린이집·LangSmith 관련 환경 변수는 해당 연동을 선택할 때만 추가합니다.
+Mac도 Ollama 앱이 백그라운드 서비스를 실행하면 터미널에서 `ollama serve`를 별도로 띄우지 않아도 됩니다. GUI 없이 CLI 서버로 실행할 때만 해당 명령을 사용하며 같은 포트의 중복 서버는 피합니다.
 
 실제 설정 로더는 `app/config.py`, 병합·해시는 `app/configuration.py`, 지연 생성하는 선택 백엔드는 `app/providers.py`에 구현되어 있습니다. 인계본의 검사는 참조 사양으로 보존하며 실제 로더·API·재개 경로는 `tests/test_config.py`, `tests/test_jobs_api.py`로 별도 검사합니다.
 
 `publication.auto_rule_ids`는 실제 양성·반례 검사를 통과한 `규칙ID@버전`만 활성화합니다. 근거와 한계는 `config/rule-catalog.json`에 기록합니다. 이전 버전과 이름이 같아도 새 버전을 자동 승인하지 않습니다. `tracing.enabled=true`는 아직 지원하지 않아 시작 시 명시적으로 거절합니다. 브라우저 보조 읽기·HWP·이미지 OCR은 P0 수집 경로에 포함하지 않습니다.
+
+`item_max_replans=6`은 한 학교에서 관찰 후 선택하는 다음 행동의 최대 횟수입니다. 기존의 두 계획 묶음(각 최대 세 행동)을 단일 행동 반복으로 바꾸면서 동일한 최대 도구 행동 수를 유지했습니다. HTTP·검색·토큰·학교별 시간 한도도 별도로 적용됩니다. 조사 계약 2.0 이전 작업은 현재 방식으로 재개하지 않고 이력을 보존한 새 작업을 시작합니다.

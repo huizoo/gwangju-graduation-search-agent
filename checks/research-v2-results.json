@@ -1,0 +1,104 @@
+{
+  "verified_at": "2026-10-21",
+  "contract": "research 2.0 / presentation 2.0",
+  "implementation": "completed",
+  "full_population_schedule_collection": "not_performed",
+  "regression": {
+    "tests": 399,
+    "errors": 0,
+    "failures": 0,
+    "skipped": 0,
+    "evidence": "runtime/improvements-20261021/pytest-final.xml"
+  },
+  "live_sources": {
+    "passed": true,
+    "target_institutions": 339,
+    "official_homepage_links": 337,
+    "confirmed_addresses": 339,
+    "date_not_seeded": true,
+    "school": "건국초등학교",
+    "date": "2027-01-06",
+    "count": 188,
+    "count_kind": "2026학년도 6학년 재학생",
+    "model_calls": 0,
+    "search_calls": 0,
+    "schoolinfo_required_parameter": "sggCode",
+    "evidence": "runtime/improvements-20261021/sources-integrated/20261021T023854465442+0000/result.json"
+  },
+  "actual_selected_model": {
+    "backend": "ollama",
+    "model": "qwen3:8b",
+    "production_job_manager": true,
+    "date_not_seeded": true,
+    "previous_actual_search_route_reused": true,
+    "school": "광주대학교",
+    "date": "2027-02-19",
+    "field_publication_passed": true,
+    "full_date_count_job_passed": false,
+    "budget_enforced": true,
+    "model_calls": 2,
+    "time": null,
+    "count": null,
+    "evidence": "runtime/improvements-20261021/agent-live/run-121815-838375/result.json",
+    "trace_evidence": "runtime/improvements-20261021/agent-live/run-121815-838375/job.json"
+  },
+  "controlled_observation_actual_model": {
+    "passed": 4,
+    "total": 4,
+    "real_world_resolution_verified": false,
+    "same_date_search_for_first_three_scenarios": true,
+    "conflict_action": "event_identity search",
+    "evidence": "runtime/improvements-20261021/agent-live/run-122005-576655/adaptation.json"
+  },
+  "browser": {
+    "passed": 20,
+    "total": 20,
+    "evidence": "runtime/improvements-20261021/browser-115549/result.json",
+    "cleanup": {
+      "state": "FINISHED",
+      "cleanupMode": "exact-close",
+      "finalResidualCount": 0
+    },
+    "fixture_scope": "UI 작업 계약·수기 시각·페이지 경계는 격리 합성 자료. 실자료 검증과 구분.",
+    "offline": "서버 종료 후 같은 HTML 바이트를 data URL로 실행",
+    "os_file_double_click_verified": false,
+    "print": "필터된 26행 전체를 2페이지 PDF에 출력. 실제 종이 출력 미검증."
+  },
+  "final_html": {
+    "path": "output/graduation-schedule-2026.html",
+    "sha256": "2f3bf9a5fb90451b4343c93547ec84f22e38a2b384db6daef388fc69695d1368",
+    "passed": 4,
+    "total": 4,
+    "evidence": "runtime/improvements-20261021/final-html-browser-122309/result.json",
+    "synthetic_values": false,
+    "external_resources": 0,
+    "cleanup": {
+      "state": "FINISHED",
+      "cleanupMode": "exact-close",
+      "finalResidualCount": 0
+    }
+  },
+  "preservation": {
+    "original_database_unchanged": true,
+    "environment_file_unchanged_during_source_run": true,
+    "reference_unchanged": true,
+    "original_documents_preserved": 159,
+    "original_manual_records": 0,
+    "manual_protection_verified_with_synthetic_data": true,
+    "secret_scan": {
+      "files_checked": 228,
+      "secret_values_checked": 4,
+      "detected_files": [],
+      "forbidden_tracked_files": [],
+      "reference_unchanged": true
+    }
+  },
+  "limitations": [
+    "339개 전수 일정·인원·시각 확보를 완료한 것은 아님",
+    "광주대학교 날짜 게시 후 예산 중단. 인원 미확인, 실패 기록 보존",
+    "통제 관찰 행동 검사는 실제 경로 변경·충돌 해결 성공을 뜻하지 않음",
+    "선택하지 않은 OpenAI 실제 연동 미검증",
+    "모든 공지 형식·이미지·HWP·OCR·비공개 자료를 지원하지 않음",
+    "원본 수기 기록이 없어 실제 수기 데이터 이관을 검증한 것은 아님"
+  ]
+}

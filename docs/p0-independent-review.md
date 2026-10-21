@@ -1,6 +1,6 @@
 # P0 독립 구현 대조 검토
 
-**이전 검토 기록:** 이 문서는 후속 사용자 요청과 `runtime/review-20261020/review-summary.json`의 R1–R6 이전 검토다. 해당 반례의 재현·수정 및 현재 결과 계약 검증은 [IMPROVEMENT_VALIDATION.md](IMPROVEMENT_VALIDATION.md)에 기록한다. 아래 판매 준비·별도 확인 목록 설명은 현재 사용자 화면 요구로 적용하지 않는다.
+**이전 검토 기록:** 이 문서는 후속 사용자 요청과 `runtime/review-20261020/review-summary.json`의 R1–R6 이전 검토다. 해당 반례 수정은 [2026-10-20 기록](IMPROVEMENT_VALIDATION.md), 현재 결과 계약과 조사 Agent 검증은 [2026-10-21 기록](RESEARCH_V2_VALIDATION.md)을 따른다. 아래는 역사 기록이다.
 
 검토일: 2026-10-20. 기준은 `reference/handoff/04_codex_handoff.txt`, `06_acceptance.md`, `02_technical_design.md`, `contracts/README.md`의 4.0 사양이다. 이 문서는 구현 중간의 독립 검토 결과이며 최종 실연동 성과 집계가 아니다.
 
