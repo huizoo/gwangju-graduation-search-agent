@@ -114,6 +114,8 @@ def season_research_summary(conn, season_id, eligible_ids):
         state와 짧은 한국어 message. 기존 수기·이월 자료의 유무는 추정하지 않는다.
     """
     eligible = set(eligible_ids)
+    if not eligible:
+        return {"state": "not_started", "message": "학교 목록을 먼저 불러와 주세요."}
     selected_seen = False
     full_job = None
     for job in conn.execute(
@@ -132,7 +134,7 @@ def season_research_summary(conn, season_id, eligible_ids):
                 {"state": "not_started", "message": "이 기간의 전체 학교 조사를 아직 시작하지 않았어요."})
     items = conn.execute("SELECT * FROM job_items WHERE job_id=?", (full_job["id"],)).fetchall()
     targets = {item["institution_id"] for item in items}
-    if targets != eligible or len(items) != len(eligible) or full_job["target_count"] != len(eligible) or not eligible:
+    if targets != eligible or len(items) != len(eligible) or full_job["target_count"] != len(eligible):
         return {"state": "partial", "message": "조사 대상이 현재 학교 목록과 달라요. 전체 학교를 다시 조사해 주세요."}
     status = full_job["status"]
     if status in {"queued", "running", "pausing", "cancelling"}:

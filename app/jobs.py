@@ -301,7 +301,7 @@ class JobManager:
         Returns:
             저장한 Job.
         Raises:
-            ApiError: 다른 의도의 키 재사용 또는 동시 활성 작업.
+            ApiError: 다른 의도의 키 재사용, 동시 활성 작업 또는 조사 대상이 없는 경우.
         """
         validate("JobCreate", payload)
         request_hash = hashlib.sha256(dump(payload).encode()).hexdigest()
@@ -324,7 +324,11 @@ class JobManager:
                 validate_period(season["search_start"], season["search_end"])
                 from .scope import eligible_school
                 institutions = [self.service._institution(conn, row[0]) for row in conn.execute("SELECT id FROM institutions ORDER BY name,id")]
+                if not institutions:
+                    raise ApiError("roster_required", "학교 목록이 없어요. 학교 목록을 먼저 불러와 주세요.")
                 institutions = [r for r in institutions if eligible_school(r, season)]
+                if not institutions:
+                    raise ApiError("no_eligible_schools", "이 기간에 조사할 학교가 목록에 없어요. 학교 목록을 다시 불러와 주세요.")
                 selection = payload["selection"]
                 purpose = payload.get("purpose", "date_count")
                 if payload.get("purpose") == "date_count" and selection["scope"] != "all":
@@ -365,6 +369,9 @@ class JobManager:
                         unresolved = {item["institution"]["id"] for item in self.service._review(conn, season, events)}
                         institutions = [r for r in institutions if r["id"] in unresolved]
                 targets = [(r["id"], r["id"]) for r in institutions]
+                # 빈 큐를 완료로 저장하면 조사하지 않은 시즌을 조사 완료로 오인하게 된다.
+                if not targets:
+                    raise ApiError("no_eligible_schools", "선택한 조건에 맞는 조사 대상 학교가 없어요. 조사 조건을 확인해 주세요.")
             else:
                 targets = [(provider, None) for provider in payload["providers"]]
             job_id = str(uuid4())
