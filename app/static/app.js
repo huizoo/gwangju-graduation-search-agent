@@ -170,14 +170,13 @@
       completed:"조사를 마쳤어요. 아래 일정표에서 확인해 주세요.",failed:"조사를 마치지 못했어요. 이 시즌 다시 조사를 눌러 주세요."};
     const dateCount = job.kind === "schedule_scan" && job.scope_snapshot?.purpose !== "time";
     const timeSearch = job.scope_snapshot?.purpose === "time";
-    const timeLabels = {queued:"시간 조사를 준비하고 있어요.", running:"선택한 학교의 시간을 찾고 있어요.", completed:"시간 조사를 마쳤어요."};
     const registryLabels = {queued:"학교 목록을 불러올 준비를 하고 있어요.", running:"학교 목록을 불러오고 있어요.",
       completed: job.counts?.failed ? "일부 학교 목록을 가져오지 못했어요. 학교 목록 갱신을 다시 눌러 주세요." :
         state.rosterReady ? "학교 목록을 불러왔어요. 기간을 선택해 조사를 시작해 주세요." :
         "조사할 학교 목록을 가져오지 못했어요. 다시 불러와 주세요.",
       failed:"학교 목록을 가져오지 못했어요. 다시 불러와 주세요."};
     $("job-message").textContent = (job.kind === "registry_sync" && registryLabels[job.status]) ||
-      (timeSearch && timeLabels[job.status]) || labels[job.status] || "";
+      (timeSearch && window.scheduleTimeJobMessage(job, state.rows)) || labels[job.status] || "";
     $("job-message").hidden = dateCount && Boolean(state.researchSummary?.message);
     const controls = [];
     if (["queued","running"].includes(job.status)) controls.push(button("잠시 멈추기", e => action(e.currentTarget, async () => { await api(`/api/jobs/${job.id}/pause`, {method:"POST"}); await jobs(); })));
