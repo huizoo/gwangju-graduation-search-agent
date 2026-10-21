@@ -51,3 +51,11 @@ python3 scripts/check_publication_safety.py --tracked
 강제 푸시는 다른 사람의 복제본·fork나 GitHub의 캐시·PR 참조를 삭제하지 않는다. 실제 인증키가 노출된 경우 키 폐기·재발급이 우선이며, 필요한 경우 GitHub의 민감 자료 삭제 절차를 따른다. 이번 점검에서는 실제 API 키 노출을 발견하지 못했다.
 
 공식 설명: [GitHub의 민감 자료 삭제](https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/removing-sensitive-data-from-a-repository), [Push Protection](https://docs.github.com/en/code-security/concepts/secret-security/push-protection).
+
+## 원격 반영 결과
+
+2026-10-21 사용자 승인 후, 원격 `main`이 검증 당시 `5b0516a` 그대로인지 확인하고 정확한 기대 ID를 지정한 `--force-with-lease`로 정제 이력 `cd1ac07`을 반영했다. 원격에서 다시 받아 최신 파일 276개와 이력의 경로·blob 조합 520개를 검사했으며 탐지는 0건이었다. 공개 원격 참조는 `main` 하나이고 새 이력을 가리킨다.
+
+기존 영어 제목 35개와 본문 2개를 한국어로 바꾸고 작성자·커미터·날짜를 보존했다. 정제본의 회귀 검사는 607개 통과, sandbox의 포트 바인딩 제한으로 1개를 건너뛰었다. 작업 폴더도 같은 이력으로 동기화했으며 파일 내용·사용자 DB·수기·비밀 설정은 변경하지 않았다. 정제 전 이력 백업은 로컬 Git 제외 경로에만 보관한다.
+
+GitHub API는 HTTP 403을 반환해 Actions 실행 결과와 예전 커밋 직접 링크의 잔존 여부를 확인하지 못했다. 브랜치 이력 정리 완료를 GitHub 캐시·PR 참조·외부 복제본의 삭제 완료로 확대하지 않는다. 상세 반영 결과는 `runtime/git-publication-cleanup/remote-completion.json`에 기록한다.
