@@ -1,5 +1,0 @@
-#!/bin/sh
-# 변경 내용은 한국어 제목으로 남기고 기술명 영문 표기는 허용한다.
-set -eu
-project_root=$(git rev-parse --show-toplevel)
-exec python3 "$project_root/scripts/check_commit_message.py" "$1"

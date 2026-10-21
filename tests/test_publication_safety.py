@@ -239,16 +239,92 @@ def test_real_precommit_hook_blocks_index_secret(repo):
     import shutil
     source = Path(__file__).resolve().parents[1]
     (repo / "scripts").mkdir()
-    (repo / ".githooks").mkdir()
     shutil.copy2(source / "scripts/check_publication_safety.py", repo / "scripts/check_publication_safety.py")
-    shutil.copy2(source / ".githooks/pre-commit", repo / ".githooks/pre-commit")
-    git(repo, "config", "core.hooksPath", ".githooks")
+    shutil.copy2(source / "scripts/check_commit_message.py", repo / "scripts/check_commit_message.py")
+    GUARD.install_hooks(repo)
     stage(repo, "sample.txt", PRIVATE_MARKER)
     (repo / "sample.txt").write_text("clean working content")
     result = subprocess.run(["git", "-C", str(repo), "commit", "-qm", "거절 대상"], capture_output=True)
     assert result.returncode != 0
     assert b"private-key" in result.stdout + result.stderr
     assert PRIVATE_MARKER not in result.stdout + result.stderr
+
+
+def install_sources(repo):
+    """사용자 저장소에 의존하지 않는 실제 보호 명령을 준비한다."""
+    import shutil
+    source = Path(__file__).resolve().parents[1] / "scripts"
+    (repo / "scripts").mkdir(exist_ok=True)
+    for name in ("check_publication_safety.py", "check_commit_message.py"):
+        shutil.copy2(source / name, repo / "scripts" / name)
+
+
+def test_install_moves_owned_hooks_to_git_and_preserves_exact_backup(repo):
+    """기존 프로젝트 hook과 설정을 보존하고 Git 내부 보호를 활성화한다."""
+    install_sources(repo)
+    legacy = repo / ".githooks"
+    legacy.mkdir()
+    for name, content in GUARD.HOOK_CONTENTS.items():
+        (legacy / name).write_bytes(content)
+        (legacy / name).chmod(0o755)
+    git(repo, "config", "core.hooksPath", ".githooks")
+    old_config = (repo / ".git/config").read_bytes()
+    result = GUARD.install_hooks(repo)
+    assert result["hooks"] == 3
+    backup = Path(result["backup"])
+    assert (backup / "git-config.before").read_bytes() == old_config
+    assert git(repo, "config", "--get", "core.hooksPath").decode().strip() == str(repo / ".git/hooks")
+    for name, content in GUARD.HOOK_CONTENTS.items():
+        assert (legacy / name).read_bytes() == (backup / "legacy" / name).read_bytes() == content
+        target = repo / ".git/hooks" / name
+        assert target.read_bytes() == content and target.stat().st_mode & 0o111
+    repeated = GUARD.install_hooks(repo)
+    assert repeated["backup"] != result["backup"]
+    for name, content in GUARD.HOOK_CONTENTS.items():
+        assert (Path(repeated["backup"]) / "previous" / name).read_bytes() == content
+
+
+@pytest.mark.parametrize("custom", ["path", "hook", "legacy-edit", "legacy-extra"])
+def test_install_refuses_custom_hooks_without_modifying_files_or_settings(repo, custom):
+    """다른 hook 경로나 변경된 hook을 발견하면 설치 전에 중단한다."""
+    install_sources(repo)
+    if custom == "path":
+        git(repo, "config", "core.hooksPath", "user-hooks")
+    elif custom == "hook":
+        (repo / ".git/hooks/pre-push").write_text("#!/bin/sh\nexit 0\n")
+    else:
+        folder = repo / ".githooks"
+        folder.mkdir()
+        for name, content in GUARD.HOOK_CONTENTS.items():
+            (folder / name).write_bytes(content)
+        git(repo, "config", "core.hooksPath", ".githooks")
+        name = "pre-commit" if custom == "legacy-edit" else "post-commit"
+        (folder / name).write_text("#!/bin/sh\nexit 0\n")
+    config_before = (repo / ".git/config").read_bytes()
+    hooks_before = {p.name: p.read_bytes() for p in (repo / ".git/hooks").iterdir()}
+    with pytest.raises(RuntimeError):
+        GUARD.install_hooks(repo)
+    assert (repo / ".git/config").read_bytes() == config_before
+    assert {p.name: p.read_bytes() for p in (repo / ".git/hooks").iterdir()} == hooks_before
+    assert not (repo / ".git/publication-hook-backups").exists()
+
+
+def test_failed_install_restores_existing_hook_and_config(repo, monkeypatch):
+    """설정 쓰기가 실패하면 설치 도중 바꾼 hook도 원래 상태로 복원한다."""
+    install_sources(repo)
+    before = {p.name: p.read_bytes() for p in (repo / ".git/hooks").iterdir()}
+    real_git = GUARD.git
+
+    def fail_configuration(root, *arguments):
+        if arguments[:3] == ("config", "--local", "--replace-all"):
+            raise RuntimeError("설정 저장 실패 가정")
+        return real_git(root, *arguments)
+
+    monkeypatch.setattr(GUARD, "git", fail_configuration)
+    with pytest.raises(RuntimeError, match="설정 저장 실패"):
+        GUARD.install_hooks(repo)
+    assert {p.name: p.read_bytes() for p in (repo / ".git/hooks").iterdir()} == before
+    assert GUARD._hook_config(repo, local=True) == []
 
 
 def test_oversize_blob_is_blocked_instead_of_silently_skipped(repo, monkeypatch):

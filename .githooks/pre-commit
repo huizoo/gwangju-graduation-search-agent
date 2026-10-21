@@ -1,5 +1,0 @@
-#!/bin/sh
-# 작업 파일이 아닌 커밋 예정 index 내용을 검사한다.
-set -eu
-project_root=$(git rev-parse --show-toplevel)
-exec python3 "$project_root/scripts/check_publication_safety.py" --staged

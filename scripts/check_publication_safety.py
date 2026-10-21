@@ -11,11 +11,15 @@ from dataclasses import asdict, dataclass
 import hashlib
 from html.parser import HTMLParser
 import json
+import os
 from pathlib import Path, PurePosixPath
 import re
 import shlex
+import shutil
+import stat
 import subprocess
 import sys
+from uuid import uuid4
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -34,6 +38,20 @@ PATTERNS = {
 }
 SECRET_NAME = re.compile(r"(?:KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL)(?:_|$)", re.I)
 PLACEHOLDER = re.compile(r"^(?:your[_-].*|example.*|placeholder.*|changeme|<.*>|\$\{.*\})$", re.I)
+HOOK_COMMANDS = {
+    "pre-commit": ("작업 파일이 아닌 커밋 예정 index 내용을 검사한다.",
+                   'check_publication_safety.py" --staged'),
+    "pre-push": ("최신 공개 검토 명부와 전송 범위의 중간 커밋 내용까지 검사한다.",
+                 'check_publication_safety.py" --pre-push'),
+    "commit-msg": ("변경 내용은 한국어 제목으로 남기고 기술명 영문 표기는 허용한다.",
+                   'check_commit_message.py" "$1"'),
+}
+HOOK_CONTENTS = {
+    name: ('#!/bin/sh\n# ' + comment + '\nset -eu\n'
+           'project_root=$(git rev-parse --show-toplevel)\n'
+           'exec python3 "$project_root/scripts/' + command + '\n').encode("utf-8")
+    for name, (comment, command) in HOOK_COMMANDS.items()
+}
 
 
 @dataclass(frozen=True)
@@ -385,6 +403,127 @@ def check_push(root: Path, input_text: str) -> tuple[list[Finding], int]:
     return list(dict.fromkeys(findings)), count
 
 
+def _hook_config(root: Path, local: bool = False) -> list[str]:
+    """없는 설정과 오류를 구분해 현재 hook 경로 설정을 읽는다."""
+    options = ["--local"] if local else ["--path"]
+    result = subprocess.run(
+        ["git", "-C", str(root), "config", *options, "--get-all", "core.hooksPath"],
+        capture_output=True,
+    )
+    if result.returncode not in {0, 1}:
+        raise RuntimeError("Git hook 설정을 읽을 수 없습니다.")
+    return result.stdout.decode().splitlines()
+
+
+def install_hooks(root: Path) -> dict:
+    """사용자 hook을 덮어쓰지 않고 기존 보호를 Git 내부에 설치한다.
+
+    Args:
+        root: 보호 스크립트를 포함한 Git 작업 폴더.
+    Returns:
+        설치한 hook 수와 기존 설정·파일의 로컬 백업 경로.
+    Raises:
+        RuntimeError: 사용자 hook·다른 hook 경로가 있거나 설치를 검증하지 못한 경우.
+        OSError: 백업 또는 파일 설치에 실패한 경우. 변경한 hook과 경로 설정을 복원한다.
+    """
+    root = root.resolve()
+    for filename in ("check_publication_safety.py", "check_commit_message.py"):
+        script = root / "scripts" / filename
+        if script.is_symlink() or not script.is_file():
+            raise RuntimeError("두 공개 보호 스크립트가 먼저 필요합니다.")
+    common = Path(git(root, "rev-parse", "--git-common-dir").decode().strip())
+    common = (root / common).resolve() if not common.is_absolute() else common.resolve()
+    target, legacy = common / "hooks", root / ".githooks"
+    if target.is_symlink() or target.exists() and not target.is_dir():
+        raise RuntimeError("기존 Git hook 폴더를 변경하지 않았습니다.")
+    effective, previous_local = _hook_config(root), _hook_config(root, local=True)
+    if len(effective) > 1:
+        raise RuntimeError("복수 hook 경로 설정을 변경하지 않았습니다.")
+    active = Path(effective[0]) if effective else target
+    active = (root / active).resolve() if not active.is_absolute() else active.resolve()
+    if active not in {target, legacy}:
+        raise RuntimeError("사용자가 지정한 다른 hook 경로를 변경하지 않았습니다.")
+    if active == legacy:
+        if legacy.is_symlink() or not legacy.is_dir():
+            raise RuntimeError("기존 보호 hook 원본을 확인하지 못했습니다.")
+        for entry in legacy.iterdir():
+            if (entry.name not in HOOK_CONTENTS or entry.is_symlink()
+                    or not entry.is_file() or entry.read_bytes() != HOOK_CONTENTS[entry.name]):
+                raise RuntimeError("기존 hook 폴더에 사용자 변경이 있어 보존했습니다.")
+        if {entry.name for entry in legacy.iterdir()} != set(HOOK_CONTENTS):
+            raise RuntimeError("기존 보호 hook이 누락되어 설치를 중단했습니다.")
+        # 경로를 옮기며 그동안 비활성이던 사용자 hook이 새로 실행되는 것도 피한다.
+        if target.exists() and any(entry.name not in HOOK_CONTENTS
+                                   and not entry.name.endswith(".sample")
+                                   and entry.stat().st_mode & 0o111 for entry in target.iterdir()):
+            raise RuntimeError("Git 내부에 별도 사용자 hook이 있어 경로를 변경하지 않았습니다.")
+    originals = {}
+    for name, content in HOOK_CONTENTS.items():
+        destination = target / name
+        if destination.is_symlink() or destination.exists() and (
+                not destination.is_file() or destination.read_bytes() != content):
+            raise RuntimeError("기존 사용자 hook은 덮어쓰지 않습니다.")
+        originals[name] = (destination.read_bytes(), stat.S_IMODE(destination.stat().st_mode)) \
+            if destination.exists() else None
+    backup = common / "publication-hook-backups" / uuid4().hex
+    backup.mkdir(parents=True)
+    shutil.copy2(common / "config", backup / "git-config.before")
+    for folder, label in ((target, "previous"), (legacy, "legacy")):
+        if folder == legacy and active != legacy:
+            continue
+        for name in HOOK_CONTENTS:
+            if (folder / name).is_file():
+                (backup / label).mkdir(exist_ok=True)
+                shutil.copy2(folder / name, backup / label / name)
+    (backup / "receipt.json").write_text(json.dumps({
+        "previous_local_hooks_path": previous_local, "previous_effective_hooks_path": effective,
+        "installed": list(HOOK_CONTENTS), "status": "prepared",
+    }, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    changed, config_changed = [], False
+    target.mkdir(exist_ok=True)
+    try:
+        for name, content in HOOK_CONTENTS.items():
+            destination = target / name
+            temporary = target / f".{name}.{uuid4().hex}.tmp"
+            try:
+                temporary.write_bytes(content)
+                temporary.chmod(0o755)
+                os.replace(temporary, destination)
+                changed.append(name)
+            finally:
+                temporary.unlink(missing_ok=True)
+        config_changed = True
+        git(root, "config", "--local", "--replace-all", "core.hooksPath", str(target))
+        if _hook_config(root) != [str(target)]:
+            raise RuntimeError("Git이 새 hook 경로를 사용하지 않습니다.")
+        for name, content in HOOK_CONTENTS.items():
+            if (target / name).read_bytes() != content or not os.access(target / name, os.X_OK):
+                raise RuntimeError("설치한 보호 hook을 검증하지 못했습니다.")
+    except (OSError, RuntimeError):
+        for name in changed:
+            destination = target / name
+            if originals[name] is None:
+                destination.unlink(missing_ok=True)
+            else:
+                content, mode = originals[name]
+                destination.write_bytes(content)
+                destination.chmod(mode)
+        if config_changed:
+            result = subprocess.run(
+                ["git", "-C", str(root), "config", "--local", "--unset-all", "core.hooksPath"],
+                capture_output=True,
+            )
+            if result.returncode not in {0, 5}:
+                raise RuntimeError("이전 hook 경로 복원에 실패했습니다. Git 내부 백업을 확인해 주세요.") from None
+            for value in previous_local:
+                git(root, "config", "--local", "--add", "core.hooksPath", value)
+        raise
+    receipt = json.loads((backup / "receipt.json").read_text())
+    receipt["status"] = "installed"
+    (backup / "receipt.json").write_text(json.dumps(receipt, ensure_ascii=False, indent=2) + "\n")
+    return {"hooks": len(HOOK_CONTENTS), "backup": str(backup)}
+
+
 def main() -> int:
     """로컬 hook과 CI에서 같은 공개 기준을 실행한다."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -395,9 +534,20 @@ def main() -> int:
     parser.add_argument("--base", help="--history 검사에서 제외할 이미 검토한 기준 커밋")
     group.add_argument("--pre-push", action="store_true", help="Git pre-push 전송 ref와 중간 이력 검사")
     group.add_argument("--tree", help="지정 커밋/tree의 전체 파일 검사")
+    group.add_argument("--install-hooks", action="store_true", help="기존 보호 hook을 백업하고 Git 내부에 설치")
     parser.add_argument("--json", action="store_true", help="탐지 값 없이 JSON 출력")
     args = parser.parse_args()
     mode = "tree" if args.tree else "tracked" if args.tracked else "staged"
+    if args.install_hooks:
+        try:
+            if args.base:
+                parser.error("--base는 --history와 함께 사용합니다.")
+            installed = install_hooks(ROOT)
+        except (RuntimeError, OSError, ValueError) as error:
+            print(f"보호 hook 설치를 마치지 못했습니다: {error}", file=sys.stderr)
+            return 2
+        print(f"Git 내부에 보호 hook {installed['hooks']}개를 설치하고 이전 설정·파일을 백업했습니다.")
+        return 0
     try:
         if args.base and not args.history:
             parser.error("--base는 --history와 함께 사용합니다.")

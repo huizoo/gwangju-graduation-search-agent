@@ -5,7 +5,8 @@
 - 개발용 고정 자료가 필요하면 공개에 필요한 최소 사본을 만들고 토큰·개인정보·개인 경로를 검토한다. 원본은 Git 제외 경로에 보존한다.
 - 검토한 자료만 `config/publication-data-manifest.json`에 정확한 SHA-256과 목적을 기록한다. 검사 통과만을 목적으로 검토 없이 해시를 갱신하지 않는다.
 - 변경한 파일만 선택해 스테이징하고 `python3 scripts/check_publication_safety.py --staged`로 검사한다.
-- 개발 환경의 Git hook은 `git config --local core.hooksPath .githooks`로 활성화한다. hook을 우회해 공개 제한을 해제하지 않는다.
+- 새 개발 환경에서는 `python3 scripts/check_publication_safety.py --install-hooks`로 Git 내부 보호를 설치한다. 앱 실행에는 필요하지 않다. 설치기는 기존 설정과 자체 hook을 Git 내부에 백업하며 사용자 지정 hook은 덮어쓰지 않는다.
+- 커밋 전에는 실제 index를, 푸시 전에는 전송할 커밋 이력·메시지를 검사한다. 제목은 한국어로 작성하고 메시지에도 비밀값을 넣지 않는다. 보호 hook을 우회하지 않는다. GitHub 검사는 푸시 후 실행되므로 로컬 검사를 대신하지 않는다.
 - 이미 공개한 이력 재작성과 강제 푸시는 대상 브랜치·원격 상태를 확인하고 사용자의 명시적 승인을 받은 후 수행한다.
-
-공개 자료 검토·이력 정리·검사의 범위와 한계는 [Git 공개 관리](docs/GIT_PUBLICATION.md)를 따른다.
+- 주석·Docstring은 한국어로 작성한다. Args·Returns와 필요한 Raises·Examples를 사용하며 처리 이유·제약을 간결하게 설명한다.
+- 삭제한 개발 중간 자료와 원본 인계 자료는 `runtime/final-validation-20261021/archive/`에 해시 목록과 함께 로컬 보관한다. 다시 공개할 때에는 별도로 검토한다.
