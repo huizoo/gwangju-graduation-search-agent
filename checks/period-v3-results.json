@@ -1,0 +1,136 @@
+{
+  "date": "2026-10-21",
+  "baseline_commit": "51cb1e5",
+  "implementation_commits": [
+    "a4a2de4",
+    "333d144",
+    "d3e3643"
+  ],
+  "automated": {
+    "passed": 483,
+    "failed": 0,
+    "skipped": 0,
+    "report": "runtime/period-v3/pytest-release.txt",
+    "compileall": "passed",
+    "git_diff_check": "passed"
+  },
+  "browser": {
+    "unique_checks_passed": 59,
+    "pdf_content_checks_passed": 2,
+    "runs": [
+      {
+        "report": "runtime/period-ui-20261021/browser-132310/result.json",
+        "passed": 34,
+        "status": "passed",
+        "cleanup": {
+          "state": "FINISHED",
+          "cleanupMode": "exact-close",
+          "finalResidualCount": 0
+        }
+      },
+      {
+        "report": "runtime/period-ui-20261021/checkpoint-135033/result.json",
+        "passed": 11,
+        "status": "passed",
+        "cleanup": {
+          "state": "FINISHED",
+          "cleanupMode": "exact-close",
+          "finalResidualCount": 0
+        }
+      },
+      {
+        "report": "runtime/period-ui-20261021/final-html-135805/result.json",
+        "passed": 14,
+        "status": "passed",
+        "cleanup": {
+          "state": "FINISHED",
+          "cleanupMode": "exact-close",
+          "finalResidualCount": 0
+        }
+      }
+    ],
+    "pdf_report": "runtime/period-ui-20261021/browser-132310/pdf-content-check.json",
+    "app_ui_uses_synthetic_fixtures": true,
+    "ui_results_are_not_external_collection_evidence": true
+  },
+  "actual_app_jobs": [
+    {
+      "report": "runtime/period-v3/job/20261021T045322683247+0000/result.json",
+      "passed": true,
+      "scope": "실제 API→JobManager→ResearchRunner/MCP→SQLite→API→HTML→재시작",
+      "school": "첨단고등학교",
+      "search_start": "2025-12-01",
+      "search_end": "2026-03-15",
+      "date": "2026-01-21",
+      "academic_year": 2025,
+      "count": 355,
+      "time": null,
+      "http_requests": 3,
+      "model_calls": 0,
+      "restart_preserved": true,
+      "original_db_unchanged": true,
+      "env_unchanged": true
+    },
+    {
+      "report": "runtime/period-v3/job/20261021T045354004719+0000/result.json",
+      "passed": true,
+      "scope": "실제 API→JobManager→ResearchRunner/MCP→SQLite→API→HTML→재시작",
+      "school": "건국초등학교",
+      "search_start": "2026-12-01",
+      "search_end": "2027-03-15",
+      "date": "2027-01-06",
+      "academic_year": 2026,
+      "count": 188,
+      "time": null,
+      "http_requests": 3,
+      "model_calls": 0,
+      "restart_preserved": true,
+      "original_db_unchanged": true,
+      "env_unchanged": true
+    }
+  ],
+  "actual_model": {
+    "report": "runtime/period-v3/agent/20261021T045547807609+0000/result.json",
+    "backend": "ollama",
+    "model_initialized": true,
+    "usage": {
+      "http_requests": 14,
+      "document_fetches": 1,
+      "replans": 6,
+      "llm_calls": 5,
+      "tokens": 10192,
+      "search_calls": 4
+    },
+    "stop_reason": "item_budget",
+    "schedule_found": false,
+    "passed": false,
+    "candidate_count": 0,
+    "original_db_unchanged": true,
+    "env_unchanged": true
+  },
+  "artifacts": [
+    {
+      "path": "output/graduation-schedule-2025-12-01-2026-03-15.html",
+      "sha256": "1b65d00bec57eaee208b9cbe666492d2ee1d9a93e0b0ee9f3afb6fbfae81d46e",
+      "browser_verified_identical_bytes": true
+    },
+    {
+      "path": "output/graduation-schedule-2026-12-01-2027-03-31.html",
+      "sha256": "1a1ad13779ede8ba4d3761cab91ab2ea4529dd5b2cf4b4e3445b3b81cd737ce1",
+      "browser_verified_identical_bytes": true
+    }
+  ],
+  "artifact_build_report": "runtime/period-v3/final-result/20261021T045541124966+0000/result.json",
+  "limitations": [
+    "실제 정상 작업은 격리 DB에 공식 학교 1곳씩 등록한 전체 대상 조사이며 339개 전수 조사가 아니다.",
+    "실제 두 학교 시작 시각은 공란이다. 합성 UI 10:30은 실제 확인 시각이 아니다.",
+    "최종 Ollama 연동은 실행됐지만 과거 건국초는 공식 근거 미발견 후 기존 한도에서 종료했다.",
+    "OpenAI 실제 호출은 이번 변경에서 다시 검증하지 않았다."
+  ],
+  "preservation": {
+    "user_db_written": false,
+    "reference_changed": false,
+    "env_changed": false,
+    "remote_push": false
+  }
+}
