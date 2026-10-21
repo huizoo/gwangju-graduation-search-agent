@@ -9,12 +9,12 @@
 </head>
 <body><main>
   <header><div class="eyebrow">우리 동네 학교 일정</div><h1>광주 졸업식 일정 도우미</h1>
-  <div class="season-bar"><label>조사 시즌 <select id="season-select"></select></label><span id="season-range"></span></div></header>
+  <div class="season-bar"><label>저장된 시즌 <select id="season-select"></select></label><span id="season-range"></span></div></header>
   <p id="message" role="status" aria-live="polite" hidden></p>
   <div class="input-panels">
     <section class="panel" aria-labelledby="research-title"><h2 id="research-title">일정찾기</h2>
       <p class="hint">광주 학교의 졸업식 날짜와 인원수를 찾아요.</p>
-      <form id="research-form"><button class="primary" type="submit" id="research-submit">일정찾기</button></form>
+      <form id="research-form" class="actions"><button class="primary" type="submit" id="research-submit">이 시즌 다시 조사</button><button id="add-season" type="button">새 시즌 조사</button></form>
       <div id="job" hidden><p id="job-message" role="status"></p><div class="actions" id="job-actions"></div></div>
     </section>
     <section class="panel" aria-labelledby="record-title"><h2 id="record-title">직접 확인한 내용</h2>
@@ -45,12 +45,12 @@
       </div>
     </div>
   </section>
-  <footer><details><summary>기록 관리</summary><div class="actions"><button id="backup">기록 백업 저장</button><button id="add-season">새 조사 시즌 만들기</button><button id="registry-sync">학교 목록 새로 가져오기</button></div></details><button id="shutdown">저장하고 프로그램 종료</button></footer>
-  <dialog id="season-dialog"><form id="season-form"><h2>새 조사 시즌</h2>
-    <label>이름<input name="label" required placeholder="2027학년도 겨울 졸업 시즌"></label>
-    <label>학년도<input name="academic_year" type="number" min="2000" max="2100" required></label>
-    <label>조사 시작일<input name="search_start" type="date" required></label>
-    <label>조사 종료일<input name="search_end" type="date" required></label>
-    <div class="actions"><button class="primary">만들기</button><button type="button" id="close-season">닫기</button></div>
+  <footer><details><summary>기록 관리</summary><div class="actions"><button id="backup">기록 백업 저장</button><button id="registry-sync">학교 목록 새로 가져오기</button></div></details><button id="shutdown">저장하고 프로그램 종료</button></footer>
+  <dialog id="season-dialog"><form id="season-form"><h2>새 시즌 조사</h2>
+    <p class="hint">찾을 졸업식의 실제 날짜를 선택해 주세요.<br>시작일과 종료일을 모두 포함해요.</p>
+    <label>졸업식 시작 날짜<input id="season-start" name="search_start" type="date" required></label>
+    <label>졸업식 끝 날짜<input id="season-end" name="search_end" type="date" required aria-describedby="season-limit"></label>
+    <p id="season-limit" class="hint"></p>
+    <div class="actions"><button id="season-submit" class="primary">조사 시작</button><button type="button" id="close-season">닫기</button></div>
   </form></dialog>
 </main></body></html>
