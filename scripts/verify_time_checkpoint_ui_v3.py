@@ -127,6 +127,25 @@ def main():
         printed = evaluate("() => {const row=document.querySelector('tr[data-name=\"화면검사01학교\"]');return {text:row.children[2].innerText,notice:getComputedStyle(row.querySelector('.time-research')).display};}")
         check("print_keeps_inflight_time_cell_blank", printed["text"] == "" and printed["notice"] == "none", printed)
         run("async (page) => {await page.emulateMedia({media:'screen'});}")
+        running_id = local.runtime.jobs.list()[0]["id"]
+        run("async (page) => {await page.getByRole('button',{name:'잠시 멈추기',exact:true}).click();}")
+        assert wait("document.querySelector('tr[data-name=\"화면검사01학교\"] .time-research')?.dataset.state==='paused'")
+        paused_partial = evaluate("""async () => {const data=await (await fetch('/api/results?season_id='+document.querySelector('#season-select').value)).json();
+          const row=data.rows.find(r=>r.name==='화면검사01학교');return {saved_time:row.start_time,status:row.time_search.status,
+          text:document.querySelector('tr[data-name="화면검사01학교"] td:nth-child(3)').innerText};}""")
+        check("paused_checkpoint_keeps_notice_and_resume", paused_partial["saved_time"] == "10:30" and
+              paused_partial["status"] == "paused" and "잠시 멈췄어요." in paused_partial["text"] and
+              "이어서 찾기" in paused_partial["text"] and "10:30" not in paused_partial["text"], paused_partial)
+        invoke(["run", "--lease", lease, "--", "reload"])
+        check("paused_checkpoint_survives_reload", wait("document.querySelector('tr[data-name=\"화면검사01학교\"] .time-research')?.dataset.state==='paused'"), True)
+        invoke(["run", "--lease", lease, "--", "screenshot", f"--filename={out / 'checkpoint-paused.png'}"])
+        run("async (page) => {await page.emulateMedia({media:'print'});}")
+        paused_print = evaluate("() => document.querySelector('tr[data-name=\"화면검사01학교\"] td:nth-child(3)').innerText")
+        check("print_keeps_paused_checkpoint_time_blank", paused_print == "", paused_print)
+        run("async (page) => {await page.emulateMedia({media:'screen'});await page.locator('tr[data-name=\"화면검사01학교\"] .find-time').click();}")
+        resumed = wait("document.querySelector('tr[data-name=\"화면검사01학교\"] .time-research')?.dataset.state==='running'")
+        check("paused_checkpoint_resumes_original_job", resumed and local.runtime.jobs.list()[0]["id"] == running_id,
+              {"resumed": resumed, "job_id": local.runtime.jobs.list()[0]["id"], "original_job_id": running_id})
         CheckpointRunner.release.set()
         check("actual_completion_replaces_with_saved_time", wait("document.querySelector('tr[data-name=\"화면검사01학교\"] td:nth-child(3)').innerText==='10:30' && !document.querySelector('tr[data-name=\"화면검사01학교\"] .time-research')"), True)
         job = local.runtime.jobs.list()[0]

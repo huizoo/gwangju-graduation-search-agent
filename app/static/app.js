@@ -47,8 +47,9 @@
       if (cell.timeSignature === signature) return;
       cell.timeSignature = signature; cell.replaceChildren();
       const running = job && activeStatuses.has(job.status);
-      // 중간 저장값이 생겨도 실제 작업이 끝나기 전에는 조사 상태를 계속 표시한다.
-      if (row.start_time && !running && !pending) { cell.textContent = row.start_time; return; }
+      // 중간 저장값이 생겨도 실행 중이거나 멈춘 미완료 작업은 해당 칸의 안내를 유지한다.
+      // 종료된 과거 작업은 이후 직접 확인한 정상 시간을 가리지 않는다.
+      if (row.start_time && !running && !pending && job?.status !== "paused") { cell.textContent = row.start_time; return; }
       if (row.status) return;
       const area = document.createElement("div"); area.className = "time-research";
       area.dataset.state = pending ? "requesting" : (job?.status || "idle");
