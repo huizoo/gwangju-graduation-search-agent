@@ -295,6 +295,35 @@ def test_calendar_excerpt_preserves_the_actual_row_and_nearest_month_header(monk
     assert excerpt["text"] in text and excerpt["section_header"] in text
 
 
+def test_long_public_page_keeps_action_and_claim_within_evidence_contract(monkeypatch):
+    """긴 실제 홈페이지에서 후보 때문에 정상 검색 행동까지 거절되던 오류를 막는다."""
+    settings, institution, season = setup_case()
+    text = "학교 메뉴\n" * 600 + "2026학년도 검증초등학교 졸업식\n일시: 2027. 1. 7. 오전 10시\n" + "학교 안내\n" * 800
+    captured = []
+
+    async def structured(self, system, user, schema):
+        excerpt = json.loads(user)["documents"][0]["segments"][0]
+        captured.append(excerpt["text"])
+        assert len(excerpt["text"]) <= 2000 and excerpt["text"] in text
+        assert "2026학년도 검증초등학교 졸업식" in excerpt["text"]
+        return decision(kind="search_web", objective="event_identity", query="검증초등학교 졸업식 안내",
+            candidates=[{"evidence_block_id": excerpt["evidence_block_id"],
+                "event_title": "2026학년도 졸업식", "event_type": "graduation_ceremony",
+                "academic_year": 2026, "ceremony_status": "scheduled", "dates": ["2027-01-07"],
+                "start_time": "10:00", "campus_label": None,
+                "date_quote": "2027. 1. 7.", "time_quote": "오전 10시"}])
+
+    monkeypatch.setattr(ModelProvider, "_structured", structured)
+    context = {"purpose": "time", "missing_fields": ["start_time"], "documents": [
+        {"id": str(uuid4()), "segments": [{"id": "s1", "text": text}]}]}
+    result = asyncio.run(ModelProvider(settings).decide(institution, season, context))
+    validate("AgentDecision", result)
+    assert result["action"]["kind"] == "search_web"
+    candidate = result["candidates"][0]["candidate"]
+    assert candidate["context_evidence"][0]["quote"] == captured[0]
+    assert candidate["event_date"]["date"] == "2027-01-07" and candidate["start_time"] == "10:00"
+
+
 def test_model_cannot_select_an_unpresented_document_segment(monkeypatch):
     """잘라서 보여주지 않은 구간 ID를 근거로 선택하면 후보 전체를 거절한다."""
     from app.providers import ProviderError

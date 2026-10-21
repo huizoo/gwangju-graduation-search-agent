@@ -780,6 +780,9 @@ class ModelProvider:
             "documents": [],
         }
         limit = self.settings.data["execution"]["llm_max_input_tokens"]
+        evidence_limit = next(
+            branch["maxLength"] for branch in SCHEMA["$defs"]["Evidence"]["properties"]["quote"]["anyOf"]
+            if branch.get("type") == "string")
         fixed_size = len(canonical(schema)) + len(system)
         public["candidate_reviews"] = [
             {**{k: r[k] for k in ("document_id", "allowed", "reasons", "checks") if k in r},
@@ -834,7 +837,8 @@ class ModelProvider:
                 matched = re.search(rf"{year_pattern}\s*학년도[\s\S]{{0,60}}?(?:졸업식|학위\s*수여식|학위수여일)", segment["text"])
                 matched = matched or re.search(r"졸업식|학위\s*수여식|학위수여일|학생\s*수|졸업\s*인원", segment["text"])
                 start = max(0, matched.start() - 500) if matched else 0
-                source = segment["text"][start:start + 4000]
+                # 제안에 사용한 구간을 그대로 근거로 보존하므로 읽기 구간도 저장 계약을 따른다.
+                source = segment["text"][start:start + evidence_limit]
                 rows = list(re.finditer(r"(?:^|\n)(\d{1,2}\.\d{1,2}(?:\([월화수목금토일]\))?)\s*\n([^\n]*(?:졸업식|학위\s*수여식)[^\n]*)", segment["text"]))
                 snippets = []
                 for row in rows:
@@ -858,7 +862,7 @@ class ModelProvider:
                     if header:
                         excerpt["section_header"] = header
                     selected["segments"].append(excerpt)
-                    low, high = 0, len(source)
+                    low, high = 0, min(len(source), evidence_limit)
                     # 줄바꿈·따옴표의 JSON escape까지 세어 실제 예약 한도를 지킨다.
                     while low < high:
                         middle = (low + high + 1) // 2
