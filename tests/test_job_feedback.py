@@ -126,7 +126,20 @@ def test_new_time_job_does_not_replace_latest_full_research(context):
     _job(context, status="running")
     assert season_research_summary(conn, season, schools)["state"] == "completed"
     _job(context, purpose="date_count", scope="all", targets=schools, status="paused")
-    assert season_research_summary(conn, season, schools)["state"] == "paused"
+    paused = season_research_summary(conn, season, schools)
+    assert paused["state"] == "paused" and "이어서 조사할 수" in paused["message"]
+
+
+@pytest.mark.parametrize("reason", ["job_budget", "configuration_required"])
+def test_non_resumable_pause_guides_to_new_research_of_same_season(context, reason):
+    """기존 조건으로 재개할 수 없는 작업은 실제 화면의 다시 조사 동선을 안내한다."""
+    conn, season, schools = context
+    job = _job(context, purpose="date_count", scope="all", targets=schools, status="paused")
+    conn.execute("UPDATE jobs SET paused_reason=? WHERE id=?", (reason, job))
+    result = season_research_summary(conn, season, schools)
+    assert result["state"] == "paused"
+    assert "'이 시즌 다시 조사'" in result["message"]
+    assert "이어서 조사할 수" not in result["message"]
 
 
 def test_source_failure_or_unprocessed_targets_leave_partial_full_research(context):

@@ -140,6 +140,8 @@ def season_research_summary(conn, season_id, eligible_ids):
                     "pausing": "전체 조사를 잠시 멈추고 있어요.", "cancelling": "전체 조사를 취소하고 있어요."}
         return {"state": "running", "message": messages[status]}
     if status == "paused":
+        if full_job["paused_reason"] in {"job_budget", "configuration_required"}:
+            return {"state": "paused", "message": "전체 조사가 멈췄어요. '이 시즌 다시 조사'로 계속 확인해 주세요."}
         return {"state": "paused", "message": "전체 조사를 잠시 멈췄어요. 이어서 조사할 수 있어요."}
     if status == "cancelled":
         return {"state": "cancelled", "message": "전체 조사를 취소했어요. 저장한 정보는 그대로 남아 있어요."}
