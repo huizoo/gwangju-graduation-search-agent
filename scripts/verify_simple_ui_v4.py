@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from app.jobs import BudgetStop
+from app.exporting import schedule_filename
 from verify_period_ui_v3 import HELPER, LocalApp, fixtures
 
 
@@ -181,7 +182,7 @@ def main():
             "field": "start_time", "action": "set", "value": "11:15", "bound_date": "2027-01-08", "basis": "phone_confirmed",
             "confirmed_at": "2026-10-20T01:00:00Z", "note": "외부 창 수기 저장을 재현한 합성 값", "source_url": None, "resolves_fingerprint": None}]})
         check("automatic_results_without_refresh_button", wait("document.querySelector('tr[data-name=\"화면검사01학교\"] td:nth-child(3)').innerText==='11:15'"), True)
-        latest = local.runtime.data_dir / "exports" / f"graduation-schedule-{season['search_start']}-{season['search_end']}.html"
+        latest = local.runtime.data_dir / "exports" / schedule_filename(season)
         for _ in range(100):
             if latest.exists() and "11:15" in latest.read_text():
                 break
@@ -210,7 +211,7 @@ def main():
         original_export({"season_id": season["id"], "include_notes": False, "publication_policy_version": "4.0"})
         check("save_failure_notice_recovers_without_reload", wait("document.querySelector('#html-save-message').hidden===true"), True)
         run("async (page) => {await page.locator('#save-html').click();}")
-        check("file_download_uses_period_name", wait("window.__downloadName?.includes('2026-12-01_2027-03-31')"), evaluate("() => window.__downloadName"))
+        check("file_download_uses_period_name", wait("window.__downloadName==='광주 졸업식 일정표 (2026.12.01~2027.03.31).html'"), evaluate("() => window.__downloadName"))
         invoke(["run", "--lease", lease, "--", "resize", "390", "844"])
         check("mobile_no_overflow", evaluate("() => document.documentElement.scrollWidth<=innerWidth"), True); shot("simple-mobile.png")
         invoke(["run", "--lease", lease, "--", "resize", "1440", "1050"])

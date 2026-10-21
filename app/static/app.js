@@ -182,12 +182,13 @@
         "기록은 보관됐지만 일정표 파일을 만들지 못했어요. 다시 시도해 주세요.");
       if (!result.url) throw new Error("일정표 파일을 만들지 못했어요. 다시 시도해 주세요.");
       if (download) {
+        if (typeof result.filename !== "string" || !result.filename.trim())
+          throw new Error("일정표 파일 이름을 확인하지 못했어요. 다시 시도해 주세요.");
         const response = await fetch(result.url);
         if (!response.ok) throw new Error("파일을 내려받지 못했어요.");
         const url = URL.createObjectURL(await response.blob());
         const a = document.createElement("a"); a.href = url;
-        const season = state.seasons.find(s=>s.id===state.season);
-        a.download = `graduation-schedule-${season.search_start}_${season.search_end}.html`;
+        a.download = result.filename;
         a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
         message("파일을 내려받았어요. 프로그램 없이 열어볼 수 있어요.");
       } else if (popup) { popup.opener = null; popup.location.href = result.url; }
