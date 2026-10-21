@@ -11,14 +11,16 @@ from app.domain import ApiError
 from test_jobs_api import settings_for, institution_payload, job_payload, manual_event
 
 
-def test_default_request_freezes_all_target_schools_independent_of_display(tmp_path):
+@pytest.mark.parametrize("mode", ["recheck", "initial", "missing_only"])
+def test_default_request_freezes_all_target_schools_independent_of_display(tmp_path, mode):
     app = create_app(settings_for(tmp_path))
     runtime = app.state.runtime
-    for i, kind in enumerate(("elementary", "middle", "high", "university", "junior_college", "kindergarten")):
-        runtime.service.create_institution({**institution_payload(f"학교{i}"), "type": kind,
+    schools = [runtime.service.create_institution({**institution_payload(f"학교{i}"), "type": kind,
                                            "district": "동구" if i % 2 else "북구"})
+               for i, kind in enumerate(("elementary", "middle", "high", "university", "junior_college", "kindergarten"))]
     season = runtime.service.list_seasons()["items"][0]
-    payload = {**job_payload(season["id"]), "purpose": "date_count", "target_event_id": None}
+    runtime.service.create_event(manual_event(schools[0]["id"], season["id"]))
+    payload = {**job_payload(season["id"]), "mode": mode, "purpose": "date_count", "target_event_id": None}
     wrong = {**payload, "selection": {"scope": "filter", "types": [], "districts": ["북구"], "query": ""}}
     with pytest.raises(ApiError, match="전체 학교"):
         runtime.jobs.create(wrong, str(uuid4()))

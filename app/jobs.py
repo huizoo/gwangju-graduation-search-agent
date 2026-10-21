@@ -349,7 +349,7 @@ class JobManager:
                     r["operation_status"] == "closed_confirmed" and r["operation_effective_date"]
                     and r["operation_effective_date"] <= season["search_start"]
                 )]
-                if payload["mode"] != "recheck" and purpose != "time":
+                if payload["mode"] != "recheck" and "purpose" not in payload:
                     events = self.service._events(conn, season["id"])
                     if payload["mode"] == "initial":
                         attempted = {e["institution"]["id"] for e in events}
