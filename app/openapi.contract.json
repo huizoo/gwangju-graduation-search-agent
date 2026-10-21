@@ -37,7 +37,18 @@
             }
           }
         },
-        "security": []
+        "security": [],
+        "parameters": [
+          {
+            "name": "season_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ]
       }
     },
     "/api/seasons": {
@@ -1569,7 +1580,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "./domain.schema.json#/$defs/Accepted"
+                  "$ref": "./domain.schema.json#/$defs/ShutdownResult"
                 }
               }
             }

@@ -341,6 +341,36 @@
               "type": "null"
             }
           ]
+        },
+        "html_save": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "status": {
+                  "enum": [
+                    "pending",
+                    "current",
+                    "failed"
+                  ]
+                },
+                "message": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "status",
+                "message"
+              ]
+            }
+          ]
         }
       },
       "required": [
@@ -8365,6 +8395,15 @@
                 "created_at": {
                   "type": "string",
                   "format": "date-time"
+                },
+                "feedback": {
+                  "enum": [
+                    null,
+                    "not_found",
+                    "source_unavailable",
+                    "service_error",
+                    "incomplete"
+                  ]
                 }
               },
               "required": [
@@ -8424,6 +8463,53 @@
             "null"
           ],
           "format": "uuid"
+        },
+        "research_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "state": {
+              "enum": [
+                "not_started",
+                "partial",
+                "running",
+                "paused",
+                "cancelled",
+                "completed",
+                "failed"
+              ]
+            },
+            "message": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "state",
+            "message"
+          ]
+        },
+        "html_save": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "status": {
+              "enum": [
+                "pending",
+                "current",
+                "failed"
+              ]
+            },
+            "message": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "required": [
+            "status",
+            "message"
+          ]
         }
       },
       "required": [
@@ -8746,6 +8832,22 @@
         "candidates",
         "counts",
         "reason"
+      ]
+    },
+    "ShutdownResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "accepted": {
+          "const": true
+        },
+        "paused_active_job": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "accepted",
+        "paused_active_job"
       ]
     }
   }

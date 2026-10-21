@@ -2,7 +2,7 @@
 
 import asyncio
 import base64
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from copy import deepcopy
 import hashlib
 import hmac
@@ -10,6 +10,8 @@ import json
 import os
 from pathlib import Path
 import secrets
+from threading import RLock
+from time import monotonic
 from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
@@ -92,6 +94,11 @@ class Application:
         self.instance_id = secrets.token_hex(16)
         self.write_lock = asyncio.Lock()
         self.shutdown_callback = None
+        self.export_lock = RLock()
+        self.export_stop = asyncio.Event()
+        self.export_task = None
+        self.export_failures = {}
+        self.export_worker_failed = False
         if not self.service.list_seasons()["items"]:
             self.service.create_season({**settings.data["season"], "timezone": "Asia/Seoul"})
 
@@ -130,7 +137,7 @@ class Application:
             result["next_cursor"] = base64.urlsafe_b64encode(f"{raw}:{signature}".encode()).decode()
         return result
 
-    def status(self) -> dict:
+    def status(self, season_id: str | None = None) -> dict:
         """설정 여부와 실제 연결 확인 여부를 혼동하지 않고 제공한다."""
         summary = self.settings.connection_summary()
         capabilities = []
@@ -149,7 +156,8 @@ class Application:
         active = next((j["id"] for j in self.jobs.list() if j["status"] in {"queued", "running", "pausing", "cancelling"}), None)
         return {"app_mode": self.settings.data["app"]["mode"], "app_version": __version__,
                 "schema_version": "4.0", "capabilities": capabilities,
-                "content_revision": self.store.revision(), "active_job_id": active}
+                "content_revision": self.store.revision(), "active_job_id": active,
+                "html_save": self.html_save_status(season_id) if season_id else None}
 
     def export_result(self, season_id: str) -> dict:
         """검증된 같은 정책 파일만 현재 일정 URL로 제공한다."""
@@ -171,32 +179,132 @@ class Application:
             }
 
     def export(self, payload: dict) -> dict:
-        """한 snapshot을 새 불변 파일로 렌더링한 뒤 현재 파일 포인터를 갱신한다."""
+        """직접 내보내기와 자동 저장을 직렬화해 같은 기간의 역순 덮어쓰기를 막는다.
+
+        Args:
+            payload: 기간과 내보내기 정책.
+        Returns:
+            저장 성공 또는 마지막 정상 파일을 보존한 실패 결과.
+        """
+        with self.export_lock:
+            result = self._write_export(payload)
+            if result["status"] == "current":
+                self.export_worker_failed = False
+            return result
+
+    def _write_export(self, payload: dict) -> dict:
+        """불변 버전과 프로그램 없이 여는 기간별 최신 파일을 함께 저장한다."""
         from .exporting import render_export
         snapshot = self.service.snapshot(payload["season_id"])
         folder = self.data_dir / "exports"
-        folder.mkdir(exist_ok=True)
         # DB와 파일을 한 트랜잭션으로 묶을 수 없으므로 기존 파일 대신 새 불변 버전을 쓴다.
         period_name = f"graduation-schedule-{snapshot['season']['search_start']}-{snapshot['season']['search_end']}"
         path = folder / f"{period_name}-r{snapshot['content_revision']}-{uuid4().hex[:8]}.html"
         temp = folder / f".{uuid4()}.tmp"
+        latest = folder / f"{period_name}.html"
+        latest_temp = folder / f".{uuid4()}.latest.tmp"
         revision = snapshot["content_revision"]
         try:
-            temp.write_text(render_export(snapshot, include_notes=payload["include_notes"]), encoding="utf-8")
+            folder.mkdir(exist_ok=True)
+            html = render_export(snapshot, include_notes=payload["include_notes"])
+            temp.write_text(html, encoding="utf-8")
+            latest_temp.write_text(html, encoding="utf-8")
             with self.store.transaction(write=True) as conn:
                 os.replace(temp, path)
+                # 완성된 파일만 교체하므로 실패·중간 쓰기로 기존 일정표를 비우지 않는다.
+                os.replace(latest_temp, latest)
                 status = "current" if self.store.revision(conn) == revision else "pending"
                 conn.execute(
                     "INSERT INTO exports(season_id,content_revision,exported_revision,exported_at,status,include_notes,publication_policy_version,file_ref,error_json) VALUES(?,?,?,?,?,?,?,?,NULL) "
                     "ON CONFLICT(season_id) DO UPDATE SET content_revision=excluded.content_revision,exported_revision=excluded.exported_revision,exported_at=excluded.exported_at,status=excluded.status,include_notes=excluded.include_notes,publication_policy_version=excluded.publication_policy_version,file_ref=excluded.file_ref,error_json=NULL",
                     (payload["season_id"], self.store.revision(conn), revision, snapshot["generated_at"], status, int(payload["include_notes"]), "4.0", str(path)),
                 )
-        except OSError:
-            temp.unlink(missing_ok=True)
+        except (OSError, ValueError):
             with self.store.transaction(write=True) as conn:
                 error = ApiError("export_failed", "일정표 파일을 저장하지 못했습니다. 마지막 정상 파일은 보존합니다.", 503).as_dict()
                 conn.execute("UPDATE exports SET status='failed',error_json=? WHERE season_id=?", (dump(error), payload["season_id"]))
+        finally:
+            # DB 잠금 실패도 임시 파일을 남기지 않는다. 읽기 전용 디스크에서
+            # 정리까지 실패하더라도 저장 실패 안내와 재시도를 가리지 않는다.
+            for leftover in (temp, latest_temp):
+                with suppress(OSError):
+                    leftover.unlink(missing_ok=True)
         return self.export_result(payload["season_id"])
+
+    def _refresh_exports(self, force: bool = False) -> bool:
+        """변경된 기간의 HTML을 갱신하고 실패한 기간은 재시도 간격을 둔다.
+
+        Args:
+            force: 종료·명시적 재시도에서는 실패 간격도 무시할지 여부.
+        Returns:
+            모든 사용자 시즌의 파일이 현재 내용으로 저장됐는지 여부.
+        """
+        from .exporting import current_export
+        with self.export_lock:
+            complete = True
+            for season in self.service.list_seasons()["items"]:
+                identity = season["id"]
+                latest = self.data_dir / "exports" / (
+                    f"graduation-schedule-{season['search_start']}-{season['search_end']}.html")
+                with self.store.transaction() as conn:
+                    row = conn.execute("SELECT * FROM exports WHERE season_id=?", (identity,)).fetchone()
+                    revision = self.store.revision(conn)
+                if (row and row["status"] == "current" and row["exported_revision"] == revision
+                        and current_export(latest) and row["file_ref"] and current_export(row["file_ref"])):
+                    self.export_failures.pop(identity, None)
+                    continue
+                failed_revision, retry_at = self.export_failures.get(identity, (None, 0))
+                if not force and failed_revision == revision and monotonic() < retry_at:
+                    complete = False
+                    continue
+                result = self.export({"season_id": identity, "include_notes": False,
+                                      "publication_policy_version": "4.0"})
+                if result["status"] != "current":
+                    complete = False
+                    if result["status"] == "failed":
+                        self.export_failures[identity] = (revision, monotonic() + 30)
+                else:
+                    self.export_failures.pop(identity, None)
+            return complete
+
+    async def flush_exports(self, *, force: bool = False) -> bool:
+        """조회와 조사 실행을 막지 않도록 파일 생성을 별도 스레드에서 수행한다.
+
+        Args:
+            force: 저장 실패의 재시도 대기 간격을 무시할지 여부.
+        Returns:
+            모든 기간의 자동 저장 완료 여부.
+        """
+        return await asyncio.to_thread(self._refresh_exports, force)
+
+    async def watch_exports(self) -> None:
+        """창을 닫아도 DB에 저장된 변경을 주기적으로 독립 HTML에 반영한다."""
+        while not self.export_stop.is_set():
+            try:
+                await self.flush_exports()
+                self.export_worker_failed = False
+            except Exception:
+                # 저장소 잠금·일시적인 파일 오류로 자동 저장 루프 자체가 사라지지 않는다.
+                self.export_worker_failed = True
+            try:
+                await asyncio.wait_for(self.export_stop.wait(), timeout=30 if self.export_worker_failed else 1)
+            except asyncio.TimeoutError:
+                pass
+
+    def html_save_status(self, season_id: str) -> dict:
+        """사용자에게 파일 저장 실패와 진행만 짧게 알린다.
+
+        Args:
+            season_id: 현재 표시 기간.
+        Returns:
+            저장 상태와 기술 정보를 제외한 안내.
+        """
+        with self.store.transaction() as conn:
+            row = conn.execute("SELECT status FROM exports WHERE season_id=?", (season_id,)).fetchone()
+        status = "failed" if self.export_worker_failed else row[0] if row else "pending"
+        return {"status": status, "message": (
+            "기록은 보관됐지만 일정표 파일을 저장하지 못했어요. 일정표 열기로 다시 시도해 주세요."
+            if status == "failed" else None)}
 
     async def dispatch(self, path: str, method: str, request: Request, query: dict, body: dict | None):
         """계약 경로를 도메인 서비스의 단일 구현에 연결한다."""
@@ -207,7 +315,7 @@ class Application:
         if path == "/health":
             return {"ok": True}
         if path == "/api/status":
-            return self.status()
+            return self.status(query.get("season_id"))
         if path == "/api/seasons":
             return self.page(service.list_seasons(), request, query) if method == "get" else service.create_season(body)
         if path == "/api/seasons/{id}":
@@ -223,7 +331,9 @@ class Application:
             snapshot = service.snapshot(query["season_id"])
             return {"presentation_version": PRESENTATION_VERSION, "rows": result_rows(snapshot),
                     "season_id": query["season_id"], "request_job_id": snapshot["request_job_id"],
-                    "active_job_id": snapshot["active_job_id"]}
+                    "active_job_id": snapshot["active_job_id"],
+                    "research_summary": snapshot["research_summary"],
+                    "html_save": self.html_save_status(query["season_id"])}
         if path == "/api/records/natural":
             from .natural import NaturalRecorder
             return NaturalRecorder(service).record(body)
@@ -276,7 +386,7 @@ class Application:
             self.jobs.start(identity)
             return result
         if path == "/api/exports/html":
-            return self.export(body)
+            return await asyncio.to_thread(self.export, body)
         if path == "/api/exports/{id}":
             return self.export_result(identity)
         if path == "/api/backups":
@@ -298,10 +408,20 @@ class Application:
                                 filename=f"graduation-schedule-{row['search_start']}-{row['search_end']}.html",
                                 content_disposition_type="inline")
         if path == "/api/app/shutdown":
+            paused = any(job["status"] in {"queued", "running", "pausing", "cancelling"}
+                         for job in self.jobs.list())
             await self.jobs.shutdown()
+            try:
+                saved = await self.flush_exports(force=True)
+            except Exception:
+                saved = False
+                self.export_worker_failed = True
+            if not saved:
+                self.jobs.stopping = False
+                raise ApiError("export_failed", "기록은 보관됐지만 일정표 파일을 저장하지 못해 종료하지 않았어요. 다시 시도해 주세요.", 503)
             if self.shutdown_callback:
                 asyncio.get_running_loop().call_later(0.3, self.shutdown_callback)
-            return {"accepted": True}
+            return {"accepted": True, "paused_active_job": paused}
         raise ApiError("not_found", "지원하지 않는 경로입니다.", 404)
 
 
@@ -320,8 +440,17 @@ def create_app(settings=None, runner_factory=None) -> FastAPI:
     async def lifespan(app):
         """서버 수명과 작업 checkpoint를 연결한다."""
         state.jobs.recover()
-        yield
-        await state.jobs.shutdown()
+        state.export_task = asyncio.create_task(state.watch_exports())
+        try:
+            yield
+        finally:
+            await state.jobs.shutdown()
+            state.export_stop.set()
+            await state.export_task
+            try:
+                await state.flush_exports(force=True)
+            except Exception:
+                state.export_worker_failed = True
 
     app = FastAPI(title="광주 졸업식 일정 도우미", version=__version__, lifespan=lifespan)
     app.state.runtime = state
@@ -366,7 +495,8 @@ def create_app(settings=None, runner_factory=None) -> FastAPI:
             row = conn.execute("SELECT value FROM app_meta WHERE key='selected_season_id'").fetchone()
         seasons = state.service.list_seasons()
         return {"token": state.token, "seasons": seasons["items"],
-                "selected_season_id": row[0] if row else seasons["items"][0]["id"],
+                "selected_season_id": row[0] if row and row[0] in {s["id"] for s in seasons["items"]}
+                else seasons["items"][0]["id"],
                 "settings": state.settings.connection_summary(), "status": state.status(),
                 "poll_interval_ms": state.settings.data["app"]["poll_interval_ms"]}
 
@@ -423,8 +553,8 @@ def create_app(settings=None, runner_factory=None) -> FastAPI:
                 if not key_required:
                     return await state.dispatch(path, method, request, query, payload)
                 request_hash = hashlib.sha256(dump({"path": request.url.path, "body": payload}).encode()).hexdigest()
-                if path == "/api/backups":
-                    # SQLite backup은 열린 쓰기 트랜잭션 밖에서 실행해야 교착되지 않는다.
+                if path in {"/api/backups", "/api/exports/html"}:
+                    # 파일 작업은 DB 쓰기 잠금 밖에서 실행해 자동 저장과의 교착을 막는다.
                     with state.store.transaction() as conn:
                         old = conn.execute("SELECT * FROM request_keys WHERE key=?", (key,)).fetchone()
                     if old:
