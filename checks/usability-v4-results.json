@@ -1,0 +1,62 @@
+{
+  "status": "passed",
+  "scope": "사용자 화면 정리·HTML 자동 갱신·개발 검증 분리",
+  "pytest": {
+    "passed": 547,
+    "skipped": 0,
+    "seconds": 21.61
+  },
+  "browser": {
+    "passed": 25,
+    "actual_clone_read_assertions": 2,
+    "other_assertions": "isolated_synthetic",
+    "evidence": "runtime/usability-v4/browser-150527/result.json",
+    "cleanup": {
+      "state": "FINISHED",
+      "cleanupMode": "exact-close",
+      "finalResidualCount": 0
+    }
+  },
+  "live_data_migration": {
+    "evidence": "runtime/usability-v4/live-migration/result.json",
+    "before_counts": {
+      "seasons": 2,
+      "events": 17,
+      "observations": 22,
+      "manual_overrides": 0,
+      "jobs": 6,
+      "documents": 159
+    },
+    "after_counts": {
+      "seasons": 1,
+      "events": 16,
+      "observations": 20,
+      "manual_overrides": 0,
+      "jobs": 6,
+      "documents": 157
+    },
+    "unrelated_events_unchanged": true,
+    "other_observations_unchanged": true,
+    "jobs_unchanged": true,
+    "protected_config_unchanged": true
+  },
+  "actual_collection": {
+    "evidence": "runtime/usability-v4/live-job/20261021T055928787103+0000/result.json",
+    "school": "첨단고등학교",
+    "date": "2026-01-21",
+    "count": 355,
+    "count_academic_year": 2025,
+    "start_time": null,
+    "http_requests": 3,
+    "llm_calls": 0,
+    "automatic_html": true,
+    "user_db_copy_in": false
+  },
+  "preserved_failed_attempt": "runtime/usability-v4/live-job/20261021T055818545674+0000/result.json",
+  "limits": [
+    "과거 전체 학교 조사를 수행하지 않음",
+    "GIST 일반 조사 재발견의 신규 실연동은 수행하지 않음",
+    "이번 정형 API 성공을 모델 연결 성공으로 간주하지 않음",
+    "다운로드 복사본과 이미 열린 HTML은 자동 갱신하지 않음"
+  ]
+}
