@@ -11,8 +11,8 @@ from .providers import canonical, neis_identifier, neis_unit, official_channel, 
 from .identity import same_event
 from .periods import fact_season, within_period
 
-REGISTERED_RULES = {"neis_ceremony_row": "1.3.0", "explicit_notice": "1.3.0",
-                    "academic_calendar_row": "1.1.0", "grounded_notice": "1.1.0"}
+REGISTERED_RULES = {"neis_ceremony_row": "1.3.0", "explicit_notice": "1.4.0",
+                    "academic_calendar_row": "1.1.0", "grounded_notice": "1.2.0"}
 NEIS_EVENTS = {"졸업식": "graduation_ceremony", "졸업식 및 종업식": "graduation_and_completion",
                "졸업식 및 수료식": "graduation_and_completion", "졸업식/종업식": "graduation_and_completion",
                "졸업식,종업식": "graduation_and_completion", "종업식 및 졸업식": "graduation_and_completion",
@@ -432,6 +432,12 @@ def value_check(field: str, value, observation: dict, document: dict, event: dic
             if field == "start_time":
                 checks["time_role"] = "pass"
             result.update(rule_id="grounded_notice", rule_version=REGISTERED_RULES["grounded_notice"])
+    if rule == "explicit_notice" and candidate.get("ceremony_status") == "scheduled":
+        from .claims import ceremony_negatives
+        # 한 줄 파서가 원래 분절의 후속 취소 문장을 생략해도 정상 일정으로 승인하지 않는다.
+        if ceremony_negatives(candidate, document, institution):
+            checks["normalized_value"] = "fail"
+            result["reason_codes"].append("event_unclear")
     if checks["normalized_value"] == "unknown":
         result["reason_codes"].append("value_not_supported")
     if checks["literal_presence"] == "fail":

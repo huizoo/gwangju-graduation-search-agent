@@ -1339,10 +1339,23 @@ class Service:
             date_proof = value_check("event_date", candidate["event_date"], probe_observation,
                                     source_document, probe_event, season, institution=institution)
             date_supported = grounded_identity or date_proof["status"] == "supported"
+            negative_matches = []
+            if (status_proof["status"] == "supported"
+                    and candidate["ceremony_status"] in {"cancelled", "not_held"}
+                    and candidate["event_date"].get("precision") == "unknown"
+                    and candidate.get("academic_year") is not None):
+                from .identity import same_event
+                negative_matches = [dict(row) for row in conn.execute(
+                    "SELECT * FROM events WHERE institution_id=? AND id NOT IN(SELECT old_id FROM event_aliases)",
+                    (institution_id,)) if same_event(candidate, dict(row), institution)]
             status_linkable = (status_proof["status"] == "supported" and (
                 candidate["event_key_hint"] or (
                     candidate["ceremony_status"] in {"cancelled", "not_held"}
-                    and candidate["event_date"].get("precision") == "day")))
+                    and candidate["event_date"].get("precision") == "day")
+                or len(negative_matches) == 1))
+            if len(negative_matches) > 1:
+                # 날짜 없는 취소를 어느 본식에 연결할지 모호하면 모델의 임의 키도 사용하지 않는다.
+                status_linkable = False
             if (target_matches and (date_supported or status_linkable)
                     and candidate["event_type"] != "unknown"):
                 from .identity import same_dates, scope

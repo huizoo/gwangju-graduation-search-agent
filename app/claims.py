@@ -158,6 +158,128 @@ def _role_line(block: str, quote: str) -> str:
     return block[left:right if right >= 0 else len(block)]
 
 
+_CEREMONY = re.compile(r"졸업식|학위\s*수여식|본식")
+_AUXILIARY = re.compile(
+    r"학위복|가운|대여|반납|학위증|졸업장\s*수령|기념촬영|사진촬영|식전|공연|리허설|예행|설명회|입장|집합"
+)
+_OTHER_EVENT = re.compile(r"입학식|종업식|수료식|세미나|간담회|워크숍|졸업여행")
+
+
+def _subject_lines(text: str, candidate: dict, institution: dict) -> list[tuple[int, int, str | None, str]]:
+    """원문의 제목이 뒤따르는 일시·상태 행에 적용되는 범위를 추적한다.
+
+    Args:
+        text: 모델이 자르기 전의 같은 원문 분절.
+        candidate: 학년도·회차·캠퍼스가 있는 대상 본식.
+        institution: 대상 기관.
+    Returns:
+        행의 시작·끝 위치, 행사 역할과 원문. 다른 행사의 제목을 만나면 관계를 전환한다.
+    """
+    role, year, owner, offset = None, None, True, 0
+    result = []
+    own = institution.get("name", "").replace(" ", "")
+    sequence = re.search(r"제\s*(\d+)\s*회", candidate.get("event_title", ""))
+    term = ceremony_term(candidate)
+    for line in text.splitlines(keepends=True):
+        years = set(re.findall(r"(20\d{2})\s*학년도", line))
+        if years:
+            year = next(iter(years)) if len(years) == 1 else "ambiguous"
+        names = re.findall(r"[가-힣A-Za-z]+(?:초등학교|중학교|고등학교|대학교|대학원|유치원)", line)
+        names = [name for name in names if name not in {"대학교", "대학원"}]
+        if names:
+            owner = all(name == own for name in names)
+        main = list(_CEREMONY.finditer(line))
+        auxiliary = list(_AUXILIARY.finditer(line))
+        if auxiliary and (not main or auxiliary[-1].start() > main[-1].start()):
+            role = "auxiliary"
+        elif main:
+            source_sequence = re.search(r"제\s*(\d+)\s*회", line)
+            source_term = ceremony_term({"title": line})
+            campus = candidate.get("campus_label")
+            campuses = re.findall(r"[가-힣A-Za-z0-9]+캠퍼스", line)
+            same = (owner and (year is None or year == str(candidate.get("academic_year")))
+                    and not (sequence and source_sequence and sequence[1] != source_sequence[1])
+                    and not (term and source_term and term != source_term)
+                    and not (campus and campuses and campus not in campuses))
+            role = "ceremony" if same else "other"
+        elif _OTHER_EVENT.search(line) or (names and not owner):
+            role = "other"
+        # 날짜·시간·장소 같은 속성 행은 가장 가까운 행사 제목의 역할을 이어받는다.
+        result.append((offset, offset + len(line), role, line.rstrip("\r\n")))
+        offset += len(line)
+    return result
+
+
+def _source_context(candidate: dict, document: dict, institution: dict):
+    """문맥 인용의 원래 분절과 행 관계를 반환한다.
+
+    Args:
+        candidate: 원문의 연속 문맥을 인용한 후보.
+        document: 해당 인용의 원본 분절을 가진 문서.
+        institution: 대상 기관.
+    Returns:
+        잘라낸 제목·부정까지 보존한 분절 원문과 행사별 행 관계.
+    """
+    evidence = candidate.get("context_evidence", [])
+    if len(evidence) != 1:
+        return "", []
+    context = evidence[0]
+    text = next((s["text"] for s in document.get("segments", [])
+                 if s["id"] == context.get("segment_id")), "")
+    if not context.get("quote") or context["quote"] not in text:
+        return "", []
+    return text, _subject_lines(text, candidate, institution)
+
+
+def ceremony_negatives(candidate: dict, document: dict, institution: dict) -> set[str]:
+    """본식에 연결된 부정 서술만 읽고 다른 행사 취소는 분리한다.
+
+    Args:
+        candidate: 확인 대상 본식과 실제 문맥 인용.
+        document: 모델 인용보다 넓은 원래 분절을 가진 문서.
+        institution: 해당 본식의 기관.
+    Returns:
+        본식에 명시된 취소·미실시·연기 상태. 이중 부정이나 조건부 문장은 확정하지 않는다.
+    """
+    from .rules import _NEGATIVE
+    _, lines = _source_context(candidate, document, institution)
+    found = set()
+    for _, _, role, line in lines:
+        if role != "ceremony":
+            continue
+        negative = _NEGATIVE.search(line)
+        if not negative or line[negative.end():].strip(" \t.!。"):
+            continue
+        before = line[:negative.start()]
+        if re.search(r"(?:경우|이라면|하면|여부|가능성|일\s*수|예정|검토)\s*$|(?:우천|비상)\s*시\s*$", before):
+            continue
+        status = negative["status"]
+        found.add("cancelled" if "취소" in status else "unclear" if "연기" in status else "not_held")
+    return found
+
+
+def _ceremony_field(candidate: dict, document: dict, institution: dict, quotes: list[str]) -> bool:
+    """인용한 속성 행이 부대 일정 제목을 건너뛰지 않고 본식에 연결되는지 검사한다.
+
+    Args:
+        candidate: 본식의 문맥 인용을 가진 후보.
+        document: 원본 분절을 가진 문서.
+        institution: 대상 기관.
+        quotes: 날짜 또는 시각의 실제 연속 인용.
+    Returns:
+        모든 속성 행이 본식 제목의 범위 안에 있는지 여부.
+    """
+    text, lines = _source_context(candidate, document, institution)
+    for quote in quotes:
+        start = text.find(quote)
+        if start < 0 or text.find(quote, start + 1) >= 0:
+            return False
+        roles = {role for left, right, role, _ in lines if left < start + len(quote) and right > start}
+        if roles != {"ceremony"}:
+            return False
+    return True
+
+
 def _calendar_days(candidate: dict, document: dict, season: dict) -> list[str]:
     """월별 달력의 연월 제목과 바로 뒤 행사 행을 같은 원문에서 연결한다.
 
@@ -273,17 +395,24 @@ def grounded_claim(field: str, value, candidate: dict, document: dict,
     status = candidate.get("ceremony_status")
     if status != "scheduled" and field != "ceremony_status":
         return False
+    negatives = ceremony_negatives(candidate, document, institution)
+    if field == "ceremony_status" and status in {"cancelled", "not_held", "unclear"}:
+        return value == status and negatives == {status}
+    if negatives:
+        return False
     dates = _field_quotes(candidate, "date_evidence", document)
     if not dates:
         return False
     lines = [_role_line(block, q) for q in dates]
-    side_role = r"학위복|가운|대여|반납|학위증|졸업장\s*수령|기념촬영|사진촬영|식전|공연|리허설|예행|설명회|입장|집합"
+    side_role = _AUXILIARY.pattern
     if any(re.search(side_role, line) for line in lines):
         # 같은 줄의 여러 행사 역할을 건너뛰어 날짜·시각을 결합하지 않는다.
         return False
     parsed_days = sorted({day for q in dates for day in explicit_days(q)})
     calendar_days = _calendar_days(candidate, document, season) if not parsed_days else []
     if not calendar_days and not all(re.search(r"일시|날짜|행사일|개최일|졸업식|학위\s*수여식", line) for line in lines):
+        return False
+    if not calendar_days and not _ceremony_field(candidate, document, institution, dates):
         return False
     parsed_days = parsed_days or calendar_days
     claim = candidate.get("event_date", {})
@@ -293,33 +422,15 @@ def grounded_claim(field: str, value, candidate: dict, document: dict,
             or not any(season["search_start"] <= day <= season["search_end"] for day in parsed_days)):
         return False
     if field == "ceremony_status":
-        if status == "scheduled":
-            return value == "scheduled" and not re.search(
-                r"(?:졸업식|학위수여식)[^\n.]{0,50}(?:취소|미실시|미개최|실시하지|연기)", block)
-        # 날짜가 명시된 해당 본식에 붙은 부정만 인정하고 촬영·식전 행사의 취소와 분리한다.
-        from .rules import _NEGATIVE
-        for line in block.splitlines():
-            match = re.search(r"(?:졸업식|학위\s*수여식)(?:은|는|이|을)?\s*[:：]?\s*(.*)$", line)
-            if not match:
-                continue
-            tail = match[1]
-            for day in list(re.finditer(r"(?:20\d{2})\s*(?:년|[./-])\s*\d{1,2}\s*(?:월|[./-])\s*\d{1,2}\s*일?\.?(?:\([월화수목금토일]\))?", tail))[::-1]:
-                tail = tail[:day.start()] + tail[day.end():]
-            tail = re.sub(r"^\s*(?:예정이었으나|예정이던|행사를)?\s*", "", tail).strip()
-            negative = _NEGATIVE.fullmatch(tail)
-            if negative:
-                actual = "cancelled" if "취소" in negative["status"] else "unclear" if "연기" in negative["status"] else "not_held"
-                if value == status == actual and actual in {"cancelled", "not_held"}:
-                    return True
-        return False
-    if status != "scheduled" or re.search(
-            r"(?:졸업식|학위수여식)[^\n.]{0,50}(?:취소|미실시|미개최|실시하지|연기)", block):
+        return value == status == "scheduled"
+    if status != "scheduled":
         return False
     if field == "event_date":
         return value == claim
     if field == "start_time":
         times = _field_quotes(candidate, "time_evidence", document)
-        if not times or candidate.get("time_role") != "ceremony_start":
+        if (not times or candidate.get("time_role") != "ceremony_start"
+                or not _ceremony_field(candidate, document, institution, times)):
             return False
         found = set()
         for quote in times:
