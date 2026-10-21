@@ -167,10 +167,14 @@ class TokenInputs(HTMLParser):
         name = attributes.get("name") or attributes.get("id") or ""
         token_name = re.search(r"csrf|xsrf|token|nonce", name, re.I)
         if tag == "input" and attributes.get("type", "").lower() == "hidden" and token_name:
-            if (attributes.get("value") or "").strip():
+            value = attributes.get("value") or ""
+            # 원문 정제 시 삽입한 이 고정 표식만 예외로 인정한다. 접두·부분 일치는 허용하지 않는다.
+            if value.strip() and value != "[REDACTED_CSRF]":
                 self.lines.append(self.getpos()[0])
-        if tag == "meta" and token_name and (attributes.get("content") or "").strip():
-            self.lines.append(self.getpos()[0])
+        if tag == "meta" and token_name:
+            value = attributes.get("content") or ""
+            if value.strip() and value != "[REDACTED_CSRF]":
+                self.lines.append(self.getpos()[0])
 
 
 def scan_content(path: str, content: bytes, secrets: list[bytes]) -> list[Finding]:

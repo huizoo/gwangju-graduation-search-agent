@@ -311,3 +311,18 @@ def test_history_approval_requires_exact_digest(repo):
         path: [{"sha256": hashlib.sha256(b"reviewed original").hexdigest(), "purpose": "검토한 원본"}]}}).encode())
     git(repo, "commit", "-qm", "검토한 원본만 등록")
     assert any(item.category == "unreviewed-data" for item in GUARD.check_history(repo, "HEAD")[0])
+
+
+@pytest.mark.parametrize("value,blocked", [
+    ("[REDACTED_CSRF]", False),
+    ("[REDACTED_CSRF]suffix", True),
+    ("prefix[REDACTED_CSRF]", True),
+    (" [REDACTED_CSRF] ", True),
+    ("actual-session-token", True),
+])
+def test_only_exact_reviewed_redaction_marker_is_allowed(value, blocked):
+    """정제한 고정 표식만 허용하며 실제 토큰과 표식의 부분 일치는 차단한다."""
+    content = ("<" + "input type='hidden' name='csrf_token' value='" + value + "'>").encode()
+    findings = GUARD.scan_content("capture.html", content, [])
+    assert bool(findings) is blocked
+    assert all(item.category == "html-security-token" for item in findings)
