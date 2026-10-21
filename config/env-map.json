@@ -334,5 +334,11 @@
     "path": "execution.llm_concurrency",
     "type": "integer",
     "user_setup": false
+  },
+  "SCHOOLINFO_API_KEY": {
+    "path": "secrets.schoolinfo_api_key",
+    "type": "string",
+    "secret": true,
+    "user_setup": true
   }
 }

@@ -62,6 +62,18 @@ def validate(name: str, data: Any) -> Any:
         error = errors[0]
         path = ".".join(map(str, error.absolute_path)) or "$"
         raise ApiError("validation_error", f"{name}.{path}: {error.validator} 계약 조건을 충족하지 않습니다.", details={"fields": [path]})
+    def check_dates(value):
+        """복수 행사일의 대표 날짜와 정렬을 같은 계약으로 검사한다."""
+        if isinstance(value, dict):
+            if "precision" in value and "dates" in value:
+                if value["dates"] != sorted(set(value["dates"])) or value.get("date") != value["dates"][0]:
+                    raise ApiError("validation_error", "복수 행사일은 날짜순이며 대표 날짜가 첫날이어야 합니다.")
+            for child in value.values():
+                check_dates(child)
+        elif isinstance(value, list):
+            for child in value:
+                check_dates(child)
+    check_dates(data)
     return copy.deepcopy(data)
 
 

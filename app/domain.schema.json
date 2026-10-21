@@ -1780,7 +1780,8 @@
             "start_time",
             "event_identity",
             "conflict",
-            "change_notice"
+            "change_notice",
+            "graduation_count"
           ]
         },
         "query": {
@@ -4976,6 +4977,19 @@
           "type": "string",
           "minLength": 1,
           "description": "서버가 source_configuration_hash의 비밀 제외 정규화 구성으로 계산한 SHA-256. 재개는 현재 구성의 hash가 같은 경우에만 허용하며 hash로 과거 설정을 복원하지 않는다. 키·UI 설정·비활성 모델은 제외한다. 이전 형식의 hash는 자동으로 다시 쓰지 않고 설정 확인 또는 새 작업을 안내한다."
+        },
+        "purpose": {
+          "$ref": "#/$defs/ResearchPurpose"
+        },
+        "target_event_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        },
+        "research_version": {
+          "type": "string"
         }
       },
       "required": [
@@ -5355,6 +5369,16 @@
               "type": "null"
             }
           ]
+        },
+        "purpose": {
+          "$ref": "#/$defs/ResearchPurpose"
+        },
+        "target_event_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
         }
       },
       "required": [
@@ -5363,6 +5387,49 @@
         "mode",
         "selection",
         "limits"
+      ],
+      "allOf": [
+        {
+          "if": {
+            "required": [
+              "purpose"
+            ],
+            "properties": {
+              "purpose": {
+                "const": "time"
+              }
+            }
+          },
+          "then": {
+            "required": [
+              "target_event_id"
+            ],
+            "properties": {
+              "target_event_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "selection": {
+                "properties": {
+                  "scope": {
+                    "const": "ids"
+                  },
+                  "institution_ids": {
+                    "minItems": 1,
+                    "maxItems": 1
+                  }
+                }
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "target_event_id": {
+                "type": "null"
+              }
+            }
+          }
+        }
       ]
     },
     "RegistryJobCreate": {
@@ -5379,7 +5446,8 @@
             "enum": [
               "neis",
               "kindergarten",
-              "childcare"
+              "childcare",
+              "higher_education"
             ]
           },
           "minItems": 1,
@@ -6852,6 +6920,16 @@
             },
             "month": {
               "type": "null"
+            },
+            "dates": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "date"
+              },
+              "minItems": 1,
+              "maxItems": 31,
+              "uniqueItems": true
             }
           },
           "required": [
@@ -6899,6 +6977,16 @@
             },
             "month": {
               "type": "null"
+            },
+            "dates": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "date"
+              },
+              "minItems": 1,
+              "maxItems": 31,
+              "uniqueItems": true
             }
           },
           "required": [
@@ -8134,6 +8222,24 @@
             "cancelled",
             "not_held"
           ]
+        },
+        "dates": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "date"
+          },
+          "uniqueItems": true
+        },
+        "district": {
+          "$ref": "#/$defs/District"
+        },
+        "graduation_count": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
         }
       },
       "required": [
@@ -8145,7 +8251,10 @@
         "start_time",
         "address",
         "url",
-        "status"
+        "status",
+        "dates",
+        "district",
+        "graduation_count"
       ]
     },
     "ScheduleResult": {
@@ -8153,7 +8262,7 @@
       "additionalProperties": false,
       "properties": {
         "presentation_version": {
-          "const": "1.0"
+          "const": "2.0"
         },
         "rows": {
           "type": "array",
@@ -8179,7 +8288,7 @@
         "season_id",
         "request_job_id"
       ],
-      "description": "사용자 표현 계약 1.0: 현재 허용 필드만 제공. 조사 대상과 직접 기록 기관을 포함하며 과거 보류값, 검증 상세, 사적 메모는 포함하지 않는다."
+      "description": "사용자 결과 2.0: 날짜·학교명·시간·졸업인원수·학교 주소. 현재 허용 필드와 공식 홈페이지만 제공한다."
     },
     "NaturalRecordRequest": {
       "type": "object",
@@ -8281,6 +8390,212 @@
         "event_id",
         "institution_ids",
         "changed_fields"
+      ]
+    },
+    "ResearchPurpose": {
+      "enum": [
+        "date_count",
+        "time"
+      ]
+    },
+    "CountClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "document_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "value": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 1000000
+        },
+        "academic_year": {
+          "type": "integer",
+          "minimum": 2000,
+          "maximum": 2100
+        },
+        "kind": {
+          "enum": [
+            "graduating_grade_enrollment",
+            "ceremony_graduates"
+          ]
+        },
+        "grade": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 1,
+          "maximum": 6
+        },
+        "unit": {
+          "const": "persons"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "segment_id": {
+                "type": "string"
+              },
+              "quote": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 4000
+              }
+            },
+            "required": [
+              "segment_id",
+              "quote"
+            ]
+          },
+          "minItems": 1,
+          "maxItems": 8
+        },
+        "event_key_hint": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "event_date": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        },
+        "source": {
+          "enum": [
+            "schoolinfo_api09",
+            "public_document"
+          ]
+        },
+        "source_school_code": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_field": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "document_id",
+        "value",
+        "academic_year",
+        "kind",
+        "grade",
+        "unit",
+        "evidence",
+        "source"
+      ]
+    },
+    "StudentInput": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "institution_id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "season_id": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "required": [
+        "institution_id",
+        "season_id"
+      ]
+    },
+    "StudentResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "status": {
+          "type": "string"
+        },
+        "reason_codes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "documents": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/DocumentRead"
+          }
+        },
+        "counts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/CountClaim"
+          }
+        }
+      },
+      "required": [
+        "status",
+        "reason_codes",
+        "documents",
+        "counts"
+      ]
+    },
+    "AgentDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "action": {
+          "$ref": "#/$defs/Action"
+        },
+        "candidates": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "document_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "candidate": {
+                "$ref": "#/$defs/Candidate"
+              }
+            },
+            "required": [
+              "document_id",
+              "candidate"
+            ]
+          }
+        },
+        "counts": {
+          "type": "array",
+          "maxItems": 4,
+          "items": {
+            "$ref": "#/$defs/CountClaim"
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      },
+      "required": [
+        "action",
+        "candidates",
+        "counts",
+        "reason"
       ]
     }
   }

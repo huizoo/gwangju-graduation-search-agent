@@ -3,7 +3,7 @@
   "info": {
     "title": "광주 졸업식 일정 도우미 P0 API",
     "version": "4.0",
-    "description": "4.0 통합 설계 계약. 실제 앱 미구현. 모든 출력은 같은 snapshot과 calculate_publication 결과를 사용한다."
+    "description": "로컬 SQLite 졸업식 조사: 전체 학교 날짜·인원, 행사별 시간 조사, 자연어 기록과 결과 계약 2.0"
   },
   "servers": [
     {
