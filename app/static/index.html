@@ -15,7 +15,9 @@
     <section class="panel" aria-labelledby="research-title"><h2 id="research-title">일정찾기</h2>
       <p class="hint">광주 학교의 졸업식 날짜와 인원수를 찾아요.</p>
       <p id="research-summary" class="research-summary" role="status" hidden></p>
-      <form id="research-form" class="actions"><button class="primary" type="submit" id="research-submit">이 시즌 다시 조사</button><button id="add-season" type="button">새 시즌 조사</button></form>
+      <div id="roster-guide" hidden><p class="hint">조사할 학교 목록이 없어요. 먼저 학교 목록을 불러와 주세요.</p>
+        <button id="load-roster" class="primary" type="button">학교 목록 불러오기</button></div>
+      <form id="research-form" class="actions"><button class="primary" type="submit" id="research-submit" disabled>이 시즌 다시 조사</button><button id="add-season" type="button" disabled>새 시즌 조사</button></form>
       <div id="job" hidden><p id="job-message" role="status"></p><div class="actions" id="job-actions"></div></div>
     </section>
     <section class="panel" aria-labelledby="record-title"><h2 id="record-title">직접 확인한 내용</h2>
@@ -53,6 +55,6 @@
     <label>졸업식 시작 날짜<input id="season-start" name="search_start" type="date" required></label>
     <label>졸업식 끝 날짜<input id="season-end" name="search_end" type="date" required aria-describedby="season-limit"></label>
     <p id="season-limit" class="hint"></p>
-    <div class="actions"><button id="season-submit" class="primary">조사 시작</button><button type="button" id="close-season">닫기</button></div>
+    <div class="actions"><button id="season-submit" class="primary" disabled>조사 시작</button><button type="button" id="close-season">닫기</button></div>
   </form></dialog>
 </main></body></html>

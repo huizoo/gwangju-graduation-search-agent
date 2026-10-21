@@ -335,6 +335,7 @@ class Application:
             return {"presentation_version": PRESENTATION_VERSION, "rows": result_rows(snapshot),
                     "season_id": query["season_id"], "request_job_id": snapshot["request_job_id"],
                     "active_job_id": snapshot["active_job_id"],
+                    "eligible_institution_count": len(snapshot["targets"]),
                     "research_summary": snapshot["research_summary"],
                     "html_save": self.html_save_status(query["season_id"])}
         if path == "/api/records/natural":

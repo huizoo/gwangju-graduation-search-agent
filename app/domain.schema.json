@@ -8445,6 +8445,11 @@
         "presentation_version": {
           "const": "3.0"
         },
+        "eligible_institution_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "선택한 시즌에서 조사할 수 있는 학교 수. 화면 필터와 무관하며 0이면 학교 목록 불러오기를 안내한다."
+        },
         "rows": {
           "type": "array",
           "items": {
@@ -8519,6 +8524,7 @@
       },
       "required": [
         "presentation_version",
+        "eligible_institution_count",
         "rows",
         "season_id",
         "request_job_id"
