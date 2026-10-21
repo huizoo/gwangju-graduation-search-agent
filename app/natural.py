@@ -10,6 +10,72 @@ from .storage import _audit, empty_automatic
 KST = ZoneInfo("Asia/Seoul")
 DATE = re.compile(r"(?:(\d{4})\s*(?:년|[-.])\s*)?(\d{1,2})\s*(?:월|[-.])\s*(\d{1,2})\s*일?")
 TIME = re.compile(r"(오전|오후)?\s*(\d{1,2})(?:시(?:\s*(반|\d{1,2})분?)?|:(\d{2}))")
+_EVENT_SUBJECT = re.compile(
+    r"(?:졸업식\s*)?(?:준비\s*)?(?:설명회|예행연습|준비\s*모임)|"
+    r"졸업식|학위수여식|본식|실제\s*시작|(?:식전\s*|기념\s*)?공연|"
+    r"기념\s*촬영|사진\s*촬영|입장|학위복\s*대여|등교"
+)
+_MAIN_SUBJECT = re.compile(r"졸업식|학위수여식|본식|실제\s*시작")
+
+
+def _confirmation_part(text: str) -> tuple[str, str]:
+    """확인 진술과 같은 문장에 담긴 본식 내용을 버리지 않고 나눈다.
+
+    Args:
+        text: 확인 방법·시점을 포함한 입력 문장.
+    Returns:
+        행사 내용과 실제 확인시점 구절. 행사 날짜를 확인 날짜로 대신 사용하지 않는다.
+    """
+    subjects = list(_EVENT_SUBJECT.finditer(text))
+    verbs = list(re.finditer(r"전화|통화|확인했|확인한|직접\s*봤", text))
+    markers = list(re.finditer(r"방금|오늘|어제|20\d{2}\s*(?:년|[-.])", text))
+    for marker in reversed(markers):
+        verb = next((v for v in verbs if v.start() >= marker.end()), None)
+        if not verb or any(marker.start() <= subject.start() < verb.start() for subject in subjects):
+            continue
+        stated_day = DATE.match(text, marker.start())
+        if stated_day and any(subject.start() < marker.start() for subject in subjects) and not DATE.search(text[:marker.start()]):
+            # 본식 바로 뒤의 유일한 날짜는 확인 날짜로 옮기지 않는다.
+            continue
+        end = stated_day.end() if stated_day else marker.end()
+        stated_clock = TIME.search(text, end, verb.start())
+        if stated_clock:
+            end = stated_clock.end()
+        # 확인시점만 제거한다. '전화해서 확인했는데 개최하지 않는다'의
+        # 뒷부분도 본식 진술이므로 확인 문장 전체를 버리면 안 된다.
+        return text[:marker.start()] + text[end:], text[marker.start():end]
+    if not subjects:
+        return "", text
+    return text, ""
+
+
+def _ceremony_parts(parts: list[str]) -> tuple[str, str]:
+    """각 행사 주어부터 다음 주어까지의 내용을 본식과 부대 일정으로 나눈다.
+
+    Args:
+        parts: 확인시점 구절을 분리한 원문 문장 목록.
+    Returns:
+        본식 내용과 부대 내용. 주어가 없는 후속 답변은 현재 본식의 내용으로 읽는다.
+    """
+    main, auxiliary = [], []
+    current = main
+    for part in parts:
+        subjects = list(_EVENT_SUBJECT.finditer(part))
+        if not subjects:
+            current.append(part)
+            continue
+        starts = [0] + [subject.start() for subject in subjects[1:]]
+        for index in range(1, len(subjects)):
+            preceding = list(TIME.finditer(part, subjects[index - 1].end(), subjects[index].start()))
+            if preceding and re.fullmatch(r"\s*(?:에|부터|에는|의)?\s*", part[preceding[-1].end():subjects[index].start()]):
+                # '오전 9시 식전 공연'처럼 시각 뒤에 역할을 적어도 그 역할에 붙인다.
+                starts[index] = preceding[-1].start()
+        for index, subject in enumerate(subjects):
+            current = main if _MAIN_SUBJECT.fullmatch(subject[0]) else auxiliary
+            start = starts[index]
+            end = starts[index + 1] if index + 1 < len(subjects) else len(part)
+            current.append(part[start:end])
+    return " ".join(main), " ".join(auxiliary)
 
 
 def school_matches(text: str, institutions: list[dict]) -> list[dict]:
@@ -104,9 +170,6 @@ def parse_turn(text: str, season: dict, moment: str, *, confirmation_reply=False
         정규 필드·확인 진술·질문. 원문은 호출자가 별도로 보존한다.
     """
     result = {"questions": [], "non_ceremony": False}
-    if re.search(r"졸업식\s*(?:준비\s*)?(?:설명회|예행연습|준비\s*모임)", text):
-        return {"intent": "record", "non_ceremony": True,
-                "questions": ["설명회·준비 일정과 졸업식 본식은 달라요. 본식 날짜와 시각을 알려 주세요."]}
     if re.search(r"아마|추측|추정|예상|같아|같아요|것\s*같|확실하지|모르겠|일지도", text):
         result["intent"] = "guess"
     elif re.search(r"조사해|알아봐|찾아봐|찾아줘|확인해\s*줘", text) and not re.search(r"확인했|확인한|통화했", text):
@@ -121,9 +184,22 @@ def parse_turn(text: str, season: dict, moment: str, *, confirmation_reply=False
     parts = re.split(r"[,.。]\s*(?!\d)|\n", text)
     confirmation_parts = [p for p in parts if re.search(r"전화|통화|확인했|확인한|직접\s*봤", p)
                           and re.search(r"방금|오늘|어제|\d{4}\s*(?:년|[-.])", p)]
-    if confirmation_reply:
+    if confirmation_reply and not _EVENT_SUBJECT.search(text):
         confirmation_parts = [text]
-    confirmation_text = " ".join(confirmation_parts)
+    else:
+        confirmation_reply = False
+    event_parts, confirmation_values = [], []
+    for part in parts:
+        if part in confirmation_parts:
+            event_part, confirmation_value = _confirmation_part(part)
+            event_parts.append(event_part)
+            confirmation_values.append(confirmation_value)
+        else:
+            event_parts.append(part)
+    if confirmation_reply:
+        confirmation_values = [text]
+        event_parts = []
+    confirmation_text = " ".join(confirmation_values)
     now = datetime.fromisoformat(moment).astimezone(KST)
     if "방금" in confirmation_text:
         result.update(confirmed_at=moment, confirmation_expression="방금")
@@ -149,9 +225,10 @@ def parse_turn(text: str, season: dict, moment: str, *, confirmation_reply=False
                 result["questions"].append("확인시각이 미래로 적혔어요. 실제로 확인한 때를 알려 주세요.")
         elif issue:
             result["questions"].append(issue)
-    event_text = " ".join(p for p in parts if p not in confirmation_parts) if confirmation_parts else text
-    # '...학교 강당이래. 방금 학교에 전화...'처럼 마침표 없는 한국어 문장도 분리한다.
-    event_text = re.split(r"(?:방금|오늘|어제)\s*(?:학교에?\s*)?(?:전화|통화)", event_text)[0]
+    event_text, auxiliary_text = _ceremony_parts(event_parts)
+    if auxiliary_text and not event_text.strip():
+        result["non_ceremony"] = True
+        result["questions"].append("부대 일정과 졸업식 본식은 달라요. 본식 날짜와 시각을 알려 주세요.")
     day, issue = event_day(event_text, season)
     if day:
         result["date"] = day
@@ -162,20 +239,19 @@ def parse_turn(text: str, season: dict, moment: str, *, confirmation_reply=False
         result["invalid_date"] = False
     clock, issue = clock_value(event_text)
     if clock:
-        # 입장·사진·식전 공연은 본식이라고 명시하지 않으면 시각 질문으로 남긴다.
-        if re.search(r"입장|식전|촬영|준비|설명회|등교", event_text) and not re.search(r"(?:본식|실제\s*시작)", event_text):
-            result["questions"].append("그 시각이 졸업식 본식 시작 시각인가요? 본식 시각을 알려 주세요.")
-        else:
-            result["start_time"] = clock
+        result["start_time"] = clock
+    elif TIME.search(auxiliary_text):
+        result["questions"].append("졸업식 본식이 실제로 시작하는 시각을 알려 주세요.")
     if issue:
         result["questions"].append(issue)
     venue = re.search(r"(학교\s*강당|[가-힣A-Za-z0-9 ]{1,30}(?:강당|체육관|대강당))", event_text)
     if venue:
         result["venue"] = venue[0].strip()
-    if re.search(r"취소(?:됐|되었|했|입니다)|미실시|실시하지\s*않", event_text):
+    if re.search(r"취소(?:됐|되었|했|합니다|입니다|해|한다고)|미실시|미개최|(?:개최|실시)하지\s*않", event_text):
         result["ceremony_status"] = "cancelled" if "취소" in event_text else "not_held"
-    elif re.search(r"졸업식|학위수여식", event_text):
-        result["ceremony_status"] = "scheduled"
+    elif _MAIN_SUBJECT.search(event_text):
+        if day or clock or re.search(r"개최|실시|예정대로", event_text):
+            result["ceremony_status"] = "scheduled"
         result["event_type"] = "degree_award_ceremony" if "학위수여식" in event_text else "graduation_ceremony"
     audience = re.search(r"[가-힣A-Za-z]+학과|학부|대학원|(?:초등학교|중학교|고등학교|전공과|유치원)\s*\d학년", event_text)
     sequence = re.search(r"제\s*(\d+)\s*회", event_text)

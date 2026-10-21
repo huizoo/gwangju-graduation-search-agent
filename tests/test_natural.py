@@ -4,6 +4,8 @@ import json
 from copy import deepcopy
 from datetime import datetime, timezone
 
+import pytest
+
 from app.natural import NaturalRecorder, parse_turn
 from app.results import result_rows
 from test_review_regressions import source_context, save_notice
@@ -176,3 +178,97 @@ def test_natural_api_idempotency_and_restart_preserve_conversation(tmp_path):
         body.update(text="방금", conversation_id=a.json()["id"], expected_revision=a.json()["revision"])
         b = client.post("/api/records/natural", headers={"X-App-Token":token, "Idempotency-Key":str(uuid4())}, json=body)
         assert b.status_code == 200 and b.json()["status"] == "saved", b.text
+
+
+@pytest.mark.parametrize("auxiliary", ["식전 공연", "기념촬영", "졸업식 준비 설명회"])
+def test_auxiliary_cancellation_preserves_the_confirmed_main_ceremony(source_context, auxiliary):
+    """부대 일정의 취소를 같은 문장의 본식 개최 여부로 옮기지 않는다."""
+    service, _, season = source_context
+    reply = record(source_context, f"검증초 졸업식은 1월 7일 오전 10시야. {auxiliary}는 취소됐어. 방금 전화해서 확인했어.")
+    assert reply["status"] == "saved", reply
+    event = service.event_detail(reply["event_id"])["event"]
+    assert event["publication"]["calendar_date"] == "2027-01-07"
+    assert event["publication"]["calendar_time"] == "10:00"
+    assert event["fields"]["ceremony_status"]["manual"]["value"] == "scheduled"
+    assert len(result_rows(service.snapshot(season["id"]))) == 1
+
+
+@pytest.mark.parametrize("statement", [
+    "검증초 졸업식은 개최하지 않는다고 방금 전화로 확인했어.",
+    "방금 전화로 확인했는데 검증초 졸업식은 개최하지 않습니다.",
+    "검증초 졸업식은 방금 전화해서 확인했는데 개최하지 않습니다.",
+    "검증초 졸업식은 미개최한다고 방금 전화로 확인했어.",
+])
+def test_same_sentence_confirmation_keeps_non_occurrence(source_context, statement):
+    """확인 구절 앞뒤의 미개최 진술이 실제 저장에서도 소실되지 않는다."""
+    service, _, season = source_context
+    reply = record(source_context, statement)
+    assert reply["status"] == "saved", reply
+    event = service.event_detail(reply["event_id"])["event"]
+    assert event["fields"]["ceremony_status"]["manual"]["value"] == "not_held"
+    assert not event["publication"]["current_date_allowed"]
+    assert not event["publication"]["current_time_allowed"]
+    assert result_rows(service.snapshot(season["id"]))[0]["date"] is None
+
+
+@pytest.mark.parametrize("auxiliary", ["식전 공연", "기념촬영", "졸업식 준비 설명회"])
+def test_auxiliary_time_does_not_replace_main_start_and_clear_main_start_is_saved(source_context, auxiliary):
+    """부대 시간만 있으면 날짜를 보존하고 명시한 본식 시각으로 기존 행사를 보완한다."""
+    service, _, season = source_context
+    saved = save_notice(source_context, "2026학년도 검증초등학교 졸업식은 2027년 1월 7일 개최합니다.")
+    first = record(source_context, f"검증초 졸업식은 1월 7일이야. {auxiliary}는 오전 9시야. 방금 전화해서 확인했어.")
+    assert first["status"] == "question", first
+    assert first["event_id"] == saved["event_ids"][0]
+    event = service.event_detail(first["event_id"])["event"]
+    assert event["publication"]["calendar_date"] == "2027-01-07"
+    assert event["publication"]["calendar_time"] is None
+    second = record(source_context, "본식은 오전 10시야.", first)
+    assert second["status"] == "saved", second
+    assert second["event_id"] == first["event_id"]
+    assert len(service.events(season["id"])["items"]) == 1
+    assert result_rows(service.snapshot(season["id"]))[0]["start_time"] == "10:00"
+
+
+def test_preparation_and_main_ceremony_in_one_statement_are_separated(source_context):
+    """준비 설명회와 본식을 모두 말해도 본식의 명확한 날짜·시간은 기록한다."""
+    service, _, season = source_context
+    reply = record(source_context, "검증초 졸업식 준비 설명회는 1월 5일 오전 9시, 본식은 1월 7일 오전 10시야. 방금 전화로 확인했어.")
+    assert reply["status"] == "saved", reply
+    event = service.event_detail(reply["event_id"])["event"]
+    assert event["publication"]["calendar_date"] == "2027-01-07"
+    assert event["publication"]["calendar_time"] == "10:00"
+
+
+def test_confirmation_reply_can_also_correct_the_ceremony_time(source_context):
+    """확인시점 질문의 답변에 새로 명시한 본식 시각도 함께 반영한다."""
+    service, _, _ = source_context
+    first = record(source_context, "검증초 졸업식은 1월 7일 오전 10시래. 전화로 확인했어.")
+    assert first["event_id"] is None
+    second = record(source_context, "방금 전화로 확인했어. 본식은 오전 11시가 맞아.", first)
+    assert second["status"] == "saved", second
+    event = service.event_detail(second["event_id"])["event"]
+    assert event["publication"]["calendar_time"] == "11:00"
+
+
+def test_explicit_event_year_is_not_taken_as_confirmation_date(source_context):
+    """같은 문장에 확인 방법이 있어도 유일한 본식 날짜를 확인시점으로 옮기지 않는다."""
+    service, _, _ = source_context
+    reply = record(source_context, "검증초 졸업식은 2027년 1월 7일 오전 10시라고 전화해서 확인했어.")
+    assert reply["status"] == "question"
+    assert reply["event_id"] is None
+    assert any("언제" in question for question in reply["questions"])
+    with service.store.transaction() as conn:
+        state = json.loads(conn.execute("SELECT state_json FROM natural_records WHERE id=?", (reply["id"],)).fetchone()[0])
+    assert state["date"] == "2027-01-07"
+    assert state["start_time"] == "10:00"
+
+
+@pytest.mark.parametrize("auxiliary", ["식전 공연", "기념촬영", "졸업식 준비 설명회"])
+def test_auxiliary_role_after_clock_does_not_become_ceremony_start(source_context, auxiliary):
+    """시각 뒤에 부대 행사를 적어도 날짜만 저장하고 본식 시작은 질문한다."""
+    service, _, _ = source_context
+    reply = record(source_context, f"검증초 졸업식은 1월 7일 오전 9시 {auxiliary}이래. 방금 전화로 확인했어.")
+    assert reply["status"] == "question", reply
+    event = service.event_detail(reply["event_id"])["event"]
+    assert event["publication"]["calendar_date"] == "2027-01-07"
+    assert event["publication"]["calendar_time"] is None
