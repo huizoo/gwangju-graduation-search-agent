@@ -15,7 +15,7 @@ from app.rules import extract_candidates, value_check, verify
 FIXTURES = Path(__file__).parent / "fixtures/calendar-change"
 CAPTURE_HASHES = {
     "sogang": "a65765793f1534dbffa707e8347040c97227ad6efadde297ce3aa90e836ab97b",
-    "cku": "285f68da91048387e7a63a38e5e2c7c79eac9b9d01683f68843b35d1045fd355",
+    "cku": "3ed2bfecd63eaf04b7a496f7b87167b78757f66331de017e74cd9c6be99371d5",
     "cbbh": "8c41eb27e7063fdc4332c3028155489b54c7634f422f76199219373935a90a70",
 }
 NAMES = {"sogang": "서강대학교", "cku": "가톨릭관동대학교", "cbbh": "충북비즈니스고등학교"}
@@ -27,12 +27,12 @@ SYNTHETIC_TEXT = (
 
 
 def capture(tag):
-    """재취득한 DocumentRead의 복사본을 수정 없이 읽는다.
+    """공개 검토한 DocumentRead 사본의 고정 해시를 확인한다.
 
     Args:
         tag: 실제 캡처 기관의 고정 이름.
     Returns:
-        원본과 바이트 해시가 같은, 여전히 공식성 미확인인 문서.
+        고정된 공개 사본이며 여전히 공식성 미확인인 문서. CKU 작성자만 비식별화했다.
     """
     raw = (FIXTURES / f"{tag}-document.json").read_bytes()
     assert hashlib.sha256(raw).hexdigest() == CAPTURE_HASHES[tag]
@@ -41,6 +41,21 @@ def capture(tag):
     assert document["authority"] == "unverified"
     assert document["authority_evidence"] is None
     return document
+
+
+def test_cku_public_fixture_redaction_keeps_original_capture_identity():
+    """작성자만 가린 사본을 재수집·공식성 승인으로 표시하지 않는다."""
+    document = capture("cku")
+    manifest = json.loads((FIXTURES.parents[2] / "docs/evidence/calendar-change-rule.json").read_text())
+    metadata = next(entry for entry in manifest["captures"] if entry["tag"] == "cku")
+    assert "작성자\n[비식별 처리]\n조회수" in document["segments"][0]["text"]
+    assert metadata["byte_identical_to_original"] is False
+    assert metadata["public_copy"]["event_text_unchanged"] is True
+    assert metadata["public_copy"]["network_refetched"] is False
+    assert metadata["document_content_sha256"] == document["content_hash"]
+    assert metadata["fixture_file_sha256"] == CAPTURE_HASHES["cku"]
+    assert metadata["public_copy"]["original_fixture_file_sha256"] != CAPTURE_HASHES["cku"]
+    assert document["retrieved_at"] == metadata["source_captured_at"]
 
 
 def season(year=2025):

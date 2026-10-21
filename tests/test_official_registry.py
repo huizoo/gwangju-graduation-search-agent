@@ -21,6 +21,32 @@ MANIFEST = ROOT / "docs/evidence/non-school-registry.json"
 ASSETS = ROOT / "assets/registry"
 
 
+def test_public_copies_redact_only_unneeded_fields_and_report_capture_provenance():
+    """정제 사본을 원본과 구분하며 기관 행 검증과 취득 시각을 유지한다."""
+    manifest = json.loads(MANIFEST.read_text())
+    entries = {Path(entry["path"]).name: entry for entry in manifest["artifacts"]}
+    directory = BeautifulSoup((ASSETS / "gen-kindergarten-directory.html").read_bytes(), "html.parser")
+    csrf = directory.select('input[name="CSRFToken"]')
+    assert len(csrf) == 2 and all(field["value"] == "[REDACTED_CSRF]" for field in csrf)
+    profile = BeautifulSoup((ASSETS / "hana-summary.html").read_bytes(), "html.parser")
+    director = next(th for th in profile.find_all("th") if th.get_text(strip=True) == "원장명")
+    assert director.find_next_sibling("td").get_text(strip=True) == "[비식별 처리]"
+    for filename, import_file, expected_rows in [
+        ("gen-kindergarten-directory.html", official.IMPORT_FILES[0], 256),
+        ("hana-summary.html", official.IMPORT_FILES[3], 1),
+    ]:
+        entry = entries[filename]
+        assert entry["public_copy"]["source_rows_unchanged"] is True
+        assert entry["public_copy"]["original_sha256"] != entry["sha256"]
+        result = official.load_official_registry(MANIFEST, import_file, artifact_dir=ASSETS)
+        assert len(result.registry["rows"]) == expected_rows
+        assert result.provenance["reviewed_at"] == manifest["checked_at"]
+        assert result.provenance["network_refetched"] is False
+        assert result.provenance["sanitized_artifacts"] == [
+            {"filename": filename, "public_copy_sha256": entry["sha256"], **entry["public_copy"]}
+        ]
+
+
 def _university_rows():
     """이미 검토한 공식 HTML의 18개 열을 다운로드 JSON 열로 옮긴다."""
     soup = BeautifulSoup((ASSETS / "universities-gwangju.bin").read_bytes(), "html.parser")

@@ -2,7 +2,8 @@
 
 공식 URL과 해시를 사용자가 함께 제출하는 것만으로 공식성이 증명되지는 않는다.
 대학 조회는 코드에 고정된 공식 다운로드와 총건수·페이지를 대조한다. 보관된 명부는
-승인한 manifest 해시와 원문을 대조하므로 취득 당시의 관계만 증명한다.
+승인한 manifest 해시와 배포 사본을 대조하므로 취득 당시의 관계만 증명한다.
+공개에 불필요한 값만 정제한 사본은 취득 원문 해시와 정제 범위를 별도로 남긴다.
 두 경로 모두 학교 목록·홈페이지 관계를 확인하며 졸업식 일정은 별도로 검증한다.
 """
 
@@ -30,7 +31,7 @@ from .providers import HttpGateway, ProviderError, canonical, utcnow
 
 # 클라이언트가 pin을 지정하는 인자는 두지 않는다. 이 값 변경은 원문 재검토가 필요하다.
 APPROVED_MANIFEST_SHA256 = frozenset({
-    "6558f3481957260bfd3aab9574a53b8113de59e7e4b9cf5f0d01436c97f74741",
+    "df257ce5b3c47ef74131f6a7926b4f7a14841b8e854cfaf3ec6c8cb6d8b80b94",
 })
 DISTRICTS = ("동구", "서구", "남구", "북구", "광산구")
 GEN_URL = "https://www.gen.go.kr/s_school/index.php?mode=search1&s_div2=1"
@@ -69,7 +70,7 @@ class VerifiedOfficialRegistry:
     Attributes:
         registry: 일반 RegistryImport 미리보기·적재에 전달할 검증된 목록.
         authorities: 외부 기관 코드별 OfficialChannel 및 원문 행 근거.
-        provenance: 승인 manifest, 원본 해시, 검증 범위와 한계.
+        provenance: 승인 manifest, 원본·정제 사본 해시, 검증 범위와 한계.
     """
 
     registry: dict
@@ -242,14 +243,14 @@ def _json(raw: bytes):
 
 
 class _Bundle:
-    """승인된 manifest의 파일만 지정 폴더에서 읽고 원본 바이트를 고정한다."""
+    """승인된 manifest의 파일만 읽고 검토한 배포 사본 바이트를 고정한다."""
 
     def __init__(self, manifest_path: Path, artifact_dir: Path | None):
         """승인 해시와 고정 폴더로 파일 읽기 범위를 제한한다.
 
         Args:
             manifest_path: 서버가 선택한 검토 기록 파일.
-            artifact_dir: 원본을 보관한 서버 폴더 또는 기본 위치를 뜻하는 None.
+            artifact_dir: 검토한 배포 사본의 서버 폴더 또는 기본 위치를 뜻하는 None.
         Raises:
             ApiError: 승인되지 않은 기록·경로·취득 시각인 경우.
         """
@@ -271,12 +272,12 @@ class _Bundle:
         self.checked_at = self.manifest["checked_at"]
 
     def read(self, filename: str) -> bytes:
-        """원본 출처·크기·해시·경로를 확인한 동일 바이트를 재사용한다.
+        """출처·크기·해시·경로를 확인한 배포 사본의 동일 바이트를 재사용한다.
 
         Args:
             filename: 승인 manifest에 있는 파일 이름.
         Returns:
-            같은 검증 중에는 다시 읽지 않는 고정된 원본 바이트.
+            같은 검증 중에는 다시 읽지 않는 고정된 배포 사본 바이트.
         Raises:
             ApiError: 파일이 변조되었거나 지정 범위 밖인 경우.
         """
@@ -290,7 +291,7 @@ class _Bundle:
                  "공식 명부 파일은 지정 폴더 안의 일반 파일이어야 합니다.")
         raw = path.read_bytes()
         _require(len(raw) == entry["bytes"] and _sha256(raw) == entry["sha256"],
-                 "공식 명부 파일의 크기 또는 SHA-256이 승인 원본과 다릅니다.")
+                 "공식 명부 파일의 크기 또는 SHA-256이 승인 사본과 다릅니다.")
         self.cache[filename] = raw
         return raw
 
@@ -594,12 +595,18 @@ def load_official_registry(manifest_path: Path, import_file: str, *, artifact_di
         normalized = validate("RegistryImport", normalized)
         return VerifiedOfficialRegistry(normalized, tuple(authorities), {
             "manifest_sha256": bundle.digest, "source_sha256": source["source_hash"],
+            "sanitized_artifacts": [
+                {"filename": name, "public_copy_sha256": entry["sha256"], **entry["public_copy"]}
+                for name, entry in bundle.entries.items()
+                if name in bundle.cache and entry.get("public_copy")
+            ],
             "reviewed_at": bundle.checked_at, "source_as_of": source["as_of"],
             "authority_scope": "historical_official_directory_homepage_relation",
             "network_refetched": False, "publication_approved": False,
             "coverage_complete": normalized["source"]["coverage_complete"], "statistics": statistics,
             "limitations": [
-                "승인된 취득 원문과 같은 바이트임을 확인했다. 현재 사이트 내용·소유권·기관 운영 상태는 재검증하지 않았다.",
+                "승인된 배포 사본의 바이트를 확인했다. 정제 사본은 취득 원문 해시와 정제 범위를 별도로 기록한다.",
+                "현재 사이트 내용·소유권·기관 운영 상태는 재검증하지 않았다.",
                 "공식 홈페이지 관계는 졸업식 날짜·실제 시작 시각의 확인 또는 게시 승인이 아니다.",
                 "기관 주소 변경·새 목록은 원문 출처 검토와 서버 manifest 승인 갱신이 필요하다.",
             ],

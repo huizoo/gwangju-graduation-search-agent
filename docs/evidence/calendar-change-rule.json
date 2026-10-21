@@ -89,14 +89,25 @@
       "document_id": "a03291a1-80c9-4874-9195-8c8f3212ca8d",
       "document_content_sha256": "8a9e2355f236373fdab6b16d08cfb8b60f2420257aa3ec920248377aebf31af9",
       "fixture_path": "tests/fixtures/calendar-change/cku-document.json",
-      "fixture_file_sha256": "285f68da91048387e7a63a38e5e2c7c79eac9b9d01683f68843b35d1045fd355",
+      "fixture_file_sha256": "3ed2bfecd63eaf04b7a496f7b87167b78757f66331de017e74cd9c6be99371d5",
       "original_capture_path": "runtime/change-notice-search/cku-document.json",
-      "byte_identical_to_original": true,
+      "byte_identical_to_original": false,
       "authority_unchanged": "unverified",
       "authority_evidence_unchanged": null,
       "source_location": "/segments/0/text",
       "candidate_count": 0,
-      "candidates": []
+      "candidates": [],
+      "public_copy": {
+        "kind": "sanitized_public_copy",
+        "original_fixture_file_sha256": "285f68da91048387e7a63a38e5e2c7c79eac9b9d01683f68843b35d1045fd355",
+        "redacted_fields": [
+          "segments[0].text의 작성자 이름 (1개)"
+        ],
+        "event_text_unchanged": true,
+        "content_hash_scope": "DocumentRead.content_hash는 취득 응답 원문 해시이며 공개 정제 사본의 파일 해시는 fixture_file_sha256이다.",
+        "reviewed_at": "2026-10-21T07:04:46.205011+00:00",
+        "network_refetched": false
+      }
     },
     {
       "tag": "cbbh",

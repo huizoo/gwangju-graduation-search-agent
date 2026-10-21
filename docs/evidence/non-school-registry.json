@@ -156,9 +156,19 @@
   "artifacts": [
     {
       "path": "runtime/non-school-registry/gen-kindergarten-directory.html",
-      "bytes": 142755,
-      "sha256": "c6c53cda370abc5a08e09a9b5215f8db8d8cd276b412ef8faed790ba6cb42f95",
-      "source_url": "https://www.gen.go.kr/s_school/index.php?mode=search1&s_div2=1"
+      "bytes": 142657,
+      "sha256": "64f432f140a2be3689901ef153fa645dd8bf3e40c0786eafc5728e391e9c8b11",
+      "source_url": "https://www.gen.go.kr/s_school/index.php?mode=search1&s_div2=1",
+      "public_copy": {
+        "kind": "sanitized_public_copy",
+        "original_bytes": 142755,
+        "original_sha256": "c6c53cda370abc5a08e09a9b5215f8db8d8cd276b412ef8faed790ba6cb42f95",
+        "redacted_fields": [
+          "input[name=CSRFToken].value (2개)"
+        ],
+        "source_rows_unchanged": true,
+        "note": "공개 저장소 배포를 위한 정제 사본이다. 취득시각은 원문 취득 검토 시각이며 정제 시각이나 재조회 시각이 아니다."
+      }
     },
     {
       "path": "runtime/non-school-registry/gen-kindergarten-directory-original.bin",
@@ -192,9 +202,19 @@
     },
     {
       "path": "runtime/non-school-registry/hana-summary.html",
-      "bytes": 30340,
-      "sha256": "37f18cb3ca53715eda58db46509e8eab5bc45027c2b524c32fbe706085fadd06",
-      "source_url": "https://info.childcare.go.kr/info_html5/pnis/search/preview/SummaryInfoSlPu.jsp?flag=YJ&STCODE_POP=29110000084&CRNAMETITLE=&loginFlag="
+      "bytes": 30349,
+      "sha256": "394a9de8af41b51fde536f1fc0b84432f63d9073c6451d0d79dbe556123e37d0",
+      "source_url": "https://info.childcare.go.kr/info_html5/pnis/search/preview/SummaryInfoSlPu.jsp?flag=YJ&STCODE_POP=29110000084&CRNAMETITLE=&loginFlag=",
+      "public_copy": {
+        "kind": "sanitized_public_copy",
+        "original_bytes": 30340,
+        "original_sha256": "37f18cb3ca53715eda58db46509e8eab5bc45027c2b524c32fbe706085fadd06",
+        "redacted_fields": [
+          "원장명 (1개)"
+        ],
+        "source_rows_unchanged": true,
+        "note": "공개 저장소 배포를 위한 정제 사본이다. 취득시각은 원문 취득 검토 시각이며 정제 시각이나 재조회 시각이 아니다."
+      }
     },
     {
       "path": "runtime/non-school-registry/kindergarten-2025-original.bin",
@@ -229,13 +249,13 @@
     {
       "path": "runtime/non-school-registry/childcare-representative-registry.json",
       "bytes": 1292,
-      "sha256": "bd1cf5d20154ce3c8d1f647256f73329d9f29bf3740d0efdc3ea0f8d0941db09",
+      "sha256": "9cb8d1adce07f2928ab62e7252ec706a7764b0d260de87ed5b01d4bcb2aa501d",
       "source_url": null
     },
     {
       "path": "runtime/non-school-registry/homepage-authority-provenance.json",
       "bytes": 507415,
-      "sha256": "1e8b71988d76a5cbd0646b54bfc329a672614f96f6f935933e617dfcab6f438a",
+      "sha256": "9ac9b2fd7490b88496de5e2c10e3c64e8f3de6558a97a7de693436790113923f",
       "source_url": null
     },
     {
@@ -256,5 +276,11 @@
       "sha256": "b23e303e2703ad849a8839dcb9a51412c8af394444d3a968954dcca7262100bb",
       "source_url": null
     }
-  ]
+  ],
+  "public_copy_review": {
+    "reviewed_at": "2026-10-21T07:04:46.203929+00:00",
+    "network_refetched": false,
+    "scope": "CSRF 값 2개와 원장명 1개만 비식별화; 기관 행·코드·주소·전화·홈페이지 동일",
+    "original_capture_checked_at": "2026-10-20T19:22:26.694543+09:00"
+  }
 }
