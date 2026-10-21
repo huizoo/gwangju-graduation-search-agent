@@ -848,6 +848,7 @@ class Service:
                 documents[event["id"]] = [item for key, item in all_docs.items() if key in refs]
             from .scope import eligible_school
             from .research_records import current_counts
+            from .job_feedback import season_research_summary, time_feedback
             latest = conn.execute("SELECT id FROM jobs WHERE kind='schedule_scan' AND season_id=? AND coalesce(json_extract(request_json,'$.purpose'),'date_count')='date_count' ORDER BY (status='cancelled'),created_at DESC,rowid DESC LIMIT 1", (season_id,)).fetchone()
             targets = [self._institution(conn, row[0]) for row in conn.execute("SELECT id FROM institutions ORDER BY name,id")]
             targets = [school for school in targets if eligible_school(school, season)]
@@ -861,9 +862,10 @@ class Service:
                 if target and target not in time_searches:
                     time_searches[target] = {"job_id": job["id"], "status": job["status"], "outcome": job["outcome"],
                                             "paused_reason": job["paused_reason"], "revision": job["revision"],
-                                            "created_at": job["created_at"]}
+                                            "created_at": job["created_at"], "feedback": time_feedback(conn, job["id"])}
             return {"season": season, "events": events, "targets": targets,
                     "active_job_id": active[0] if active else None, "time_searches": time_searches,
+                    "research_summary": season_research_summary(conn, season_id, [school["id"] for school in targets]),
                     "counts": current_counts(self, conn, season, events),
                     "request_job_id": latest[0] if latest else None, "documents": documents, "overview": self._overview(conn, season, events), "content_revision": self.store.revision(conn), "publication_policy_version": POLICY_VERSION, "generated_at": moment}
 
