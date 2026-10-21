@@ -56,6 +56,8 @@ def install_extensions(store, *, existing: bool):
         marker = conn.execute("SELECT value FROM app_meta WHERE key='experience_schema'").fetchone()
     if marker and marker[0] == "2":
         install_periods(store, existing=existing)
+        from .development_archive import separate_development_artifacts
+        separate_development_artifacts(store)
         return
     if marker and marker[0] != "1":
         raise ApiError("migration_required", "지원하지 않는 기록 확장 버전입니다. 기존 DB를 보존했습니다.", 409)
@@ -67,6 +69,8 @@ def install_extensions(store, *, existing: bool):
             if statement.strip():
                 conn.execute(statement)
     install_periods(store, existing=existing)
+    from .development_archive import separate_development_artifacts
+    separate_development_artifacts(store)
 
 
 def install_periods(store, *, existing: bool):
@@ -144,6 +148,8 @@ def reconcile_rules(service):
         service: 현재 허용 규칙이 설정된 서비스.
     """
     from .storage import _audit
+    from .development_archive import reassess_retained_events
+    reassess_retained_events(service)
     repair_null_homepages(service)
     rules = service._enabled_rules()
     if not rules:
