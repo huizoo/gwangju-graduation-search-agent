@@ -10,7 +10,8 @@ from datetime import date
 from .providers import canonical, neis_identifier, neis_unit, official_channel, utcnow
 from .identity import same_event
 
-REGISTERED_RULES = {"neis_ceremony_row": "1.2.0", "explicit_notice": "1.2.0", "academic_calendar_row": "1.0.0"}
+REGISTERED_RULES = {"neis_ceremony_row": "1.2.0", "explicit_notice": "1.2.0",
+                    "academic_calendar_row": "1.0.0", "grounded_notice": "1.0.0"}
 NEIS_EVENTS = {"졸업식": "graduation_ceremony", "졸업식 및 종업식": "graduation_and_completion",
                "졸업식 및 수료식": "graduation_and_completion", "졸업식/종업식": "graduation_and_completion",
                "졸업식,종업식": "graduation_and_completion", "종업식 및 졸업식": "graduation_and_completion",
@@ -391,6 +392,15 @@ def value_check(field: str, value, observation: dict, document: dict, event: dic
             if field == "start_time":
                 checks["time_role"] = "pass" if parsed["time_role"] == candidate.get("time_role") == "ceremony_start" else "fail"
             break
+    if (checks["normalized_value"] == "unknown" and rule == "explicit_notice"
+            and checks["content"] == checks["institution"] == checks["literal_presence"] == checks["event_identity"] == "pass"):
+        from .claims import grounded_claim
+        # 모델을 파서와 재대결시키지 않고 같은 행사 구간의 역할·연도·값을 독립 검사한다.
+        if grounded_claim(field, value, candidate, document, institution, season):
+            checks.update(normalized_value="pass", season="pass")
+            if field == "start_time":
+                checks["time_role"] = "pass"
+            result.update(rule_id="grounded_notice", rule_version=REGISTERED_RULES["grounded_notice"])
     if checks["normalized_value"] == "unknown":
         result["reason_codes"].append("value_not_supported")
     if checks["literal_presence"] == "fail":

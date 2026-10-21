@@ -181,7 +181,7 @@ def neis_registry(rows: list[dict]) -> dict:
 
 
 async def sync_registry(settings, provider: str, meter=None) -> dict:
-    """지원한 공식 API 목록을 동기화하고 나머지는 공식 파일 준비를 안내한다.
+    """공식 학교 API와 대학 표준자료의 전체 페이지를 갱신한다.
 
     Args:
         settings: 확정된 실행 설정.
@@ -193,12 +193,17 @@ async def sync_registry(settings, provider: str, meter=None) -> dict:
         ProviderError: 키 누락, 미지원 API 또는 응답 무결성 실패.
     """
     from .providers import HttpGateway, NeisProvider
-    if provider != "neis":
+    if provider not in {"neis", "higher_education"}:
         raise ProviderError("configuration_required",
             "이 자료원의 승인된 API 연결은 준비되지 않았습니다. 공식 JSON·UTF-8 CSV 원본과 출처 URL·기준일·범위를 준비해 목록 가져오기를 이용하세요.",
             provider)
     gateway = HttpGateway(settings, meter)
     try:
+        if provider == "higher_education":
+            from .official_registry import HigherEducationProvider
+            verified = await HigherEducationProvider(settings, meter, gateway).registry()
+            validate_registry_import(verified.registry)
+            return {"registry": verified.registry, "_verified_registry": verified}
         result = await NeisProvider(settings, meter, gateway).school_registry()
         validate_registry_import(result)
         return result

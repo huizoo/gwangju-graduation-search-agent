@@ -16,7 +16,7 @@ def test_additive_schema_backs_up_old_database_before_any_change(tmp_path):
         conn.executescript(Path("app/schema.sql").read_text())
         conn.execute("INSERT INTO app_meta VALUES('preserved_user_value','original')")
     store = Store(path)
-    backups = list((tmp_path / "backups").glob("before-experience-1-*.sqlite3"))
+    backups = list((tmp_path / "backups").glob("before-experience-2-*.sqlite3"))
     assert len(backups) == 1
     with sqlite3.connect(backups[0]) as conn:
         assert not conn.execute("SELECT name FROM sqlite_master WHERE name='natural_records'").fetchone()
@@ -24,8 +24,10 @@ def test_additive_schema_backs_up_old_database_before_any_change(tmp_path):
     with store.transaction() as conn:
         assert conn.execute("SELECT value FROM app_meta WHERE key='preserved_user_value'").fetchone()[0] == "original"
         assert conn.execute("SELECT name FROM sqlite_master WHERE name='natural_records'").fetchone()
+        assert conn.execute("SELECT value FROM app_meta WHERE key='experience_schema'").fetchone()[0] == "2"
+        assert conn.execute("SELECT name FROM sqlite_master WHERE name='count_observations'").fetchone()
     Store(path)
-    assert len(list((tmp_path / "backups").glob("before-experience-1-*.sqlite3"))) == 1
+    assert len(list((tmp_path / "backups").glob("before-experience-2-*.sqlite3"))) == 1
 
 
 def test_duplicate_link_keeps_event_and_observation_history(source_context):

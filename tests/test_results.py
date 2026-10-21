@@ -11,8 +11,8 @@ from test_jobs_api import settings_for, institution_payload, job_payload
 from test_review_regressions import source_context, save_notice
 
 
-def test_requested_targets_include_missing_but_not_unrequested_registry(tmp_path):
-    """명부 전체가 아닌 최근 조사에서 고정한 대상을 결과에 남긴다."""
+def test_all_target_schools_include_unattempted_missing_rows(tmp_path):
+    """등록된 대상 학교는 최근 조사 선택과 무관하게 결과에 남긴다."""
     app = create_app(settings_for(tmp_path))
     runtime = app.state.runtime
     a = runtime.service.create_institution(institution_payload("요청 학교"))
@@ -23,14 +23,14 @@ def test_requested_targets_include_missing_but_not_unrequested_registry(tmp_path
         response = client.get("/api/results", params={"season_id": season["id"]})
         assert response.status_code == 200, response.text
         result = validate("ScheduleResult", response.json())
-        assert len(result["rows"]) == 1
-        row = result["rows"][0]
+        assert len(result["rows"]) == 2
+        row = next(r for r in result["rows"] if r["name"] == "요청 학교")
         assert row["name"] == "요청 학교"
         assert row["date"] is row["start_time"] is row["address"] is None
 
 
-def test_cancelled_request_does_not_replace_previous_result_scope(tmp_path):
-    """취소한 다른 대상의 조사가 마지막 정상 결과 범위를 지우지 않는다."""
+def test_cancelled_request_does_not_remove_any_target_school(tmp_path):
+    """취소 여부나 마지막 요청의 대상이 전체 학교 표를 줄이지 않는다."""
     app = create_app(settings_for(tmp_path))
     runtime = app.state.runtime
     a = runtime.service.create_institution(institution_payload("이전 요청"))
@@ -40,7 +40,7 @@ def test_cancelled_request_does_not_replace_previous_result_scope(tmp_path):
     runtime.jobs.pause(first["id"])
     second = runtime.jobs.create(job_payload(season["id"], [b["id"]]), str(uuid4()))
     runtime.jobs.cancel(second["id"])
-    assert [r["name"] for r in result_rows(runtime.service.snapshot(season["id"]))] == ["이전 요청"]
+    assert [r["name"] for r in result_rows(runtime.service.snapshot(season["id"]))] == ["이전 요청", "취소 요청"]
 
 
 def test_verified_cancellation_masks_date_time_but_retains_internal_evidence(source_context):

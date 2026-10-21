@@ -107,7 +107,10 @@ def _within(value, season):
     try:
         if value.get("precision") == "day":
             day = date.fromisoformat(value["date"])
-            return date.fromisoformat(season["search_start"]) <= day <= date.fromisoformat(season["search_end"])
+            days = [date.fromisoformat(v) for v in value.get("dates", [value["date"]])]
+            return day == min(days) and all(
+                date.fromisoformat(season["search_start"]) <= item <= date.fromisoformat(season["search_end"])
+                for item in days)
         if value.get("precision") == "month":
             month = value["month"]
             return bool(re.fullmatch(r"\d{4}-\d{2}", month)) and season["search_start"][:7] <= month <= season["search_end"][:7]
@@ -272,7 +275,8 @@ def _support(field, automatic, event, season, context, now):
             or not same_event(candidate, event, event["institution"])
             or candidate.get("event_type") not in GRADUATION_EVENTS
             or candidate.get("event_key_hint") != event.get("event_key")
-            or candidate.get("season_alignment") != "explicit"
+            or (candidate.get("season_alignment") != "explicit"
+                and not (rule == "grounded_notice" and candidate.get("season_alignment") == "source_context"))
             or candidate.get(field) != automatic.get("value")
             or document_id not in proof.get("document_ids", [])
             or not document.get("content_hash")

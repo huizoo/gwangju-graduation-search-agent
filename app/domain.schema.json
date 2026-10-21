@@ -7921,7 +7921,8 @@
       "enum": [
         "neis_ceremony_row",
         "explicit_notice",
-        "academic_calendar_row"
+        "academic_calendar_row",
+        "grounded_notice"
       ]
     },
     "AuthorityEvidence": {
@@ -8472,7 +8473,8 @@
         "source": {
           "enum": [
             "schoolinfo_api09",
-            "public_document"
+            "public_document",
+            "schoolinfo_public"
           ]
         },
         "source_school_code": {

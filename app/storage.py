@@ -791,11 +791,13 @@ class Service:
                 support_sources = {all_docs[key]["source_key"] for key in refs if key in all_docs}
                 refs.update(key for key, document in all_docs.items() if document["source_key"] in support_sources)
                 documents[event["id"]] = [item for key, item in all_docs.items() if key in refs]
-            latest = conn.execute("SELECT id FROM jobs WHERE kind='schedule_scan' AND season_id=? ORDER BY (status='cancelled'),created_at DESC,rowid DESC LIMIT 1", (season_id,)).fetchone()
-            target_ids = {row[0] for row in conn.execute("SELECT institution_id FROM job_items WHERE job_id=? AND institution_id IS NOT NULL", (latest[0],))} if latest else {event["institution"]["id"] for event in events}
-            # 직접 기록도 그 기관을 결과에 넣어 달라는 요청이다. 전체 명부를 임의로 출력하지 않는다.
-            target_ids.update(row[0] for row in conn.execute("SELECT DISTINCT e.institution_id FROM events e JOIN manual_overrides m ON m.event_id=e.id WHERE e.season_id=? AND m.active=1", (season_id,)))
-            return {"season": season, "events": events, "targets": [self._institution(conn, key) for key in sorted(target_ids)],
+            from .scope import eligible_school
+            from .research_records import current_counts
+            latest = conn.execute("SELECT id FROM jobs WHERE kind='schedule_scan' AND season_id=? AND coalesce(json_extract(request_json,'$.purpose'),'date_count')='date_count' ORDER BY (status='cancelled'),created_at DESC,rowid DESC LIMIT 1", (season_id,)).fetchone()
+            targets = [self._institution(conn, row[0]) for row in conn.execute("SELECT id FROM institutions ORDER BY name,id")]
+            targets = [school for school in targets if eligible_school(school, season)]
+            return {"season": season, "events": events, "targets": targets,
+                    "counts": current_counts(self, conn, season, events),
                     "request_job_id": latest[0] if latest else None, "documents": documents, "overview": self._overview(conn, season, events), "content_revision": self.store.revision(conn), "publication_policy_version": POLICY_VERSION, "generated_at": moment}
 
     def registry_preview(self, payload):
@@ -1170,6 +1172,27 @@ class Service:
                 return self.save_research(institution_id, season_id, result, conn=transaction)
         institution = self._institution(conn, institution_id)
         season = self._season(conn, season_id)
+        from .claims import validate_count
+        raw_documents = {d["id"]: d for d in result.get("documents", [])}
+        channels = list(institution["official_channels"])
+        for claim in result.get("counts", []):
+            raw_document = raw_documents.get(claim.get("document_id"))
+            if (not raw_document or claim.get("source") not in {"schoolinfo_api09", "schoolinfo_public"}
+                    or not validate_count(claim, raw_document, institution, season)["allowed"]):
+                continue
+            authority = raw_document.get("authority_evidence") or {}
+            if authority.get("channel_url") != "https://www.schoolinfo.go.kr/":
+                continue
+            channel = {"url": authority["channel_url"], "verified_by_url": authority["verified_by_url"],
+                       "verified_at": authority["verified_at"]}
+            if channel not in channels:
+                # 공식 공시 코드·주소·학년 원문을 검사한 관계를 저장 단계에도 동일하게 적용한다.
+                channels.append(channel)
+                _audit(conn, "institution", institution_id, "student_source_channel",
+                       after=channel, actor="system", summary="학교알리미 공식 학교 식별·공시 원문 대조")
+        if channels != institution["official_channels"]:
+            conn.execute("UPDATE institutions SET official_channels_json=? WHERE id=?", (dumps(channels), institution_id))
+            institution = self._institution(conn, institution_id)
         document_ids = {}
         for document in result.get("documents", []):
             document_ids[document["id"]] = self._save_document(conn, institution_id, document)
@@ -1177,13 +1200,29 @@ class Service:
         for extracted in result.get("candidates", []):
             original = validate("Candidate", extracted["candidate"])
             candidate = copy.deepcopy(original)
+            if result.get("purpose") == "time":
+                from .identity import same_event
+                target = _one(conn, "events", result.get("target_event_id"))
+                if (target["institution_id"] != institution_id or target["season_id"] != season_id
+                        or not same_event(candidate, dict(target), institution)):
+                    # 다른 행사 후보도 원문에는 남기되 대상 행사의 자동값으로 연결하지 않는다.
+                    candidate["event_key_hint"] = None
+                    candidate["season_alignment"] = "unknown"
             document_id = document_ids.get(extracted["document_id"])
             if document_id is None:
                 raise ApiError("evidence_link_invalid", "관측 원문이 조사 결과에 없습니다.")
             event_id = None
             reasons = ["event_match_required"]
-            if candidate["event_key_hint"] and candidate["academic_year"] == season["academic_year"] and candidate["season_alignment"] == "explicit" and candidate["event_type"] != "unknown":
+            from .claims import grounded_claim
+            source_document = next(d for d in result["documents"] if d["id"] == extracted["document_id"])
+            grounded_identity = grounded_claim("event_date", candidate["event_date"], candidate,
+                                              source_document, institution, season)
+            if ((candidate["event_key_hint"] or grounded_identity)
+                    and candidate["academic_year"] == season["academic_year"]
+                    and (candidate["season_alignment"] == "explicit" or grounded_identity)
+                    and candidate["event_type"] != "unknown"):
                 from .identity import scope
+                candidate["event_key_hint"] = candidate["event_key_hint"] or "server-linked"
                 event_key = fingerprint({"institution_id": institution_id, "season_id": season_id,
                                          "scope": scope(candidate, institution)})
                 existing = conn.execute("SELECT id FROM events WHERE institution_id=? AND season_id=? AND event_key=?", (institution_id, season_id, event_key)).fetchone()
@@ -1243,6 +1282,8 @@ class Service:
             self._reassess(conn, event_id, refreshed)
             self._apply_source_blockers(conn, event_id)
             conn.execute("UPDATE events SET revision=revision+1,last_attempt_at=?,last_successful_source_check_at=CASE WHEN ? THEN ? ELSE last_successful_source_check_at END,change_check_status=?,updated_at=? WHERE id=?", (utcnow(), success, utcnow(), "completed" if success else "limited", utcnow(), event_id))
+        from .research_records import save_supplement
+        save_supplement(self, conn, institution, season, result, document_ids)
         revision = self.store.touch(conn, season_id)
         return {"document_ids": list(document_ids.values()), "observation_ids": observations, "event_ids": sorted(events), "content_revision": revision}
 
@@ -1312,6 +1353,20 @@ class Service:
                     relation_url = "https://open.neis.go.kr/hub/schoolInfo?" + urlencode({"ATPT_OFCDC_SC_CODE": office, "SD_SCHUL_CODE": code, "Type": "json"})
                     channels.append({"url": homepage, "verified_by_url": relation_url, "verified_at": evidence["verified_at"]})
                 conn.execute("UPDATE institutions SET official_channels_json=? WHERE id=?", (dumps(channels), row[0]))
+        from .official_registry import VerifiedOfficialRegistry
+        verified = result.get("_verified_registry")
+        if isinstance(verified, VerifiedOfficialRegistry) and verified.registry == payload:
+            for relation in verified.authorities:
+                row = conn.execute("SELECT institution_id FROM registry_memberships WHERE snapshot_id=? AND external_key=?",
+                                   (snapshot["id"], relation["external_key"])).fetchone()
+                if not row:
+                    continue
+                channels = json.loads(_one(conn, "institutions", row[0])["official_channels_json"])
+                if relation["channel"] not in channels:
+                    channels.append(relation["channel"])
+                    conn.execute("UPDATE institutions SET official_channels_json=? WHERE id=?", (dumps(channels), row[0]))
+                    _audit(conn, "institution", row[0], "official_registry_channel",
+                           after=relation, actor="system", summary="공식 대학 전체 자료에서 홈페이지 관계 확인")
         return snapshot
 
     def reject_observation(self, identity, note):

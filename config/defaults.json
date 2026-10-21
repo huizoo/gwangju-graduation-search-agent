@@ -26,7 +26,7 @@
     "item_max_document_fetches": 8,
     "item_max_llm_calls": 8,
     "item_max_tokens": 24000,
-    "item_max_replans": 2,
+    "item_max_replans": 6,
     "segment_timeout_seconds": 1800,
     "segment_max_tokens": 120000,
     "job_max_active_seconds": 21600,
@@ -78,7 +78,8 @@
     "auto_rule_ids": [
       "neis_ceremony_row@1.2.0",
       "explicit_notice@1.2.0",
-      "academic_calendar_row@1.0.0"
+      "academic_calendar_row@1.0.0",
+      "grounded_notice@1.0.0"
     ]
   },
   "llm_profiles": {

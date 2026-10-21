@@ -4,8 +4,9 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from .identity import scope
 from .providers import official_channel
+from .scope import eligible_school
 
-PRESENTATION_VERSION = "1.0"
+PRESENTATION_VERSION = "2.0"
 
 
 def human_url(value: object) -> str | None:
@@ -38,7 +39,7 @@ def human_url(value: object) -> str | None:
 
 
 def school_link(institution: dict, documents: list[dict]) -> str | None:
-    """공식 읽기 페이지를 우선하고 확인된 학교 홈페이지로 대체한다.
+    """확인된 공식 홈페이지만 사용자 학교 링크로 제공한다.
 
     Args:
         institution: 공식 관계가 저장된 기관.
@@ -46,24 +47,17 @@ def school_link(institution: dict, documents: list[dict]) -> str | None:
     Returns:
         사용자용 공식 URL. API 근거는 내부에만 남긴다.
     """
-    for document in sorted(documents, key=lambda d: d.get("retrieved_at", ""), reverse=True):
-        url = human_url(document.get("display_url"))
-        reading = document.get("reading", {})
-        if (url and document.get("source_kind") == "html" and document.get("authority") == "official"
-                and document.get("status") == "ok" and reading.get("institution_match") == "matched"
-                and reading.get("content_match") == "expected" and official_channel(institution, url)):
-            return url
     home = human_url(institution.get("homepage_url"))
     return home if home and official_channel(institution, home) else None
 
 
 def result_rows(snapshot: dict) -> list[dict]:
-    """요청 기관마다 현재 허용 값 또는 미확인 행을 만든다.
+    """대상 학교마다 현재 허용 값 또는 빈칸을 가진 행을 만든다.
 
     Args:
         snapshot: 같은 SQLite 읽기 시점의 대상 기관·행사·근거.
     Returns:
-        날짜·시간순의 네 열용 행. 검증 상세·사적 메모는 포함하지 않는다.
+        날짜·시간순의 다섯 열용 행과 표시 필터 정보.
     Raises:
         ValueError: 게시 판정이 없거나 지원하지 않는 정책일 때.
     """
@@ -78,6 +72,8 @@ def result_rows(snapshot: dict) -> list[dict]:
         institutions = list({e["institution"]["id"]: e["institution"] for e in events}.values())
     result = []
     for institution in institutions:
+        if not eligible_school(institution, snapshot.get("season")):
+            continue
         selected = [e for e in events if e["institution"]["id"] == institution["id"]]
         groups = {}
         for event in selected:
@@ -98,7 +94,8 @@ def result_rows(snapshot: dict) -> list[dict]:
                 pub = event["publication"]
                 permissions = pub["field_permissions"]
                 if pub.get("current_date_allowed") and pub.get("calendar_date"):
-                    date_values.add(pub["calendar_date"])
+                    current_value = event.get("fields", {}).get("event_date", {}).get("effective_value") or {}
+                    date_values.add(tuple(current_value.get("dates", [pub["calendar_date"]])))
                     if permissions["start_time"]["current_allowed"] and pub.get("calendar_time"):
                         time_values.add((pub["calendar_date"], pub["calendar_time"]))
                 status_field = event.get("fields", {}).get("ceremony_status", {})
@@ -111,7 +108,8 @@ def result_rows(snapshot: dict) -> list[dict]:
                         statuses.add(state)
                 documents.extend(snapshot.get("documents", {}).get(event["id"], event.get("documents", [])))
             status = "cancelled" if "cancelled" in statuses else "not_held" if statuses else None
-            day = next(iter(date_values)) if len(date_values) == 1 and not status else None
+            dates = list(next(iter(date_values))) if len(date_values) == 1 and not status else []
+            day = dates[0] if dates else None
             time = next(iter(time_values))[1] if len(time_values) == 1 and next(iter(time_values))[0] == day else None
             address = institution.get("address") if institution.get("source_checked_at") else None
             # 수기 프로필 수정은 원래의 공식 주소 증명을 자동 상속하지 않는다.
@@ -125,8 +123,14 @@ def result_rows(snapshot: dict) -> list[dict]:
                                                   f"제{key[3]}회" if key[3] else None]))
             elif institution.get("campus_label"):
                 label = institution["campus_label"]
+            counts = snapshot.get("counts", {})
+            populations = {counts[e["id"]] for e in group if e["id"] in counts}
+            if institution["id"] in counts:
+                populations.add(counts[institution["id"]])
             result.append({"institution_id": institution["id"], "event_ids": [e["id"] for e in group],
                            "name": institution["name"], "event_label": label,
-                           "date": day, "start_time": time, "address": address or None,
+                           "date": day, "dates": dates, "district": institution["district"],
+                           "start_time": time, "address": address or None,
+                           "graduation_count": next(iter(populations)) if len(populations) == 1 and not status else None,
                            "url": school_link(institution, documents), "status": status})
     return sorted(result, key=lambda r: (r["date"] or "9999", r["start_time"] or "99:99", r["name"], r["event_label"]))

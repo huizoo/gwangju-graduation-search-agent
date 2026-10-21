@@ -17,7 +17,30 @@ CREATE TABLE IF NOT EXISTS event_aliases(
  old_id TEXT PRIMARY KEY REFERENCES events(id),current_id TEXT NOT NULL REFERENCES events(id),
  created_at TEXT NOT NULL, CHECK(old_id<>current_id)
 );
-INSERT INTO app_meta(key,value) VALUES('experience_schema','1')
+CREATE TABLE IF NOT EXISTS count_observations(
+ id TEXT PRIMARY KEY,institution_id TEXT NOT NULL REFERENCES institutions(id),
+ season_id TEXT NOT NULL REFERENCES seasons(id),event_id TEXT REFERENCES events(id),
+ document_id TEXT NOT NULL REFERENCES documents(id),claim_json TEXT NOT NULL CHECK(json_valid(claim_json)),
+ proof_json TEXT NOT NULL CHECK(json_valid(proof_json)),fingerprint TEXT NOT NULL UNIQUE,created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS collection_routes(
+ id TEXT PRIMARY KEY,institution_id TEXT NOT NULL REFERENCES institutions(id),
+ url TEXT NOT NULL,purpose TEXT NOT NULL,reading_method TEXT NOT NULL,
+ verified INTEGER NOT NULL DEFAULT 0,last_success_at TEXT,last_attempt_at TEXT,
+ failure_reason TEXT,document_id TEXT REFERENCES documents(id),
+ UNIQUE(institution_id,url,purpose)
+);
+CREATE TABLE IF NOT EXISTS route_attempts(
+ id TEXT PRIMARY KEY,route_id TEXT REFERENCES collection_routes(id),
+ institution_id TEXT NOT NULL REFERENCES institutions(id),attempt_json TEXT NOT NULL CHECK(json_valid(attempt_json)),
+ created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS investigation_traces(
+ id TEXT PRIMARY KEY,institution_id TEXT NOT NULL REFERENCES institutions(id),
+ season_id TEXT NOT NULL REFERENCES seasons(id),purpose TEXT NOT NULL,target_event_id TEXT REFERENCES events(id),
+ trace_json TEXT NOT NULL CHECK(json_valid(trace_json)),created_at TEXT NOT NULL
+);
+INSERT INTO app_meta(key,value) VALUES('experience_schema','2')
  ON CONFLICT(key) DO UPDATE SET value=excluded.value;
 """
 
@@ -31,12 +54,12 @@ def install_extensions(store, *, existing: bool):
     """
     with store.transaction() as conn:
         marker = conn.execute("SELECT value FROM app_meta WHERE key='experience_schema'").fetchone()
-    if marker and marker[0] == "1":
+    if marker and marker[0] == "2":
         return
-    if marker:
+    if marker and marker[0] != "1":
         raise ApiError("migration_required", "지원하지 않는 기록 확장 버전입니다. 기존 DB를 보존했습니다.", 409)
     if existing:
-        store.backup(store.path.parent / "backups" / f"before-experience-1-{fingerprint(utcnow())[:12]}.sqlite3")
+        store.backup(store.path.parent / "backups" / f"before-experience-2-{fingerprint(utcnow())[:12]}.sqlite3")
     with store.transaction(True) as conn:
         # executescript는 암묵적으로 commit하므로 각 문장을 같은 쓰기 거래 안에서 실행한다.
         for statement in EXTENSION_SQL.split(";"):
@@ -55,7 +78,7 @@ def reconcile_rules(service):
     rules = service._enabled_rules()
     if not rules:
         return
-    marker = fingerprint({"rules": rules, "identity": 1})
+    marker = fingerprint({"rules": rules, "identity": 2})
     with service.store.transaction() as conn:
         previous = conn.execute("SELECT value FROM app_meta WHERE key='assessed_rules'").fetchone()
         has_events = conn.execute("SELECT 1 FROM events LIMIT 1").fetchone()

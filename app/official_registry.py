@@ -1,9 +1,9 @@
-"""검토된 공식 명부 묶음의 원문·정규 행·홈페이지 관계를 다시 검증한다.
+"""공식 대학 목록을 새로 조회하고 보관된 명부의 원문 관계를 검증한다.
 
 공식 URL과 해시를 사용자가 함께 제출하는 것만으로 공식성이 증명되지는 않는다.
-이 모듈은 코드 검토로 승인한 manifest 해시를 신뢰 기준으로 사용한다. HTTP를
-재요청하지 않으므로 취득 당시의 관계만 증명하며 현재 운영·행사·소유권은 보증하지
-않는다. 새 자료는 원문 출처를 다시 검토하고 승인 해시를 갱신해야 한다.
+대학 조회는 코드에 고정된 공식 다운로드와 총건수·페이지를 대조한다. 보관된 명부는
+승인한 manifest 해시와 원문을 대조하므로 취득 당시의 관계만 증명한다.
+두 경로 모두 학교 목록·홈페이지 관계를 확인하며 졸업식 일정은 별도로 검증한다.
 """
 
 from __future__ import annotations
@@ -26,6 +26,7 @@ from bs4 import BeautifulSoup
 
 from .domain import ApiError, validate
 from .registry import district_for
+from .providers import HttpGateway, ProviderError, canonical, utcnow
 
 # 클라이언트가 pin을 지정하는 인자는 두지 않는다. 이 값 변경은 원문 재검토가 필요하다.
 APPROVED_MANIFEST_SHA256 = frozenset({
@@ -74,6 +75,123 @@ class VerifiedOfficialRegistry:
     registry: dict
     authorities: tuple[dict, ...]
     provenance: dict
+
+
+class HigherEducationProvider:
+    """공공데이터포털의 공식 전체 대학 다운로드를 건수와 대조한다.
+
+    Args:
+        settings: HTTP 제한과 보관 경로를 가진 실행 설정.
+        meter: 외부 요청 예산 기록기.
+        gateway: 공유 HTTP 연결. 생략하면 자료원에서 생성한다.
+    """
+
+    HEADER_URL = "https://www.data.go.kr/download/columList.json"
+    DATA_URL = "https://www.data.go.kr/download/standard.json"
+    COLUMNS = (
+        "SCHL_NM", "SCHL_ENG_NM", "MAINBRANCH_NM", "UNIV_SE_NM", "SCHL_SE_NM",
+        "FNDN_FORM_SE_NM", "CTPV_CD", "CTPV_NM", "LCTN_ROAD_NM_ADDR", "LCTN_LOTNO_ADDR",
+        "STR_NM_ZIP", "LCTN_ZIP", "HMPG_ADDR", "RPRS_TEL_NO", "RPRS_FXNO", "FNDN_YMD",
+        "CRTR_YR", "CRTR_YMD",
+    )
+
+    def __init__(self, settings, meter=None, gateway=None):
+        self.gateway = gateway or HttpGateway(settings, meter)
+
+    async def registry(self) -> VerifiedOfficialRegistry:
+        """전체 원문을 페이지별로 대조하고 광주 학교·캠퍼스 목록을 만든다.
+
+        Returns:
+            공식 데이터 기준일을 유지한 목록, 홈페이지 관계와 수집 범위.
+        Raises:
+            ProviderError: 공식 열·총건수·페이지·지역·캠퍼스가 불명확한 경우.
+        """
+        response = await self.gateway.request("GET", self.HEADER_URL, params={"pk": "15107736", "ext": "JSON"})
+        try:
+            header = response.json()
+            if not response.is_success or header["fileName"] != "전국대학및전문대학정보표준데이터":
+                raise ValueError
+            columns = header["tableVO"]["colNmList"]
+            table = header["tableVO"]["svcTableNm"]
+            total = header["totalCount"]
+            if (columns != list(self.COLUMNS) or table != "tn_pubr_public_univ_info_svc"
+                    or type(total) is not int or not 1 <= total <= 50_000):
+                raise ValueError
+            rows, hashes = [], set()
+            for page in range(1, (total + 999) // 1000 + 1):
+                response = await self.gateway.request("GET", self.DATA_URL, params={
+                    "publicDataPk": "15107736", "colNmList": columns, "totalCount": total,
+                    "svcTableNm": table, "perPage": 1000, "page": page,
+                })
+                batch = response.json()
+                if not response.is_success or not isinstance(batch, list) or len(batch) != min(1000, total - len(rows)):
+                    raise ValueError
+                digest = _sha256(canonical(batch).encode())
+                if digest in hashes:
+                    raise ValueError
+                hashes.add(digest)
+                rows.extend(batch)
+            if len(rows) != total:
+                raise ValueError
+            return self._normalize(rows, total)
+        except (KeyError, TypeError, ValueError, ApiError):
+            raise ProviderError("coverage_incomplete", "공식 대학 목록의 열·기준일·전체 건수를 검증하지 못했습니다.", "higher_education") from None
+
+    def _normalize(self, raw_rows, total):
+        """공식 지역·학교 유형·본분교 값만 사용해 기존 기관 키를 유지한다."""
+        now = utcnow()
+        selected, normalized, authorities, dates, years = [], [], [], set(), set()
+        source_hash = _sha256(canonical(raw_rows).encode())
+        for index, raw in enumerate(raw_rows, 1):
+            if not isinstance(raw, dict) or any(column not in raw for column in self.COLUMNS):
+                raise ValueError
+            region = raw["CTPV_NM"]
+            address = str(raw["LCTN_ROAD_NM_ADDR"] or "").strip()
+            if region not in {"광주광역시", "전남광주통합특별시"} or district_for(address) not in DISTRICTS:
+                continue
+            selected.append(raw)
+            dates.add(date.fromisoformat(raw["CRTR_YMD"]).isoformat())
+            years.add(str(raw["CRTR_YR"]))
+            if raw["UNIV_SE_NM"] not in {"대학", "전문대학"}:
+                if raw["UNIV_SE_NM"] != "대학원":
+                    raise ValueError
+                continue
+            kind = "university" if raw["UNIV_SE_NM"] == "대학" else "junior_college"
+            name, campus = str(raw["SCHL_NM"]).strip(), str(raw["MAINBRANCH_NM"] or "").strip()
+            if not name or not campus:
+                raise ValueError
+            raw_home = str(raw["HMPG_ADDR"] or "").strip()
+            home = raw_home if raw_home.startswith(("http://", "https://")) else "https://" + raw_home if raw_home else None
+            key = _key("data.go.kr:15107736", kind, name, address)
+            normalized.append(_row(key, name, kind, address, raw["RPRS_TEL_NO"], home, campus))
+            if home:
+                authorities.append({
+                    "provider": "kcue_standard_public_file", "external_key": key,
+                    "channel": {"url": home, "verified_by_url": UNIVERSITY_URL, "verified_at": now},
+                    "source_sha256": source_hash, "row_index_1_based": index,
+                    "data_as_of": raw["CRTR_YMD"], "reference_year": raw["CRTR_YR"],
+                })
+        if (not normalized or len(dates) != 1 or len(years) != 1
+                or len({row["external_key"] for row in normalized}) != len(normalized)):
+            raise ValueError
+        as_of = dates.pop()
+        if as_of > now[:10]:
+            raise ValueError
+        source = {
+            "provider": "kcue_standard_public_file", "source_name": "전국대학및전문대학정보표준데이터 광주 학교·캠퍼스",
+            "official_url": UNIVERSITY_URL, "as_of": as_of, "scope_types": ["university", "junior_college"],
+            "scope_districts": list(DISTRICTS), "coverage_complete": True,
+            "completeness_note": "공식 다운로드 totalCount와 모든 페이지를 대조한 뒤 광주 5개 구 학교·캠퍼스 행을 선택함.",
+            "expected_total": len(normalized), "source_hash": source_hash,
+        }
+        registry = validate("RegistryImport", {"schema_version": "4.0", "source": source, "rows": normalized})
+        return VerifiedOfficialRegistry(registry, tuple(authorities), {
+            "network_refetched": True, "reviewed_at": now, "source_as_of": as_of,
+            "reference_year": years.pop(), "national_raw_rows": total, "gwangju_raw_rows": len(selected),
+            "accepted_rows": len(normalized), "by_type": dict(Counter(row["type"] for row in normalized)),
+            "source_sha256": source_hash, "download_header_url": self.HEADER_URL + "?pk=15107736&ext=JSON",
+            "download_data_url": self.DATA_URL + "?publicDataPk=15107736", "publication_approved": False,
+        })
 
 
 def _require(condition: bool, message: str) -> None:

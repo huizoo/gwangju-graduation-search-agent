@@ -4,16 +4,104 @@ import hashlib
 import json
 import shutil
 from pathlib import Path
+from copy import deepcopy
+from types import SimpleNamespace
 
+import httpx
 import pytest
+from bs4 import BeautifulSoup
 
 import app.official_registry as official
 from app.domain import ApiError
 from app.registry import validate_registry_import
+from app.providers import ProviderError
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "docs/evidence/non-school-registry.json"
 ASSETS = ROOT / "assets/registry"
+
+
+def _university_rows():
+    """이미 검토한 공식 HTML의 18개 열을 다운로드 JSON 열로 옮긴다."""
+    soup = BeautifulSoup((ASSETS / "universities-gwangju.bin").read_bytes(), "html.parser")
+    table = next(table for table in soup.select("table")
+                 if [th.get_text(" ", strip=True) for th in table.select("th")][:1] == ["학교명"])
+    return [dict(zip(official.HigherEducationProvider.COLUMNS,
+                     [td.get_text(" ", strip=True) for td in tr.select("td")], strict=True))
+            for tr in table.select("tr") if tr.select("td")]
+
+
+class _DownloadGateway:
+    """공식 다운로드 총건수와 각 페이지의 계약을 독립적으로 반환한다."""
+
+    def __init__(self, rows, mutate=None):
+        self.rows, self.mutate, self.calls = rows, mutate, []
+
+    async def request(self, method, url, **kwargs):
+        self.calls.append((method, url, kwargs))
+        if url == official.HigherEducationProvider.HEADER_URL:
+            body = {"fileName": "전국대학및전문대학정보표준데이터", "totalCount": len(self.rows),
+                    "tableVO": {"colNmList": list(official.HigherEducationProvider.COLUMNS),
+                                "svcTableNm": "tn_pubr_public_univ_info_svc"}}
+        else:
+            page = kwargs["params"]["page"]
+            body = deepcopy(self.rows[(page - 1) * 1000:page * 1000])
+        if self.mutate:
+            body = self.mutate(url, body)
+        return httpx.Response(200, json=body, request=httpx.Request(method, url))
+
+
+@pytest.mark.asyncio
+async def test_live_download_preserves_existing_campus_keys_and_reference_year():
+    """수집일을 기준일로 바꾸지 않고 기존 18개 기관 식별자를 유지한다."""
+    provider = official.HigherEducationProvider(SimpleNamespace(), gateway=_DownloadGateway(_university_rows()))
+    result = await provider.registry()
+    original = official.load_official_registry(MANIFEST, official.IMPORT_FILES[1], artifact_dir=ASSETS)
+    assert len(result.registry["rows"]) == 18 and result.registry["source"]["coverage_complete"]
+    assert {row["external_key"] for row in result.registry["rows"]} == {
+        row["external_key"] for row in original.registry["rows"]}
+    assert result.provenance["reference_year"] == "2025"
+    assert result.registry["source"]["as_of"] == "2026-03-18"
+    assert result.provenance["by_type"] == {"junior_college": 7, "university": 11}
+    assert result.provenance["national_raw_rows"] == 79
+    assert validate_registry_import(result.registry)["accepted_rows"] == 18
+
+
+@pytest.mark.asyncio
+async def test_download_all_pages_before_filtering_gwangju():
+    """광주 행이 뒤쪽 페이지에 있어도 모든 공식 페이지를 조회한다."""
+    rows = _university_rows()
+    foreign = {**rows[0], "CTPV_NM": "서울특별시", "LCTN_ROAD_NM_ADDR": "서울특별시 강남구 학교로 1"}
+    gateway = _DownloadGateway([{**foreign, "SCHL_NM": str(index)} for index in range(1000)] + rows)
+    result = await official.HigherEducationProvider(SimpleNamespace(), gateway=gateway).registry()
+    assert result.provenance["national_raw_rows"] == 1079 and len(result.registry["rows"]) == 18
+    assert [call[2]["params"].get("page") for call in gateway.calls] == [None, 1, 2]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", ["short_page", "columns", "future_date", "duplicate", "missing_campus", "other_kind"])
+async def test_live_download_cannot_claim_complete_when_contract_or_rows_disagree(case):
+    rows = _university_rows()
+    selected = next(row for row in rows if row["UNIV_SE_NM"] == "대학")
+    if case == "future_date":
+        for row in rows:
+            row["CRTR_YMD"] = "2100-01-01"
+    if case == "duplicate":
+        rows.append(deepcopy(selected))
+    if case == "missing_campus":
+        selected["MAINBRANCH_NM"] = ""
+    if case == "other_kind":
+        selected["UNIV_SE_NM"] = "알 수 없는 유형"
+
+    def mutate(url, body):
+        if case == "short_page" and url == official.HigherEducationProvider.DATA_URL:
+            return body[:-1]
+        if case == "columns" and url == official.HigherEducationProvider.HEADER_URL:
+            body["tableVO"]["colNmList"] = ["UNTRUSTED"]
+        return body
+    provider = official.HigherEducationProvider(SimpleNamespace(), gateway=_DownloadGateway(rows, mutate))
+    with pytest.raises(ProviderError, match="전체 건수"):
+        await provider.registry()
 
 
 def _write_json(path, value):

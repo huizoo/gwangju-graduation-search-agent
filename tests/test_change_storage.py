@@ -202,9 +202,9 @@ def test_cyclic_change_claims_remain_conflicting_without_recorded_supersession(c
     assert edges(change_context, event_id) == []
 
 
-@pytest.mark.parametrize("identity", [{"title": "제64회 학위수여식"}, {"group": "대학원"}])
+@pytest.mark.parametrize("identity", [{"title": "제64회 학위수여식"}])
 def test_different_round_or_audience_never_supersedes_another_event(change_context, identity):
-    """이전 날짜가 같아도 회차·학부 대상이 다르면 별도 행사로 보존한다."""
+    """이전 날짜가 같아도 명시 회차가 다르면 별도 행사로 보존한다."""
     service, _, season = change_context
     first = seed_previous_change(change_context)
     second = save(change_context, change_document(
@@ -214,3 +214,16 @@ def test_different_round_or_audience_never_supersedes_another_event(change_conte
     assert service.event_detail(first["event_ids"][0])["event"]["publication"]["calendar_date"] == "2026-02-23"
     assert edges(change_context, first["event_ids"][0]) == []
     assert edges(change_context, second["event_ids"][0]) == []
+
+
+def test_degree_group_alone_does_not_create_another_representative_event(change_context):
+    """대표 행사 과정 표기만 다르면 같은 행사에서 변경 근거를 검토한다."""
+    service, _, season = change_context
+    first = seed_previous_change(change_context)
+    second = save(change_context, change_document(
+        change_context, "2026.2.23(월)", "2026.2.20(금)", "same-representative", group="대학원"))
+    assert first["event_ids"] == second["event_ids"]
+    assert len(service.events(season["id"])["items"]) == 1
+    # 서로 다른 과정 변경 행을 근거 없이 전후 대체 관계로 추정하지 않는다.
+    assert service.event_detail(first["event_ids"][0])["event"]["publication"]["current_date_allowed"] is False
+    assert edges(change_context, first["event_ids"][0]) == []

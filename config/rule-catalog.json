@@ -5,28 +5,68 @@
       "id": "neis_ceremony_row",
       "version": "1.2.0",
       "enabled": true,
-      "scope": ["ceremony_status", "event_date"],
+      "scope": [
+        "ceremony_status",
+        "event_date"
+      ],
       "activation_basis": "인증 NEIS 전체 기간에서 첨단고 졸업식 날짜 미지정 탐색 성공. 광주선광학교 실제 5개 과정의 날짜와 행사 식별을 분리하고 날짜 변조·generic 대상 혼합 반례를 차단했다.",
-      "evidence": ["docs/research.md", "tests/test_rules.py", "tests/test_publication.py", "runtime/provider-live/neis-special-school-scope-check.json"],
+      "evidence": [
+        "docs/research.md",
+        "tests/test_rules.py",
+        "tests/test_publication.py",
+        "runtime/provider-live/neis-special-school-scope-check.json"
+      ],
       "limitations": "NEIS에 실제 시작 시각이 없으면 시간은 확인하지 않는다. 1.2.0은 행사 자체의 부정 서술을 분리하고 같은 기관·과정의 HTML 근거를 날짜와 무관하게 연결한다. tests/test_review_regressions.py에서 저장 경로를 검사한다."
     },
     {
       "id": "explicit_notice",
       "version": "1.2.0",
       "enabled": true,
-      "scope": ["ceremony_status", "event_date", "start_time"],
+      "scope": [
+        "ceremony_status",
+        "event_date",
+        "start_time"
+      ],
       "activation_basis": "실제 GIST 2025학년도 공식 학위수여식 공지의 행사개요에서 2026-02-20 14:00과 장소를 원문 대조했다. 입장 13:30·가운 대여 10:00과 현재 시즌으로의 오분류 반례를 차단했다.",
-      "evidence": ["docs/research.md", "tests/test_rules.py", "runtime/provider-live/historical-gist-rule-check.json"],
+      "evidence": [
+        "docs/research.md",
+        "tests/test_rules.py",
+        "runtime/provider-live/historical-gist-rule-check.json"
+      ],
       "limitations": "1.2.0은 기관·행사 명사구와 날짜·시각의 연결어를 검사하고 별도 URL의 명시 취소·미실시를 같은 행사 상태로 검증한다. tests/test_review_regressions.py에 양성·반례를 함께 둔다. 제한된 문장·행사개요 문법이며 모든 자연어 공지 형식이나 현재 시즌 자동 발견율을 보장하지 않는다. 원본 실자료 검증은 1.1.0 당시의 기록으로 보존한다."
     },
     {
       "id": "academic_calendar_row",
       "version": "1.0.0",
       "enabled": true,
-      "scope": ["ceremony_status", "event_date"],
+      "scope": [
+        "ceremony_status",
+        "event_date"
+      ],
       "activation_basis": "실제 서강대 2025학년도 학사력 변경 원문에서 제63회 학위수여식 2026-02-23→2026-02-20을 읽고 새 날짜와 연속 인용을 대조했다. 공식성 미확인 문서는 그대로 거절하며, 독립 합성 원문의 공식 관계·같은 행사 대체·순환 충돌·수기 보호를 저장과 게시까지 검사했다.",
-      "evidence": ["docs/evidence/calendar-change-rule.json", "tests/test_calendar_change.py", "tests/test_change_storage.py"],
+      "evidence": [
+        "docs/evidence/calendar-change-rule.json",
+        "tests/test_calendar_change.py",
+        "tests/test_change_storage.py"
+      ],
       "limitations": "학부/대학원과 학년도, 회차, 변경전/변경후, 두 완전한 날짜와 화살표가 명시된 좁은 행만 지원한다. 날짜 변경만 처리하며 시각·장소 변경, 다른 표 문법, 생략 연도는 추측하지 않는다. 실제 원문은 광주 밖 과거 사례이고 운영 명부에 import하지 않았다. 원문 파서 검증과 합성 대체관계 검증을 실제 광주 일정 변경의 종단 성과로 합산하지 않는다."
+    },
+    {
+      "id": "grounded_notice",
+      "version": "1.0.0",
+      "enabled": true,
+      "scope": [
+        "ceremony_status",
+        "event_date",
+        "start_time",
+        "venue"
+      ],
+      "activation_basis": "모델 후보의 연속 인용·공식 학교·대표 행사·학년도·필드 역할을 기존 추출 파서와 독립적으로 검사한다. 정상과 다른 행사·역할·학년도·인용 변조 반례를 저장·게시까지 검사한다.",
+      "evidence": [
+        "tests/test_grounded_claims.py",
+        "docs/RESEARCH_V2_PROGRESS.md"
+      ],
+      "limitations": "명시된 행사 제목과 역할별 일시 구간을 지원한다. 모호한 표와 문맥 생략을 모델 자신감으로 승인하지 않는다. 실제 선택 모델·자료원 검증 결과는 진행 기록에 별도 기록한다."
     }
   ]
 }

@@ -23,6 +23,12 @@ def scope(value: dict, institution: dict) -> tuple:
             audience = audience.removesuffix(" · 주간")
         if audience == default and kind == "graduation_and_completion":
             kind = "graduation_ceremony"
+    if institution.get("type") in {"university", "junior_college"}:
+        # 한 대표 학위수여식의 학위 과정 표기는 행사 식별자가 아니다.
+        if audience in {"", "졸업 대상 학생", "학부", "대학원", "학부 및 대학원",
+                        "학부 졸업 대상 학생", "대학원 졸업 대상 학생", "학부 졸업생", "대학원 졸업생",
+                        "학사·석사·박사", "학사", "석사", "박사"}:
+            audience = "대표 졸업식"
     title = value.get("event_title", value.get("title", ""))
     sequence = re.search(r"제\s*(\d+)\s*회", title)
     return kind, audience, value.get("campus_label") or institution.get("campus_label"), sequence[1] if sequence else None
