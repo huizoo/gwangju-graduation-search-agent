@@ -1,0 +1,5 @@
+#!/bin/sh
+# 최신 공개 검토 명부와 전송 범위의 중간 커밋 내용까지 검사한다.
+set -eu
+project_root=$(git rev-parse --show-toplevel)
+exec python3 "$project_root/scripts/check_publication_safety.py" --pre-push

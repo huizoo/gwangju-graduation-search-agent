@@ -1,0 +1,17 @@
+name: 공개 파일 안전 검사
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 커밋된 파일 검사
+        run: python3 scripts/check_publication_safety.py --tree HEAD
+      - name: 이력에 남은 파일 검사
+        run: python3 scripts/check_publication_safety.py --history HEAD
