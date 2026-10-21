@@ -1,44 +1,61 @@
-"""기관별 LangGraph로 필요한 공개 근거만 추가 조사한다."""
+"""한 학교의 근거를 관찰하고 다음 공개 조사 행동을 선택하는 Agent."""
 
 from __future__ import annotations
 
 import hashlib
 import re
-from typing import TypedDict
-from urllib.parse import urlsplit
+from urllib.parse import urlsplit, urlunsplit
+from uuid import uuid4
 
-from langgraph.graph import END, START, StateGraph
-
+from .domain import validate
+from .identity import scope
 from .providers import (
     DocumentReader, HttpGateway, ModelProvider, NeisProvider, ProviderError,
     TavilyProvider, canonical, official_channel, reserve, settle, utcnow,
 )
-from .rules import extract_candidates
+from .providers_student import StudentProvider
+from .rules import extract_candidates, value_check
 from .tool_boundary import ResearchTools
 
 
-class ResearchState(TypedDict):
-    """한 기관 조사 중인 문서·후보·시도·오류를 보관하는 그래프 상태."""
-    documents: list[dict]
-    candidates: list[dict]
-    errors: list[dict]
-    coverage: dict
-    seen_urls: list[str]
-    assessed_ids: list[str]
-    queries: list[str]
-    plans: int
-    actions: list[dict]
-    node_trace: list[dict]
-    event_blockers: list[dict]
+def _url_key(url: str) -> str:
+    """문서 조각 식별자만 다른 요청을 중복 읽기로 묶는다.
+
+    Args:
+        url: 공개 HTTP 주소.
+    Returns:
+        fragment를 제거한 비교용 URL.
+    """
+    parsed = urlsplit(url)
+    return urlunsplit((parsed.scheme.lower(), parsed.netloc.lower(), parsed.path or "/", parsed.query, ""))
+
+
+def _failure(document: dict) -> str:
+    """미발견과 취득 실패를 구분해 다음 행동의 관찰로 전달한다.
+
+    Args:
+        document: 공개 읽기 결과.
+    Returns:
+        문서의 성공 또는 구체적인 실패 종류.
+    """
+    status = document.get("status", "provider_error")
+    codes = set(document.get("reason_codes", []))
+    if status == "ok":
+        return "read_success"
+    if "unsupported_format" in codes or status == "unsupported":
+        return "unsupported_format"
+    if status in {"no_data", "not_found"} or "not_found" in codes:
+        return "not_found"
+    return "access_failed"
 
 
 class ResearchRunner:
-    """하나의 기관·시즌에 묶인 읽기 도구와 조건부 탐색을 실행한다.
+    """학교·목적에 고정된 도구와 근거 검사를 바탕으로 조사를 반복한다.
 
     Args:
         settings: 작업 시작 시 고정한 실행 설정.
         meter: 영속 예산 예약기.
-        gateway: 테스트 및 연결 공유용 HTTP Gateway.
+        gateway: 검사 및 HTTP 연결 공유에 사용할 Gateway.
     """
 
     def __init__(self, settings, meter=None, gateway=None):
@@ -47,199 +64,386 @@ class ResearchRunner:
         self.owns_gateway = gateway is None
         self.reader = DocumentReader(self.gateway)
         self.calendar = NeisProvider(settings, meter, self.gateway)
+        self.students = StudentProvider(settings, meter, self.gateway)
         self.search = TavilyProvider(settings, meter, self.gateway)
         self.model = None
 
-    async def run(self, institution: dict, season: dict, *, identifiers=None) -> dict:
-        """정답 날짜·URL 없이 기관 식별자와 전체 기간으로 조사한다.
+    async def run(self, institution: dict, season: dict, *, identifiers=None,
+                  purpose="date_count", target_event=None, routes=None, existing_evidence=None) -> dict:
+        """정형 근거·재사용 경로 이후 필요한 공개 조사 행동만 선택한다.
 
         Args:
-            institution: 이름과 검증된 공식 채널이 있는 기관.
-            season: 저장된 학년도와 전체 조사 기간.
-            identifiers: 공식 자료원에서 확보한 기관 복합 식별자.
+            institution: 학교의 공식 식별자와 확인한 공식 채널.
+            season: 목표 학년도와 전체 조사 기간.
+            identifiers: 공식 자료원에서 확인한 복합 학교 코드.
+            purpose: 기본 날짜·인원 조사 또는 time 시각 조사.
+            target_event: 시각 조사에 연결할 현재 행사와 허용 날짜.
+            routes: 공식성과 활용 가능성을 확인한 학교별 진입 경로.
+            existing_evidence: 사적 메모를 제외한 공개 근거와 현재 허용값.
         Returns:
-            문서·미승인 후보·오류·실제 MCP/그래프 호출 이력. 저장과 게시 권한은 없다.
+            원문·후보·인원·경로 시도 및 행동/관찰/종료 기록. 게시 판단은 저장층이 한다.
+        Raises:
+            ValueError: 시각 조사에 대상 행사가 없거나 알 수 없는 목적일 때.
         """
+        purpose = "time" if purpose == "start_time" else purpose
+        if purpose not in {"date_count", "time"} or (purpose == "time" and not target_event):
+            raise ValueError("조사 목적 또는 대상 행사가 올바르지 않습니다.")
         identifiers = identifiers or []
-        tools = ResearchTools(institution, season, identifiers, self.calendar, self.search, self.reader)
+        existing_evidence = existing_evidence or {}
+        tools = ResearchTools(institution, season, identifiers, self.calendar, self.search, self.reader, self.students)
         limits = self.settings.data["execution"]
+        documents, candidates, counts, errors, observations = [], [], [], [], []
+        agent_trace, route_results, queries, actions = [], [], [], []
+        seen_urls, assessed, candidate_keys, count_keys = set(), set(), set(), set()
+        coverage, reviews = {}, []
+        known_urls = {item.get("display_url") or item.get("source_key") for item in institution.get("known_documents", [])}
+        available_links = set()
+        stop_reason = "not_started"
+        decision_count = 0
+        route_queue = []
+        university = institution.get("type") in {"university", "college", "junior_college"}
+        expected_fields = ["start_time"] if purpose == "time" else ["event_date", "graduation_count"]
 
-        async def checkpoint(state, stage):
-            """완료한 근거를 다음 외부 호출 전에 실행기 트랜잭션으로 보존한다."""
+        def record(kind, **entry):
+            """결정과 도구 관찰을 순서가 보존된 내부 실행 기록으로 남긴다."""
+            agent_trace.append({"step": len(agent_trace) + 1, "kind": kind, "at": utcnow(), **entry})
+
+        def add_error(provider, code, message):
+            """같은 실패를 중복 기록하지 않고 공개된 오류 코드만 보관한다."""
+            if not any(item["provider"] == provider and item["code"] == code for item in errors):
+                errors.append({"provider": provider, "code": code, "message": message})
+
+        def payload():
+            """호출 경계마다 저장할 현재 근거와 전체 시도 이력을 조립한다."""
+            return {"documents": documents, "candidates": candidates, "counts": counts,
+                    "errors": errors, "coverage": coverage, "trace": tools.trace,
+                    "agent_trace": agent_trace, "routes": route_results, "event_blockers": [],
+                    "purpose": purpose, "target_event_id": target_event.get("id") if target_event else None,
+                    "discovery_mode": "school_agent", "queries": queries,
+                    "stop_reason": stop_reason}
+
+        async def checkpoint(stage):
+            """취소와 예산 경계를 유지하며 확보한 근거를 다음 호출 전에 보존한다."""
             if self.meter is not None and hasattr(self.meter, "checkpoint"):
-                await self.meter.checkpoint({"documents": state["documents"], "candidates": state["candidates"],
-                    "errors": state["errors"], "coverage": state["coverage"],
-                    "trace": tools.trace + state["node_trace"], "event_blockers": state["event_blockers"]}, stage=stage)
+                await self.meter.checkpoint(payload(), stage=stage)
 
-        def mark(state, node):
-            """검사 결과와 구분할 실제 그래프 노드 통과 기록을 추가한다."""
-            state["node_trace"].append({"node": node, "at": utcnow()})
-            return state
+        def add_candidates(items, method):
+            """모델과 정형 파서 후보를 같은 저장 및 검증 경로에 놓는다."""
+            document_map = {document["id"]: document for document in documents}
+            for item in items:
+                document = document_map.get(item.get("document_id"))
+                if not document:
+                    record("candidate_rejected", reason="unknown_document")
+                    continue
+                try:
+                    candidate = validate("Candidate", item["candidate"])
+                except Exception:
+                    record("candidate_rejected", reason="candidate_contract")
+                    continue
+                key = hashlib.sha256(canonical([document["content_hash"], candidate]).encode()).hexdigest()
+                if key not in candidate_keys:
+                    candidates.append({"document_id": document["id"], "candidate": candidate,
+                                       "fingerprint": key, "extraction_method": method})
+                    candidate_keys.add(key)
 
-        def add_error(state, provider, codes, status):
-            """같은 제한을 무한 반복해서 기록하지 않는다."""
-            for code in codes or [status]:
-                error = {"provider": provider, "code": code, "message": f"{provider}: {status}"}
-                if not any(item["provider"] == provider and item["code"] == code for item in state["errors"]):
-                    state["errors"].append(error)
+        def add_counts(items):
+            """인원 후보도 근거별로 보존하고 검증 없이 완료값으로 사용하지 않는다."""
+            for item in items:
+                key = hashlib.sha256(canonical(item).encode()).hexdigest()
+                if key not in count_keys:
+                    counts.append(item)
+                    count_keys.add(key)
 
-        async def read(state, url):
-            """중복 URL과 기관별 문서 한도를 확인한 뒤 MCP로 읽는다."""
-            if url in state["seen_urls"] or len(state["seen_urls"]) >= limits["item_max_document_fetches"]:
-                return
-            state["seen_urls"].append(url)
+        def assess():
+            """현재 근거를 공통 검증기로 평가해 부족함과 충돌을 계산한다."""
+            nonlocal reviews
+            document_map = {document["id"]: document for document in documents}
+            for document in documents:
+                if document["id"] in assessed:
+                    continue
+                assessed.add(document["id"])
+                add_candidates([{"document_id": document["id"], "candidate": candidate}
+                                for candidate in extract_candidates(document, institution, season)], "registered_mapping")
+                for url in self.reader.links.get(document["id"], []):
+                    if official_channel(institution, url):
+                        available_links.add(url)
+            reviews = []
+            dates, times, populations, statuses = set(), set(), set(), set()
+            date_groups = {}
+            supported_events = []
+            for item in candidates:
+                candidate, document = item["candidate"], document_map[item["document_id"]]
+                event = {"id": target_event["id"] if target_event else str(uuid4()),
+                         "title": candidate["event_title"], "event_type": candidate["event_type"],
+                         "audience": candidate.get("audience"), "campus_label": candidate.get("campus_label"),
+                         "institution": institution, "_identifiers": identifiers}
+                if target_event:
+                    event.update({key: target_event[key] for key in ("title", "event_type", "audience", "campus_label") if key in target_event})
+                observation = {"id": str(uuid4()), "candidate": candidate,
+                               "document_id": document["id"], "institution_id": institution["id"],
+                               "event_id": event["id"], "season_id": season["id"]}
+                checks = {}
+                for field in ("ceremony_status", "event_date", "start_time"):
+                    value = candidate[field]
+                    if value is None or (field == "event_date" and value.get("precision") == "unknown"):
+                        continue
+                    proof = value_check(field, value, observation, document, event, season, institution=institution)
+                    checks[field] = {"status": proof["status"], "reason_codes": proof["reason_codes"]}
+                    if proof["status"] != "supported":
+                        continue
+                    if field == "event_date" and value.get("precision") == "day":
+                        dates.add(canonical(value))
+                        date_groups.setdefault(scope(candidate, institution), set()).add(canonical(value))
+                    elif field == "ceremony_status":
+                        statuses.add(value)
+                    elif field == "start_time":
+                        bound = target_event.get("event_date", target_event.get("date")) if target_event else None
+                        if not target_event or bound == candidate["event_date"] or bound == candidate["event_date"].get("date"):
+                            times.add(value)
+                reviews.append({"document_id": document["id"], "candidate": candidate, "checks": checks})
+                if (checks.get("event_date", {}).get("status") == "supported"
+                        and checks.get("ceremony_status", {}).get("status") == "supported"
+                        and candidate["ceremony_status"] == "scheduled"):
+                    supported_events.append(candidate)
+            from .claims import validate_count
+            for count in counts:
+                document = document_map.get(count.get("document_id"))
+                count_event = target_event
+                if university and not count_event:
+                    matching = {}
+                    for event in supported_events:
+                        event_days = event["event_date"].get("dates") or [event["event_date"].get("date")]
+                        if (count.get("event_date") in event_days
+                                and (not count.get("event_key_hint") or count["event_key_hint"] == event.get("event_key_hint"))):
+                            matching[scope(event, institution)] = event
+                    if len(matching) == 1:
+                        count_event = next(iter(matching.values()))
+                proof = validate_count(count, document, institution, season, event=count_event) if document else {"allowed": False, "reasons": ["unknown_document"]}
+                reviews.append({"document_id": count.get("document_id"), "count": count, "checks": proof})
+                if proof["allowed"]:
+                    populations.add(count["value"])
+            conflicts = [field for field, values in (("start_time", times), ("graduation_count", populations)) if len(values) > 1]
+            if any(len(values) > 1 for values in date_groups.values()):
+                conflicts.append("event_date")
+            missing = []
+            if purpose == "date_count":
+                if not dates or "event_date" in conflicts:
+                    missing.append("event_date")
+                if len(populations) != 1:
+                    missing.append("graduation_count")
+            elif len(times) != 1:
+                missing.append("start_time")
+            if statuses & {"cancelled", "not_held", "unclear"}:
+                conflicts.append("ceremony_status")
+            return missing, sorted(set(conflicts))
+
+        async def read(url, route=None):
+            """공식 출처·중복·문서 한도를 확인한 후 MCP로 원문을 읽는다."""
+            key = _url_key(url)
+            if key in seen_urls:
+                return "duplicate_request"
+            if len(seen_urls) >= limits["item_max_document_fetches"]:
+                return "document_limit"
+            if not official_channel(institution, url):
+                return "unverified_source"
+            seen_urls.add(key)
             document = await tools.call("read_public_document", {"institution_id": institution["id"], "url": url})
-            known = any(url in {item.get("display_url"), item.get("source_key")} for item in institution.get("known_documents", []))
-            if known:
+            if url in known_urls:
                 success = document["status"] == "ok" and document["reading"]["content_match"] == "expected"
                 document["recheck"] = {"status": "succeeded" if success else "failed",
                     "attempted_at": document["last_checked_at"], "reason_codes": [] if success else ["recheck_failed"]}
-            # 취소도 같은 기관·학년도·행사의 후보로 검증한다. URL이나 단어
-            # 근접만으로 다른 과정의 취소를 이 기관 전체에 적용하지 않는다.
-            state["documents"].append(document)
+            documents.append(document)
+            outcome = _failure(document)
+            academic_years = sorted({int(year) for segment in document.get("segments", [])
+                                     for year in re.findall(r"(20\d{2})\s*학년도", segment["text"])})
+            if outcome == "read_success" and academic_years and season["academic_year"] not in academic_years:
+                outcome = "wrong_year"
+            observation = {"tool": "read_public_document", "url": url, "document_id": document["id"],
+                           "status": document["status"], "outcome": outcome, "reason_codes": document["reason_codes"],
+                           "academic_years": academic_years}
+            observations.append(observation)
+            record("observation", **observation)
+            page_links = [link for link in self.reader.links.get(document["id"], []) if official_channel(institution, link)]
+            is_homepage = institution.get("homepage_url") and _url_key(url) == _url_key(institution["homepage_url"])
+            is_listing = len(page_links) >= 2 and bool(re.search(r"공지사항|학사일정|학사공지", document.get("title") or ""))
+            # 개별 공지는 사실의 근거로 남기고 검증한 목록·홈페이지만 재사용 경로로 제안한다.
+            reusable = bool(outcome == "read_success" and (is_homepage or is_listing))
+            route_results.append({"url": url, "purpose": (route or {}).get("purpose", purpose),
+                "reading_method": document.get("reading", {}).get("method"), "checked_at": utcnow(),
+                "status": "succeeded" if outcome == "read_success" else "failed",
+                "failure_reason": None if outcome == "read_success" else outcome,
+                "document_id": document["id"], "route_id": (route or {}).get("id"),
+                "reusable": reusable, "links": page_links})
             if document["status"] != "ok":
-                add_error(state, "reader", document["reason_codes"], document["status"])
-            await checkpoint(state, "document_read")
+                for code in document["reason_codes"] or ["provider_error"]:
+                    add_error("reader", code, f"공식 원문 읽기: {outcome}")
+            await checkpoint("document_read")
+            return outcome
 
-        async def initial_collect(state):
-            """정형 일정과 확인된 기관 채널을 먼저 읽는다."""
-            mark(state, "initial_collect")
-            if institution["type"] in {"elementary", "middle", "high", "special_school", "other_school"}:
-                result = await tools.call("get_school_calendar", {
-                    "institution_id": institution["id"], "season_id": season["id"],
-                    "from_date": season["search_start"], "to_date": season["search_end"],
-                })
-                state["documents"].extend(result["documents"])
-                state["coverage"]["calendar"] = {key: value for key, value in result.items() if key != "documents"}
-                state["coverage"]["calendar"]["checked_at"] = utcnow()
-                if result["status"] not in {"ok", "no_data"}:
-                    add_error(state, "neis", result["reason_codes"], result["status"])
-                await checkpoint(state, "calendar_collected")
-            for known in institution.get("known_documents", [])[:3]:
-                url = known.get("display_url") or known.get("source_key")
-                if url and not url.startswith("https://open.neis.go.kr/hub"):
-                    await read(state, url)
-            homepage = institution.get("homepage_url")
-            if homepage and official_channel(institution, homepage):
-                await read(state, homepage)
-            return state
+        def make_context(missing, conflicts):
+            """사적 수기 내용 없이 공개 근거와 앞선 관찰을 모델에 전달한다."""
+            return {"purpose": purpose, "expected_fields": expected_fields,
+                    "institution_type": institution.get("type"), "representative_ceremony_only": university,
+                    "target_event": target_event, "documents": documents, "candidate_reviews": reviews,
+                    "missing_fields": missing, "conflicts": conflicts, "observations": observations,
+                    "prior_actions": actions, "available_links": sorted(available_links),
+                    "available_tools": ["search_web", "fetch_document"] if self.settings.secrets.get("tavily_api_key") else ["fetch_document"],
+                    "reusable_routes": routes or [],
+                    "existing_evidence": existing_evidence,
+                    "limits_remaining": {"decisions": max(0, limits["item_max_replans"] - decision_count),
+                        "search_calls": max(0, limits["item_max_search_calls"] - len(queries)),
+                        "document_fetches": max(0, limits["item_max_document_fetches"] - len(seen_urls))}}
 
-        async def assess(state):
-            """정형 매핑을 우선 적용하고 지원하지 않는 문장에만 후보 모델을 쓴다."""
-            mark(state, "assess")
-            fingerprints = {item["fingerprint"] for item in state["candidates"]}
-            for document in state["documents"]:
-                if document["id"] in state["assessed_ids"]:
-                    continue
-                state["assessed_ids"].append(document["id"])
-                candidates = extract_candidates(document, institution, season)
-                method = "registered_mapping"
-                if (not candidates and document["status"] == "ok" and document["authority"] == "official"
-                        and document["source_kind"] in {"html", "pdf"}
-                        and not any(item["document_id"] == document["id"] for item in state["event_blockers"])
-                        and any(re.search(r"졸업|학위수여", segment["text"]) for segment in document["segments"])):
+        try:
+            async with tools.connect():
+                record("start", purpose=purpose, expected_fields=expected_fields)
+                if purpose == "date_count" and institution["type"] in {"elementary", "middle", "high"}:
+                    result = await tools.call("get_school_calendar", {
+                        "institution_id": institution["id"], "season_id": season["id"],
+                        "from_date": season["search_start"], "to_date": season["search_end"]})
+                    documents.extend(result["documents"])
+                    coverage["calendar"] = {key: value for key, value in result.items() if key != "documents"}
+                    coverage["calendar"]["checked_at"] = utcnow()
+                    observation = {"tool": "get_school_calendar", "status": result["status"], "reason_codes": result["reason_codes"]}
+                    observations.append(observation)
+                    record("observation", **observation)
+                    if result["status"] not in {"ok", "no_data"}:
+                        for code in result["reason_codes"]:
+                            add_error("neis", code, "공식 학사일정 조회를 완료하지 못했습니다.")
+                    await checkpoint("calendar_collected")
+                    result = await tools.call("get_graduating_students", {"institution_id": institution["id"], "season_id": season["id"]})
+                    documents.extend(result["documents"])
+                    add_counts(result["counts"])
+                    coverage["students"] = {key: value for key, value in result.items() if key not in {"documents", "counts"}}
+                    observation = {"tool": "get_graduating_students", "status": result["status"], "reason_codes": result["reason_codes"]}
+                    observations.append(observation)
+                    record("observation", **observation)
+                    await checkpoint("students_collected")
+                # 이전 사실 문서는 올해 근거로 복사하지 않고, 필요하면 같은 URL을 새로 읽는다.
+                for route in routes or []:
+                    route_purpose = route.get("purpose", "date_count")
+                    verified = route.get("status") in {"verified", "active", "succeeded"} or route.get("verified") is True or bool(route.get("verified_at"))
+                    if verified and route.get("url") and not (purpose == "date_count" and route_purpose in {"time", "start_time"}):
+                        route_queue.append(route)
+                for known in institution.get("known_documents", [])[:3]:
+                    url = known.get("display_url") or known.get("source_key")
+                    if url and url.startswith(("http://", "https://")) and not url.startswith("https://open.neis.go.kr/hub"):
+                        route_queue.append({"url": url, "purpose": purpose})
+                homepage = institution.get("homepage_url")
+                if homepage:
+                    route_queue.append({"url": homepage, "purpose": purpose})
+                missing, conflicts = assess()
+                if not missing and not conflicts:
+                    stop_reason = "structured_evidence_sufficient"
+                else:
+                    for route in route_queue:
+                        await read(route["url"], route)
+                        missing, conflicts = assess()
+                        if not missing and not conflicts:
+                            stop_reason = "verified_route_sufficient"
+                            break
+                    else:
+                        stop_reason = "investigating"
+                while stop_reason == "investigating":
+                    missing, conflicts = assess()
+                    await checkpoint("evidence_assessed")
+                    if not missing and not conflicts:
+                        stop_reason = "evidence_sufficient"
+                        break
+                    if decision_count >= limits["item_max_replans"]:
+                        stop_reason = "decision_limit"
+                        break
+                    reservation_id = await reserve(self.meter, "replans")
+                    await settle(self.meter, reservation_id)
+                    decision_count += 1
                     if self.model is None:
                         self.model = ModelProvider(self.settings, self.meter, self.gateway)
                     try:
-                        candidates = await self.model.candidates(institution, season, document)
-                        method = "model_candidate"
+                        decision = await self.model.decide(institution, season, make_context(missing, conflicts))
+                        validate("AgentDecision", decision)
                     except ProviderError as error:
-                        add_error(state, error.provider, [error.code], error.message)
-                for candidate in candidates:
-                    fingerprint = hashlib.sha256(canonical([document["content_hash"], candidate]).encode()).hexdigest()
-                    if fingerprint not in fingerprints:
-                        state["candidates"].append({"document_id": document["id"], "candidate": candidate,
-                            "fingerprint": fingerprint, "extraction_method": method})
-                        fingerprints.add(fingerprint)
-                await checkpoint(state, "document_assessed")
-            return state
-
-        def decide(state):
-            """부족한 값·남은 새 경로·한도에 따라 다음 탐색 또는 종료를 선택한다."""
-            eligible = [item["candidate"] for item in state["candidates"] if item["extraction_method"] == "registered_mapping"]
-            dates = {candidate["event_date"].get("date") for candidate in eligible if candidate["event_date"]["precision"] == "day"}
-            times = [candidate for candidate in eligible if candidate["start_time"] and candidate["time_role"] == "ceremony_start"]
-            if len(dates) == 1 and times:
-                return "finish"
-            if state["plans"] >= limits["item_max_replans"] or len(state["seen_urls"]) >= limits["item_max_document_fetches"]:
-                return "finish"
-            return "plan"
-
-        async def plan(state):
-            """새 검색어와 발견한 공식 공지 링크를 최대 세 개만 선택한다."""
-            reservation_id = await reserve(self.meter, "replans")
-            await settle(self.meter, reservation_id)
-            mark(state, "plan")
-            state["plans"] += 1
-            actions = []
-            suffix = "졸업식 시작 시간" if state["plans"] == 1 else "졸업식 안내 변경"
-            query = f'"{institution["name"]}" "{season["academic_year"]}학년도" {suffix}'
-            if query not in state["queries"] and len(state["queries"]) < limits["item_max_search_calls"]:
-                actions.append({"kind": "search", "query": query})
-            for document in state["documents"]:
-                for url in self.reader.links.get(document["id"], []):
-                    if url not in state["seen_urls"] and official_channel(institution, url) and any(
-                        term in url.lower() for term in ("graduation", "notice", "bbs", "board", "haksa", "calendar", ".pdf")
-                    ):
-                        if not any(item.get("url") == url for item in actions):
-                            actions.append({"kind": "read", "url": url})
-                        if len(actions) >= 3:
-                            break
-                if len(actions) >= 3:
-                    break
-            state["actions"] = actions[:3]
-            return state
-
-        async def collect(state):
-            """계획된 공개 도구를 실행하되 검색 요약을 근거로 승격하지 않는다."""
-            mark(state, "collect")
-            for action in state["actions"]:
-                if action["kind"] == "read":
-                    await read(state, action["url"])
-                    continue
-                state["queries"].append(action["query"])
-                domains = sorted({urlsplit(item["url"]).hostname for item in institution.get("official_channels", [])
-                                  if urlsplit(item["url"]).hostname != "open.neis.go.kr"})
-                result = await tools.call("search_public_web", {"query": action["query"], "include_domains": domains[:10], "max_results": 5})
-                if result["status"] not in {"ok", "no_data"}:
-                    add_error(state, "tavily", result["reason_codes"], result["status"])
-                    continue
-                if result["status"] == "no_data":
-                    add_error(state, "tavily", ["not_found"], "no_data")
-                for item in result["results"]:
-                    if len(state["seen_urls"]) >= limits["item_max_document_fetches"]:
+                        diagnostics = getattr(self.model, "last_diagnostics", None)
+                        if diagnostics:
+                            record("model_proposal", **diagnostics)
+                        add_error(error.provider, error.code, error.message)
+                        if error.code == "parse_failed" and decision_count < limits["item_max_replans"]:
+                            observations.append({"tool": "agent_decision", "status": "rejected",
+                                "outcome": "invalid_contract", "reason_codes": ["parse_failed"],
+                                "instruction": "search_web은 query만, fetch_document는 url만 사용하며 stop은 query와 url 모두 null입니다."})
+                            record("decision_failed", reason=error.code)
+                            await checkpoint("decision_rejected")
+                            continue
+                        stop_reason = "model_unavailable"
+                        record("decision_failed", reason=error.code)
                         break
-                    await read(state, item["url"])
-            await checkpoint(state, "collection_finished")
-            return state
-
-        def finish(state):
-            """남은 부족함을 명시한 상태로 저장 계층에 넘긴다."""
-            mark(state, "finish")
-            return state
-
-        graph = StateGraph(ResearchState)
-        graph.add_node("initial_collect", initial_collect)
-        graph.add_node("assess", assess)
-        graph.add_node("plan", plan)
-        graph.add_node("collect", collect)
-        graph.add_node("finish", finish)
-        graph.add_edge(START, "initial_collect")
-        graph.add_edge("initial_collect", "assess")
-        graph.add_conditional_edges("assess", decide, {"plan": "plan", "finish": "finish"})
-        graph.add_edge("plan", "collect")
-        graph.add_edge("collect", "assess")
-        graph.add_edge("finish", END)
-        initial: ResearchState = {"documents": [], "candidates": [], "errors": [], "coverage": {},
-            "seen_urls": [], "assessed_ids": [], "queries": [], "plans": 0, "actions": [], "node_trace": [], "event_blockers": []}
-        try:
-            async with tools.connect():
-                state = await graph.compile().ainvoke(initial, {"recursion_limit": 30})
-            return {"documents": state["documents"], "candidates": state["candidates"], "errors": state["errors"],
-                    "coverage": state["coverage"], "trace": tools.trace + state["node_trace"],
-                    "event_blockers": state["event_blockers"],
-                    "discovery_mode": "blind_window", "queries": state["queries"],
-                    "status": "partial" if state["errors"] else "completed"}
+                    except Exception as error:
+                        # 사용자의 멈춤·예산 예외는 일반 계약 오류로 삼키지 않는다.
+                        from .jobs import BudgetStop
+                        if isinstance(error, BudgetStop):
+                            raise
+                        add_error("model", "parse_failed", "Agent 행동이 허용 계약과 맞지 않습니다.")
+                        stop_reason = "invalid_decision"
+                        record("decision_failed", reason="invalid_decision")
+                        break
+                    action = decision["action"]
+                    diagnostics = getattr(self.model, "last_diagnostics", None)
+                    if diagnostics:
+                        record("model_proposal", **diagnostics)
+                    record("decision", action=action, reason=decision["reason"], missing_fields=missing, conflicts=conflicts)
+                    add_candidates(decision.get("candidates", []), "model_candidate")
+                    add_counts(decision.get("counts", []))
+                    await checkpoint("agent_decision")
+                    violation = None
+                    if (university and "event_date" in missing and action["objective"] == "graduation_count"
+                            and action["kind"] != "stop"):
+                        violation = "representative_event_required"
+                    elif purpose == "date_count" and (action["objective"] == "start_time" or
+                            (action["kind"] == "search_web" and re.search(r"시간|시각|몇\s*시|시작\s*시|start\s*time|ceremony\s*time", action.get("query") or "", re.I))):
+                        violation = "purpose_mismatch"
+                    elif action["kind"] == "search_web" and (re.sub(r"\s+", " ", action["query"].strip()).casefold() in
+                            {re.sub(r"\s+", " ", query.strip()).casefold() for query in queries}):
+                        violation = "duplicate_request"
+                    elif action["kind"] == "search_web" and len(queries) >= limits["item_max_search_calls"]:
+                        violation = "search_limit"
+                    elif action["kind"] == "fetch_document" and _url_key(action["url"]) in seen_urls:
+                        violation = "duplicate_request"
+                    elif action["kind"] == "fetch_document" and not official_channel(institution, action["url"]):
+                        violation = "unverified_source"
+                    actions.append(action)
+                    if violation:
+                        observations.append({"action": action, "status": "rejected", "outcome": violation})
+                        record("action_rejected", action=action, reason=violation)
+                        continue
+                    if action["kind"] == "stop":
+                        stop_reason = "agent_stop"
+                        break
+                    if action["kind"] == "fetch_document":
+                        outcome = await read(action["url"])
+                        if outcome in {"document_limit", "unverified_source"}:
+                            record("action_rejected", action=action, reason=outcome)
+                            stop_reason = outcome
+                        continue
+                    queries.append(action["query"])
+                    domains = sorted({urlsplit(item["url"]).hostname for item in institution.get("official_channels", [])
+                                      if urlsplit(item["url"]).hostname != "open.neis.go.kr"})
+                    result = await tools.call("search_public_web", {"query": action["query"], "include_domains": domains[:10], "max_results": 5})
+                    usable = [item for item in result["results"] if official_channel(institution, item["url"])]
+                    available_links.update(item["url"] for item in usable)
+                    observation = {"tool": "search_public_web", "query": action["query"], "status": result["status"],
+                                   "reason_codes": result["reason_codes"], "results": usable}
+                    observations.append(observation)
+                    record("observation", **observation)
+                    if result["status"] not in {"ok", "no_data"}:
+                        for code in result["reason_codes"]:
+                            add_error("tavily", code, "공개 검색을 완료하지 못했습니다.")
+                    await checkpoint("search_observed")
+                missing, conflicts = assess()
+                record("finish", reason=stop_reason, missing_fields=missing, conflicts=conflicts)
+                await checkpoint("agent_finished")
+            result = payload()
+            result.update(status="partial" if missing or conflicts or errors else "completed",
+                          missing_fields=missing, conflicts=conflicts)
+            return result
         finally:
             if self.owns_gateway:
                 await self.gateway.close()

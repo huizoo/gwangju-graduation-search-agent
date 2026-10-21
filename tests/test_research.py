@@ -45,18 +45,23 @@ async def resolver(_):
     return ["93.184.216.34"]
 
 
-def test_langgraph_neis_then_missing_time_search_through_actual_mcp():
+def test_explicit_time_request_follows_model_actions_through_actual_mcp(monkeypatch):
     settings, institution, season = fixture()
     calls, meter = [], Meter()
+    target = {"id": str(uuid4()), "title": "졸업식", "event_type": "graduation_ceremony", "audience": None,
+              "campus_label": None, "event_date": {"precision": "day", "date": "2027-01-07", "month": None}}
+    decisions = iter([
+        {"kind": "search_web", "objective": "start_time", "query": "검증초등학교 2026학년도 졸업식 시작 시각", "url": None},
+        {"kind": "fetch_document", "objective": "start_time", "query": None, "url": "https://school.example/notice"},
+    ])
+
+    async def choose(self, school, window, context):
+        return {"action": next(decisions), "candidates": [], "counts": [], "reason": "요청한 행사의 실제 시작 시각을 확인합니다."}
+
+    monkeypatch.setattr(ModelProvider, "decide", choose)
 
     def handler(request):
         calls.append((request.url.host, request.url.path))
-        if request.url.host == "open.neis.go.kr":
-            row = {"ATPT_OFCDC_SC_CODE": "F10", "SD_SCHUL_CODE": "123", "SCHUL_NM": institution["name"],
-                   "AY": "2026", "AA_YMD": "20270107", "EVENT_NM": "졸업식", "EVENT_CNTNT": "",
-                   "SCHUL_CRSE_SC_NM": "초등학교", "SIX_GRADE_EVENT_YN": "Y"}
-            return httpx.Response(200, json={"SchoolSchedule": [
-                {"head": [{"list_total_count": 1}, {"RESULT": {"CODE": "INFO-000"}}]}, {"row": [row]}]})
         if request.url.host == "api.tavily.com":
             return httpx.Response(200, json={"results": [{"url": "https://school.example/notice", "title": "안내", "content": "검색 요약은 근거 아님"}]})
         if request.url.host == "93.184.216.34":
@@ -66,29 +71,36 @@ def test_langgraph_neis_then_missing_time_search_through_actual_mcp():
 
     g = HttpGateway(settings, meter, httpx.AsyncClient(transport=httpx.MockTransport(handler)), resolver)
     result = asyncio.run(ResearchRunner(settings, meter, g).run(institution, season,
-        identifiers=[{"provider": "neis", "external_key": "F10:123"}]))
-    assert len(result["documents"]) == 2 and len(result["candidates"]) == 2
-    assert result["coverage"]["calendar"]["coverage_complete"]
+        identifiers=[{"provider": "neis", "external_key": "F10:123"}], purpose="time", target_event=target))
+    assert len(result["documents"]) == 1 and len(result["candidates"]) == 1
+    assert result["stop_reason"] == "evidence_sufficient"
     tool_calls = [item["tool"] for item in result["trace"] if "tool" in item]
-    assert tool_calls == ["read_resource", "get_school_calendar", "search_public_web", "read_public_document"]
+    assert tool_calls == ["read_resource", "search_public_web", "read_public_document"]
     assert not any(kind == "llm_calls" for kind, _ in meter.calls)
-    assert meter.checkpoints[-1][2] == 2
+    assert meter.checkpoints[-1][2] == 1
     for document in result["documents"]:
         validate("DocumentRead", document)
     for item in result["candidates"]:
         validate("Candidate", item["candidate"])
 
 
-def test_missing_services_produce_partial_research_not_fake_results():
+def test_missing_services_produce_partial_research_not_fake_results(monkeypatch):
     settings, institution, season = fixture()
     settings.secrets = {}
     calls = []
+    async def stop(self, school, window, context):
+        return {"action": {"kind": "stop", "objective": "event_date", "query": None, "url": None},
+                "candidates": [], "counts": [], "reason": "필요한 자료원 설정을 확인해야 합니다."}
+
+    monkeypatch.setattr(ModelProvider, "decide", stop)
     g = HttpGateway(settings, client=httpx.AsyncClient(transport=httpx.MockTransport(lambda request: calls.append(request))), resolver=resolver)
     result = asyncio.run(ResearchRunner(settings, gateway=g).run(institution, season,
         identifiers=[{"provider": "neis", "external_key": "F10:123"}]))
     assert not calls and not result["candidates"] and not result["documents"]
     assert result["status"] == "partial"
-    assert {error["provider"] for error in result["errors"]} == {"neis", "tavily"}
+    assert {error["provider"] for error in result["errors"]} == {"neis"}
+    assert result["coverage"]["students"]["status"] == "identity_unresolved"
+    assert result["coverage"]["students"]["reason_codes"] == ["district_required"]
 
 
 def test_budget_stop_survives_real_mcp_error_boundary():

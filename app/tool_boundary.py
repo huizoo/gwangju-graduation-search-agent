@@ -26,11 +26,13 @@ class ResearchTools:
         calendar: NEIS Adapter.
         search: 공개 검색 Adapter.
         reader: 공개 원문 reader.
+        students: 해당 학년도 졸업 학년 인원 Adapter.
     """
 
-    def __init__(self, institution, season, identifiers, calendar, search, reader):
+    def __init__(self, institution, season, identifiers, calendar, search, reader, students=None):
         self.institution, self.season, self.identifiers = institution, season, identifiers
         self.calendar, self.search, self.reader = calendar, search, reader
+        self.students = students
         self.trace = []
         self.server = Server("gwangju-graduation-read-tools", version="0.1.0")
         self.definitions = SCHEMA["$defs"]
@@ -43,12 +45,14 @@ class ResearchTools:
         return {"$ref": f"#/$defs/{name}", "$defs": self.definitions}
 
     def _register(self):
-        """세 가지 공개 읽기 도구와 고정 검증 정책 리소스를 등록한다."""
+        """공개 읽기 도구와 고정 검증 정책 리소스를 등록한다."""
         specs = {
             "get_school_calendar": ("CalendarInput", "CalendarResult", "인증된 공식 학교 학사일정 전체 기간 조회"),
             "search_public_web": ("SearchInput", "SearchResult", "공개 웹에서 URL 후보 발견"),
             "read_public_document": ("ReadInput", "DocumentRead", "공개 HTML 또는 텍스트 PDF 읽기"),
         }
+        if self.students is not None:
+            specs["get_graduating_students"] = ("StudentInput", "StudentResult", "해당 학년도 졸업 학년 재학생 인원 조회")
 
         @self.server.list_tools()
         async def list_tools():
@@ -61,6 +65,7 @@ class ResearchTools:
             """고정된 기관·시즌으로 범위를 검사한 뒤 Adapter를 호출한다."""
             if name not in specs:
                 raise ValueError("허용되지 않은 도구")
+            Draft202012Validator(self._schema(specs[name][0]), format_checker=FormatChecker()).validate(arguments)
             if name != "search_public_web" and arguments["institution_id"] != self.institution["id"]:
                 raise ValueError("기관 범위를 벗어난 호출")
             try:
@@ -68,6 +73,10 @@ class ResearchTools:
                     if arguments["season_id"] != self.season["id"] or arguments["from_date"] != self.season["search_start"] or arguments["to_date"] != self.season["search_end"]:
                         raise ValueError("고정 조사 기간을 벗어난 호출")
                     result = await self.calendar.calendar(self.institution, self.season, self.identifiers)
+                elif name == "get_graduating_students":
+                    if arguments["season_id"] != self.season["id"]:
+                        raise ValueError("고정 조사 학년도를 벗어난 호출")
+                    result = await self.students.lookup(self.institution, self.season, self.identifiers)
                 elif name == "search_public_web":
                     result = await self.search.search(arguments["query"], arguments.get("include_domains"), arguments["max_results"])
                 else:

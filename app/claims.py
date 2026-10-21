@@ -61,7 +61,16 @@ def explicit_days(text: str) -> list[str]:
 
 
 def _ceremony_block(candidate: dict, document: dict, institution: dict, season: dict) -> str | None:
-    """인용의 제목·행사·학교·학년도 관계를 먼저 제한한다."""
+    """인용의 제목·행사·학교·학년도 관계를 먼저 제한한다.
+
+    Args:
+        candidate: 검증할 미승인 후보.
+        document: 읽기 상태와 원문 분절.
+        institution: 공식 채널을 확인한 대상 학교.
+        season: 조사 학년도와 날짜 범위.
+    Returns:
+        해당 본식의 연속 문맥. 관계를 확인하지 못하면 None.
+    """
     contexts = _quotes(candidate.get("context_evidence", []), document)
     if not contexts or len(contexts) != 1:
         return None
@@ -111,7 +120,15 @@ def _ceremony_block(candidate: dict, document: dict, institution: dict, season: 
 
 
 def _field_quotes(candidate: dict, name: str, document: dict) -> list[str] | None:
-    """개별 값이 같은 행사 문맥 내부에 실제 포함되는지 검사한다."""
+    """개별 값이 같은 행사 문맥 내부에 실제 포함되는지 검사한다.
+
+    Args:
+        candidate: 문맥 인용을 가진 후보.
+        name: 검사할 필드의 evidence 속성명.
+        document: 원문 분절.
+    Returns:
+        같은 분절·문맥의 연속 인용 또는 None.
+    """
     context = candidate["context_evidence"][0]
     entries = candidate.get(name, [])
     quotes = _quotes(entries, document)
@@ -121,7 +138,14 @@ def _field_quotes(candidate: dict, name: str, document: dict) -> list[str] | Non
 
 
 def _role_line(block: str, quote: str) -> str:
-    """인용이 속한 행을 읽어 날짜·시각 앞뒤의 역할을 검사한다."""
+    """인용이 속한 행을 읽어 날짜·시각 앞뒤의 역할을 검사한다.
+
+    Args:
+        block: 검증된 행사 문맥.
+        quote: 문맥에 존재하는 필드 인용.
+    Returns:
+        인용의 앞뒤 행 경계를 포함한 원문.
+    """
     start = block.find(quote)
     left = block.rfind("\n", 0, start) + 1
     right = block.find("\n", start + len(quote))
