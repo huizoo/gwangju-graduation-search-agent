@@ -21,7 +21,7 @@ def official_bundle(filename: str):
     if filename not in IMPORT_FILES:
         raise ApiError("not_found", "준비된 공식 목록을 찾을 수 없습니다.", 404)
     return load_official_registry(
-        ROOT / "docs/evidence/non-school-registry.json", filename,
+        ROOT / "assets/registry/source-manifest.json", filename,
         artifact_dir=ROOT / "assets/registry",
     )
 

@@ -1,9 +1,0 @@
-{
-  "results": [],
-  "status": "request_error",
-  "reason_codes": [
-    "search_request_error"
-  ],
-  "domain_filter_applied": false,
-  "http_status": 400
-}

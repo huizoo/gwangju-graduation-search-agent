@@ -46,7 +46,7 @@ def capture(tag):
 def test_cku_public_fixture_redaction_keeps_original_capture_identity():
     """작성자만 가린 사본을 재수집·공식성 승인으로 표시하지 않는다."""
     document = capture("cku")
-    manifest = json.loads((FIXTURES.parents[2] / "docs/evidence/calendar-change-rule.json").read_text())
+    manifest = json.loads((FIXTURES / "provenance.json").read_text())
     metadata = next(entry for entry in manifest["captures"] if entry["tag"] == "cku")
     assert "작성자\n[비식별 처리]\n조회수" in document["segments"][0]["text"]
     assert metadata["byte_identical_to_original"] is False

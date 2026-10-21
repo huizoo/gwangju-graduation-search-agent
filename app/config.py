@@ -77,7 +77,7 @@ def validate_configuration(data: dict, root: Path = ROOT) -> None:
     Raises:
         ConfigurationError: 한도·주소·모드 또는 시즌이 허용 범위를 벗어난 경우.
     """
-    schema = json.loads((root / "reference/handoff/contracts/domain.schema.json").read_text())
+    schema = json.loads((root / "app/domain.schema.json").read_text())
     validator = Draft202012Validator(
         {"$ref": "#/$defs/ExecutionLimits", "$defs": schema["$defs"]},
         format_checker=FormatChecker(),

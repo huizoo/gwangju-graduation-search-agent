@@ -1,6 +1,6 @@
 # 설정 파일의 역할
 
-현재 선택은 Ollama이며 `.env.example`은 백엔드 선택·연결 정보와 자료원 키 입력 칸을 제공합니다. `qwen3:8b`는 기존 실험 재현값이고 OpenAI 기본값 `gpt-6.1-sol`도 실제 일정 추출 정확성을 검증한 추천 모델을 뜻하지 않습니다. 선택 모델의 검증 범위는 [실행 기록](../docs/PERIOD_V3_VALIDATION.md)에 남깁니다.
+`.env.example`은 백엔드 선택·연결 정보와 자료원 키 입력 칸을 제공합니다. 기본 모델 이름은 실행 설정이며 모든 학교의 일정 추출 정확성을 보장하는 추천값은 아닙니다. 실제 사용하는 모델의 설치·호출 가능 여부를 확인해야 합니다.
 
 | 파일 | 역할 |
 | --- | --- |
@@ -29,8 +29,8 @@ OpenAI 키를 입력한 뒤 `LLM_BACKEND=openai`로 바꾸면 OpenAI 경로를 �
 
 Mac도 Ollama 앱이 백그라운드 서비스를 실행하면 터미널에서 `ollama serve`를 별도로 띄우지 않아도 됩니다. GUI 없이 CLI 서버로 실행할 때만 해당 명령을 사용하며 같은 포트의 중복 서버는 피합니다.
 
-실제 설정 로더는 `app/config.py`, 병합·해시는 `app/configuration.py`, 지연 생성하는 선택 백엔드는 `app/providers.py`에 구현되어 있습니다. 인계본의 검사는 참조 사양으로 보존하며 실제 로더·API·재개 경로는 `tests/test_config.py`, `tests/test_jobs_api.py`로 별도 검사합니다.
+실제 설정 로더는 `app/config.py`, 병합·해시는 `app/configuration.py`, 지연 생성하는 선택 백엔드는 `app/providers.py`에 구현되어 있습니다. 로더·API·재개 경로는 `tests/test_config.py`, `tests/test_jobs_api.py`로 검사합니다.
 
-`publication.auto_rule_ids`는 실제 양성·반례 검사를 통과한 `규칙ID@버전`만 활성화합니다. 근거와 한계는 `config/rule-catalog.json`에 기록합니다. 이전 버전과 이름이 같아도 새 버전을 자동 승인하지 않습니다. `tracing.enabled=true`는 아직 지원하지 않아 시작 시 명시적으로 거절합니다. 브라우저 보조 읽기·HWP·이미지 OCR은 P0 수집 경로에 포함하지 않습니다.
+`publication.auto_rule_ids`는 검사한 `규칙ID@버전`만 활성화합니다. 규칙 구현은 `app/rules.py`와 `app/claims.py`, 원문 관계와 현재 출력 허용 검사는 `app/publication.py`에 있습니다. 이전 버전과 이름이 같아도 새 버전을 자동 승인하지 않습니다. `tracing.enabled=true`는 아직 지원하지 않아 시작 시 명시적으로 거절합니다. 브라우저 보조 읽기·HWP·이미지 OCR은 수집 경로에 포함하지 않습니다.
 
 `item_max_replans=6`은 한 학교에서 관찰 후 선택하는 다음 행동의 최대 횟수입니다. 기존의 두 계획 묶음(각 최대 세 행동)을 단일 행동 반복으로 바꾸면서 동일한 최대 도구 행동 수를 유지했습니다. HTTP·검색·토큰·학교별 시간 한도도 별도로 적용됩니다. 조사 계약 3.0 이전 작업은 기간·자료 학년도·행사 연결 조건이 다르므로 이력을 보존한 새 작업을 시작합니다. 3.0 작업은 저장한 기간·revision·대상 행사 날짜가 일치할 때만 재개합니다.

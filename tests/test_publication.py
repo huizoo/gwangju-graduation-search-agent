@@ -1,9 +1,6 @@
-"""인계 게시 반례를 운영 게시 함수에 연결하고 실제 저장 흐름을 검사한다."""
+"""보존한 게시 반례를 운영 게시 함수에 연결하고 실제 저장 흐름을 검사한다."""
 from copy import deepcopy
 from datetime import datetime, timedelta, timezone
-import importlib.util
-from pathlib import Path
-import sys
 
 import pytest
 from app import publication
@@ -11,15 +8,12 @@ from app.domain import dumps, utcnow, new_id
 from app.providers import empty_document
 from app.rules import REGISTERED_RULES, extract_candidates
 from app.storage import Service
+from publication_cases import run as publication_cases
 from test_storage import service, season, institution, operation
 
 
 def test_reference_publication_cases_against_production(monkeypatch):
-    checks = Path(__file__).parents[1] / "reference/handoff/checks"
-    monkeypatch.syspath_prepend(str(checks))
-    spec = importlib.util.spec_from_file_location("spec_publication_checks", checks / "check_publication.py")
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    """인계에서 가져온 양성·반례를 현재 운영 정책으로 그대로 재검사한다."""
     registry = publication.RuleRegistry()
     registry.register("explicit_notice", "1.0.0", lambda field, value, observation, document, event, season, **kwargs: publication._literal_value(field, value, publication._literal_support(observation["candidate"], field, document), observation["candidate"]))
     monkeypatch.setattr(publication, "RULES", registry)
@@ -33,9 +27,7 @@ def test_reference_publication_cases_against_production(monkeypatch):
         if event.get("publication") != expected:
             raise ValueError("publication mismatch")
         return expected
-    module.calculate_publication = calculate
-    module.validate_supplied_publication = supplied
-    result = module.run()
+    result = publication_cases(calculate, supplied)
     assert result["passed"] >= 40
 
 

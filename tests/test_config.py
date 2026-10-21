@@ -13,9 +13,9 @@ from app.config import ROOT, ConfigurationError, load_settings
 def root(tmp_path):
     """실제 .env를 읽지 않는 격리 설정 폴더를 만든다."""
     shutil.copytree(ROOT / "config", tmp_path / "config")
-    target = tmp_path / "reference/handoff/contracts"
+    target = tmp_path / "app"
     target.mkdir(parents=True)
-    shutil.copy(ROOT / "reference/handoff/contracts/domain.schema.json", target)
+    shutil.copy(ROOT / "app/domain.schema.json", target)
     return tmp_path
 
 

@@ -118,7 +118,7 @@ def run():
         })
         institution = app.get("/api/institutions")["items"][0]
         season = app.bootstrap["selected_season_id"]
-        event_payload = json.loads((ROOT / "reference/handoff/contracts/examples/event-create.example.json").read_text())
+        event_payload = json.loads((ROOT / "tests/fixtures/contracts/event-create.example.json").read_text())
         event_payload.update(institution_id=institution["id"], season_id=season,
                              title="수기 보존 검사 기록", audience="프로세스 검증", allow_separate_event=True)
         event_payload["operations"] = [dict(event_payload["operations"][1],

@@ -1,7 +1,0 @@
-{
-  "kind": "registry_sync",
-  "providers": [
-    "neis"
-  ],
-  "limits": null
-}

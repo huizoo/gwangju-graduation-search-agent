@@ -17,7 +17,7 @@ from app.registry import validate_registry_import
 from app.providers import ProviderError
 
 ROOT = Path(__file__).resolve().parents[1]
-MANIFEST = ROOT / "docs/evidence/non-school-registry.json"
+MANIFEST = ROOT / "assets/registry/source-manifest.json"
 ASSETS = ROOT / "assets/registry"
 
 

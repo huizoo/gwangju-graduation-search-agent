@@ -1,46 +1,72 @@
-#!/usr/bin/env python3
-"""Positive and adversarial examples for the executable 4.0 specification."""
+"""인계에서 보존한 게시 양성·반례를 주입한 운영 함수에 적용한다."""
 from copy import deepcopy
 import json
 from pathlib import Path
 
 from jsonschema import Draft202012Validator, FormatChecker
-from publication_policy import calculate_publication, validate_supplied_publication
-
 ROOT = Path(__file__).resolve().parents[1]
-EXAMPLES = ROOT / "contracts" / "examples"
+EXAMPLES = ROOT / "tests" / "fixtures" / "contracts"
 NOW = "2026-10-20T07:00:00Z"
 SEASON = {"id": "00000000-0000-0000-0000-000000000003", "academic_year": 2026, "search_start": "2026-12-01", "search_end": "2027-03-31"}
-SCHEMA = json.loads((ROOT / "contracts" / "domain.schema.json").read_text())
+SCHEMA = json.loads((ROOT / "app" / "domain.schema.json").read_text())
 PUBLICATION_SCHEMA = {"$schema": SCHEMA["$schema"], "$defs": SCHEMA["$defs"], "$ref": "#/$defs/Publication"}
 VALIDATOR = Draft202012Validator(PUBLICATION_SCHEMA, format_checker=FormatChecker())
 
 
 def load(name):
+    """가상 기관으로 구성한 고정 예제를 읽는다.
+
+    Args:
+        name: 확장자를 제외한 예제 이름.
+    Returns:
+        저장된 예제 객체.
+    """
     return json.loads((EXAMPLES / f"{name}.example.json").read_text())
 
 
 def base():
+    """각 반례가 서로 영향을 주지 않는 독립 기준 문맥을 만든다.
+
+    Returns:
+        행사·시즌·게시 검증 문맥.
+    """
     event, document, observation = load("publication-ready"), load("document"), load("observation")
     context = {"documents": {document["id"]: document}, "observations": {observation["id"]: observation}, "registered_rules": {"explicit_notice": "1.0.0"}, "now": NOW, "event_blockers": [], "use_fixture_rules": True}
     return event, deepcopy(SEASON), context
 
 
-def calculate(event, season, context):
-    publication = calculate_publication(event, season, context)
-    VALIDATOR.validate(publication)
-    assert publication["current_time_allowed"] <= publication["current_date_allowed"]
-    assert publication["sales_ready"] == bool(publication["current_date_allowed"] and publication["current_time_allowed"])
-    return publication
-
-
 def manual(event, field, value, confirmed="2026-10-20T06:55:00Z", bound=None):
+    """지정한 필드에 가상 확인값을 넣어 보호·충돌 조건을 검사한다.
+
+    Args:
+        event: 시험 중인 행사.
+        field: 확인값을 지정할 필드.
+        value: 가상 확인값.
+        confirmed: 실제 확인시점 조건으로 쓸 가상 시각.
+        bound: 시각·장소가 종속되는 행사일.
+    """
     snapshot = event["fields"][field]
     snapshot["automatic"]["conflict_detected_at"] = snapshot["automatic"]["checked_at"]
     snapshot["manual"] = {"id": "00000000-0000-0000-0000-000000000099", "mode": "set", "value": value, "basis": "phone_confirmed", "confirmed_at": confirmed, "recorded_at": NOW, "note": "실제 확인을 표현하는 가상 시험 기록", "bound_date": bound, "acknowledged_fingerprint": None, "resolved_fingerprint": snapshot["automatic"]["fingerprint"], "source_url": None, "source_document_id": None}
 
 
-def run():
+def run(calculate_publication, validate_supplied_publication):
+    """실제 게시 함수에 기존 양성·반례를 적용하고 결과를 반환한다.
+
+    Args:
+        calculate_publication: 운영 게시값 계산 함수.
+        validate_supplied_publication: 제공된 게시값의 위조 검사 함수.
+    Returns:
+        통과한 사례 이름과 개수.
+    """
+    def calculate(event, season, context):
+        """계산 결과의 스키마와 날짜·시간 사용 관계를 함께 검사한다."""
+        publication = calculate_publication(event, season, context)
+        VALIDATOR.validate(publication)
+        assert publication["current_time_allowed"] <= publication["current_date_allowed"]
+        assert publication["sales_ready"] == bool(publication["current_date_allowed"] and publication["current_time_allowed"])
+        return publication
+
     checks = []
     def passed(name):
         checks.append(name)
@@ -269,7 +295,7 @@ def run():
         assert not calculate(e, s, c)["sales_ready"]
         passed("unimplemented_rule_cannot_reuse_notice_normalizer_" + rule)
 
-    # 11:00 must not match the prefix of an explicit 11:30 start.
+    # 시 문자열의 접두사만 일치해 11시 30분을 11시로 승인하지 않아야 한다.
     e, s, c = base()
     doc = next(iter(c["documents"].values()))
     obs = next(iter(c["observations"].values()))
@@ -320,7 +346,3 @@ def run():
     result = {"policy_version": "4.0", "passed": len(checks), "cases": checks, "scope": "fixture specification checks; not live service accuracy"}
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return result
-
-
-if __name__ == "__main__":
-    run()

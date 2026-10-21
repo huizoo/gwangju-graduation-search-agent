@@ -29,7 +29,7 @@ def institution_payload(name="검사학교"):
 
 def manual_event(institution_id, season_id):
     """확인일을 가진 가상 전화 확인 양성 예제를 만든다."""
-    body = json.loads((ROOT / "reference/handoff/contracts/examples/event-create.example.json").read_text())
+    body = json.loads((ROOT / "tests/fixtures/contracts/event-create.example.json").read_text())
     body.update(institution_id=institution_id, season_id=season_id)
     for op in body["operations"]:
         op.update(basis="phone_confirmed", confirmed_at="2026-10-19T03:00:00Z", note="")
@@ -69,7 +69,7 @@ def test_api_security_idempotency_revision_restart_and_export(tmp_path):
         assert event["publication"]["state"] == "date_only"
         assert event["publication"]["current_date_allowed"]
         assert not event["publication"]["sales_ready"]
-        patch = json.loads((ROOT / "reference/handoff/contracts/examples/manual-patch.example.json").read_text())
+        patch = json.loads((ROOT / "tests/fixtures/contracts/manual-patch.example.json").read_text())
         patch["expected_revision"] = event["revision"]
         response = client.patch(f"/api/events/{event['id']}/overrides", headers=headers, json=patch)
         assert response.status_code == 200, response.text
