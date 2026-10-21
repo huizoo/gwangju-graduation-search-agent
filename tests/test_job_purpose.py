@@ -28,7 +28,7 @@ def test_default_request_freezes_all_target_schools_independent_of_display(tmp_p
     items = runtime.jobs.items(job["id"])
     assert len(items) == 5
     assert job["scope_snapshot"]["purpose"] == "date_count"
-    assert job["scope_snapshot"]["research_version"] == "2.0"
+    assert job["scope_snapshot"]["research_version"] == "3.0"
 
 
 @pytest.mark.parametrize("days", [None, ["2027-01-07", "2027-01-08"]])

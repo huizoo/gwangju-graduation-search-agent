@@ -41,6 +41,8 @@ def _count_event(claim: dict, events: list[dict]) -> dict | None:
     """
     matches = []
     for event in events:
+        if event.get("academic_year") != claim.get("academic_year"):
+            continue
         item = _event_claim(event)
         day = item.get("event_date") or {}
         dates = day.get("dates", [day.get("date")]) if isinstance(day, dict) else [day]
@@ -128,10 +130,10 @@ def save_supplement(service, conn, institution: dict, season: dict, result: dict
         document_ids: 이번 읽기의 임시 UUID와 실제 불변 문서 UUID 매핑.
     """
     documents = service._documents(conn, institution["id"])
-    event_ids = [row[0] for row in conn.execute(
-        "SELECT id FROM events WHERE institution_id=? AND season_id=? AND id NOT IN(SELECT old_id FROM event_aliases)",
-        (institution["id"], season["id"]))]
-    events = [service._project(conn, identity)[0] for identity in event_ids]
+    from .periods import fact_season
+    events = [event for event in service._events(conn, season["id"])
+              if event["institution"]["id"] == institution["id"]]
+    event_ids = [event["id"] for event in events]
     rejected = []
     for original in result.get("counts", []):
         claim = dict(original)
@@ -141,7 +143,8 @@ def save_supplement(service, conn, institution: dict, season: dict, result: dict
             continue
         claim["document_id"] = identity
         event = _count_event(claim, events) if institution.get("type") in {"university", "junior_college"} else None
-        proof = validate_count(claim, documents[identity], institution, season, event=event)
+        proof = validate_count(claim, documents[identity], institution,
+                               fact_season(season, claim["academic_year"]), event=event)
         if proof["allowed"] and not _current_document(documents[identity], institution,
                 structured=claim.get("source") in {"schoolinfo_api09", "schoolinfo_public"}):
             proof = {"allowed": False, "reasons": ["count_recheck_failed"]}
@@ -190,11 +193,20 @@ def current_counts(service, conn, season: dict, events: list[dict]) -> dict:
         season: 현재 조사 시즌.
         events: 현재 게시 판정을 가진 행사 목록.
     Returns:
-        대학은 행사 ID, 초중고는 기관 ID로 연결된 현재 허용 인원.
+        해당 행사의 학년도와 일치하는 근거만 모은 행사 ID별 현재 허용 인원.
     """
+    from .periods import fact_season
     values, cache = {}, {}
-    by_event = {event["id"]: event for event in events}
-    for row in conn.execute("SELECT * FROM count_observations WHERE season_id=? ORDER BY created_at,id", (season["id"],)):
+    by_institution = {}
+    for event in events:
+        if event.get("academic_year") is not None:
+            by_institution.setdefault(event["institution"]["id"], []).append(event)
+    if not by_institution:
+        return {}
+    placeholders = ",".join("?" for _ in by_institution)
+    for row in conn.execute(
+            f"SELECT * FROM count_observations WHERE institution_id IN ({placeholders}) ORDER BY created_at,id",
+            tuple(by_institution)):
         if not json.loads(row["proof_json"]).get("allowed"):
             continue
         institution_id = row["institution_id"]
@@ -207,12 +219,18 @@ def current_counts(service, conn, season: dict, events: list[dict]) -> dict:
                 structured=claim.get("source") in {"schoolinfo_api09", "schoolinfo_public"}):
             continue
         university = institution.get("type") in {"university", "junior_college"}
-        event = _event_claim(by_event[row["event_id"]]) if row["event_id"] in by_event else None
-        if university and event is None:
-            continue
-        if validate_count(claim, document, institution, season, event=event)["allowed"]:
-            key = row["event_id"] if university else institution_id
-            values.setdefault(key, set()).add(claim["value"])
+        source_season = service._season(conn, row["season_id"])
+        for projected in by_institution[institution_id]:
+            if projected["academic_year"] != claim["academic_year"]:
+                continue
+            if university and projected["id"] != row["event_id"]:
+                continue
+            event = _event_claim(projected)
+            # 취득 시즌과 현재 표시 시즌이 달라도 원문 학년도·행사 관계는 그대로 검사한다.
+            if validate_count(claim, document, institution,
+                              fact_season(source_season, projected["academic_year"]),
+                              event=event if university else None)["allowed"]:
+                values.setdefault(projected["id"], set()).add(claim["value"])
     return {key: next(iter(counts)) for key, counts in values.items() if len(counts) == 1}
 
 

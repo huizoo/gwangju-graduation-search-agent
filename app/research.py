@@ -74,7 +74,7 @@ class ResearchRunner:
 
         Args:
             institution: 학교의 공식 식별자와 확인한 공식 채널.
-            season: 목표 학년도와 전체 조사 기간.
+            season: 실제 행사일의 고정 조사 기간. 학년도는 각 근거·행사에 속한다.
             identifiers: 공식 자료원에서 확인한 복합 학교 코드.
             purpose: 기본 날짜·인원 조사 또는 time 시각 조사.
             target_event: 시각 조사에 연결할 현재 행사와 허용 날짜.
@@ -103,6 +103,7 @@ class ResearchRunner:
         route_queue = []
         university = institution.get("type") in {"university", "college", "junior_college"}
         expected_fields = ["start_time"] if purpose == "time" else ["event_date", "graduation_count"]
+        queried_student_years = set()
 
         def record(kind, **entry):
             """결정과 도구 관찰을 순서가 보존된 내부 실행 기록으로 남긴다."""
@@ -176,9 +177,11 @@ class ResearchRunner:
                 event = {"id": target_event["id"] if target_event else str(uuid4()),
                          "title": candidate["event_title"], "event_type": candidate["event_type"],
                          "audience": candidate.get("audience"), "campus_label": candidate.get("campus_label"),
-                         "institution": institution, "_identifiers": identifiers}
+                         "institution": institution, "_identifiers": identifiers,
+                         "academic_year": candidate.get("academic_year"),
+                         "ceremony_term": candidate.get("ceremony_term")}
                 if target_event:
-                    event.update({key: target_event[key] for key in ("title", "event_type", "audience", "campus_label") if key in target_event})
+                    event.update({key: target_event[key] for key in ("title", "event_type", "audience", "campus_label", "academic_year", "ceremony_term") if key in target_event})
                 observation = {"id": str(uuid4()), "candidate": candidate,
                                "document_id": document["id"], "institution_id": institution["id"],
                                "event_id": event["id"], "season_id": season["id"]}
@@ -206,36 +209,70 @@ class ResearchRunner:
                         and candidate["ceremony_status"] == "scheduled"):
                     supported_events.append(candidate)
             from .claims import validate_count
+            population_groups, time_groups = {}, {}
+            for review in reviews:
+                if review.get("checks", {}).get("start_time", {}).get("status") == "supported":
+                    item = review["candidate"]
+                    time_groups.setdefault(scope(item, institution), set()).add(item["start_time"])
+            expected_groups = ({scope(event, institution) for event in supported_events} if university else
+                               {("year", event["academic_year"]) for event in supported_events})
+            tools.allow_student_years(event.get("academic_year") for event in supported_events)
             for count in counts:
                 document = document_map.get(count.get("document_id"))
                 count_event = target_event
-                if university and not count_event:
+                if not count_event:
                     matching = {}
                     for event in supported_events:
                         event_days = event["event_date"].get("dates") or [event["event_date"].get("date")]
-                        if (count.get("event_date") in event_days
+                        if (event.get("academic_year") == count["academic_year"]
+                                and (not university or count.get("event_date") in event_days)
                                 and (not count.get("event_key_hint") or count["event_key_hint"] == event.get("event_key_hint"))):
-                            matching[scope(event, institution)] = event
+                            matching[scope(event, institution) if university else ("year", event["academic_year"])] = event
                     if len(matching) == 1:
                         count_event = next(iter(matching.values()))
                 proof = validate_count(count, document, institution, season, event=count_event) if document else {"allowed": False, "reasons": ["unknown_document"]}
                 reviews.append({"document_id": count.get("document_id"), "count": count, "checks": proof})
-                if proof["allowed"]:
-                    populations.add(count["value"])
-            conflicts = [field for field, values in (("start_time", times), ("graduation_count", populations)) if len(values) > 1]
+                if proof["allowed"] and count_event is not None:
+                    key = scope(count_event, institution) if university and count_event else ("year", count["academic_year"])
+                    population_groups.setdefault(key, set()).add(count["value"])
+            # 서로 다른 학년도·본식의 인원은 별개 사실이며 같은 행사 안의 값 차이만 충돌이다.
+            conflicts = []
+            if any(len(values) > 1 for values in population_groups.values()):
+                conflicts.append("graduation_count")
+            if (purpose == "time" and len(times) > 1) or (purpose == "date_count" and any(len(values) > 1 for values in time_groups.values())):
+                conflicts.append("start_time")
             if any(len(values) > 1 for values in date_groups.values()):
                 conflicts.append("event_date")
             missing = []
             if purpose == "date_count":
                 if not dates or "event_date" in conflicts:
                     missing.append("event_date")
-                if len(populations) != 1:
+                if not expected_groups or any(len(population_groups.get(key, set())) != 1 for key in expected_groups):
                     missing.append("graduation_count")
             elif len(times) != 1:
                 missing.append("start_time")
             if statuses & {"cancelled", "not_held", "unclear"}:
                 conflicts.append("ceremony_status")
             return missing, sorted(set(conflicts))
+
+        async def collect_student_years():
+            """새로 검증한 행사 학년도만 조회해 지연 행사와 다른 연도 인원을 구분한다."""
+            if purpose != "date_count" or university:
+                return
+            results = coverage.setdefault("students", {}).setdefault("academic_year_coverage", [])
+            for year in sorted(tools.student_years - queried_student_years):
+                queried_student_years.add(year)
+                result = await tools.call("get_graduating_students", {
+                    "institution_id": institution["id"], "season_id": season["id"], "academic_year": year})
+                documents.extend(result["documents"])
+                add_counts(result["counts"])
+                results.append({"academic_year": year,
+                    **{key: value for key, value in result.items() if key not in {"documents", "counts"}}})
+                observation = {"tool": "get_graduating_students", "academic_year": year,
+                    "status": result["status"], "reason_codes": result["reason_codes"]}
+                observations.append(observation)
+                record("observation", **observation)
+                await checkpoint("students_collected")
 
         async def read(url, route=None):
             """공식 출처·중복·문서 한도를 확인한 후 MCP로 원문을 읽는다."""
@@ -256,8 +293,11 @@ class ResearchRunner:
             outcome = _failure(document)
             academic_years = sorted({int(year) for segment in document.get("segments", [])
                                      for year in re.findall(r"(20\d{2})\s*학년도", segment["text"])})
-            if outcome == "read_success" and academic_years and season["academic_year"] not in academic_years:
-                outcome = "wrong_year"
+            from .claims import explicit_days
+            source_days = {day for segment in document.get("segments", []) for day in explicit_days(segment["text"])}
+            if (outcome == "read_success" and source_days
+                    and not any(season["search_start"] <= day <= season["search_end"] for day in source_days)):
+                outcome = "outside_window"
             observation = {"tool": "read_public_document", "url": url, "document_id": document["id"],
                            "status": document["status"], "outcome": outcome, "reason_codes": document["reason_codes"],
                            "academic_years": academic_years}
@@ -311,14 +351,8 @@ class ResearchRunner:
                         for code in result["reason_codes"]:
                             add_error("neis", code, "공식 학사일정 조회를 완료하지 못했습니다.")
                     await checkpoint("calendar_collected")
-                    result = await tools.call("get_graduating_students", {"institution_id": institution["id"], "season_id": season["id"]})
-                    documents.extend(result["documents"])
-                    add_counts(result["counts"])
-                    coverage["students"] = {key: value for key, value in result.items() if key not in {"documents", "counts"}}
-                    observation = {"tool": "get_graduating_students", "status": result["status"], "reason_codes": result["reason_codes"]}
-                    observations.append(observation)
-                    record("observation", **observation)
-                    await checkpoint("students_collected")
+                    assess()
+                    await collect_student_years()
                 # 이전 사실 문서는 올해 근거로 복사하지 않고, 필요하면 같은 URL을 새로 읽는다.
                 for route in routes or []:
                     route_purpose = route.get("purpose", "date_count")
@@ -338,6 +372,8 @@ class ResearchRunner:
                 else:
                     for route in route_queue:
                         await read(route["url"], route)
+                        assess()
+                        await collect_student_years()
                         missing, conflicts = assess()
                         if not missing and not conflicts:
                             stop_reason = "verified_route_sufficient"
@@ -345,6 +381,8 @@ class ResearchRunner:
                     else:
                         stop_reason = "investigating"
                 while stop_reason == "investigating":
+                    assess()
+                    await collect_student_years()
                     missing, conflicts = assess()
                     await checkpoint("evidence_assessed")
                     if not missing and not conflicts:
@@ -392,6 +430,8 @@ class ResearchRunner:
                     record("decision", action=action, reason=decision["reason"], missing_fields=missing, conflicts=conflicts)
                     add_candidates(decision.get("candidates", []), "model_candidate")
                     add_counts(decision.get("counts", []))
+                    assess()
+                    await collect_student_years()
                     await checkpoint("agent_decision")
                     violation = None
                     if (university and "event_date" in missing and action["objective"] == "graduation_count"

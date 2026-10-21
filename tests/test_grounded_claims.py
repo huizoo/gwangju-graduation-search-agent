@@ -331,7 +331,7 @@ def test_university_synonym_migration_preserves_count_evidence(grounded_context)
     assert result_rows(service.snapshot(season["id"]))[0]["graduation_count"] == 132
     with service.store.transaction(True) as conn:
         duplicate = service._insert_event(conn, {"institution_id": school["id"], "season_id": season["id"],
-            "title": "학위수여식", "event_type": "graduation_ceremony", "audience": None, "campus_label": None})
+            "title": "학위수여식", "academic_year": 2026, "event_type": "graduation_ceremony", "audience": None, "campus_label": None})
         conn.execute("UPDATE count_observations SET event_id=?", (duplicate,))
         before = dict(conn.execute("SELECT * FROM count_observations").fetchone())
         conn.execute("UPDATE app_meta SET value=? WHERE key='assessed_rules'",

@@ -9,9 +9,10 @@ from datetime import date
 
 from .providers import canonical, neis_identifier, neis_unit, official_channel, utcnow
 from .identity import same_event
+from .periods import fact_season, within_period
 
-REGISTERED_RULES = {"neis_ceremony_row": "1.2.0", "explicit_notice": "1.2.0",
-                    "academic_calendar_row": "1.0.0", "grounded_notice": "1.0.0"}
+REGISTERED_RULES = {"neis_ceremony_row": "1.3.0", "explicit_notice": "1.3.0",
+                    "academic_calendar_row": "1.1.0", "grounded_notice": "1.1.0"}
 NEIS_EVENTS = {"졸업식": "graduation_ceremony", "졸업식 및 종업식": "graduation_and_completion",
                "졸업식 및 수료식": "graduation_and_completion", "졸업식/종업식": "graduation_and_completion",
                "졸업식,종업식": "graduation_and_completion", "종업식 및 졸업식": "graduation_and_completion",
@@ -98,7 +99,7 @@ def _notice_subject(line: str, institution: dict, season: dict):
         return None
     # '초등학교 병설유치원 졸업식'과 '졸업식 준비 설명회'는 다른 명사구다.
     subject = re.search(re.escape(institution["name"]) +
-        r"\s*(?:\d{4}\s*학년도\s*)?(?:제\s*\d+\s*회\s*)?(졸업식|학위수여식)(?:은|는|이|을)?(?=\s|[:：]|$)", line)
+        r"\s*(?:\d{4}\s*학년도\s*)?(?:(?:전기|후기)\s*)?(?:제\s*\d+\s*회\s*)?(졸업식|학위수여식)(?:은|는|이|을)?(?=\s|[:：]|$)", line)
     return line[subject.end():].strip() if subject else None
 
 
@@ -112,7 +113,8 @@ def _parse_negative(line, institution, season, segment_id):
     if not negative:
         return None
     sequence = re.search(r"제\s*(\d+)\s*회", line)
-    title = f"{season['academic_year']}학년도 " + (f"제{sequence[1]}회 " if sequence else "") + ("학위수여식" if "학위수여식" in line else "졸업식")
+    term = re.search(r"(?:전기|후기)(?=\s*(?:제\s*\d+\s*회\s*)?(?:졸업식|학위수여식))", line)
+    title = f"{season['academic_year']}학년도 " + (term[0] + " " if term else "") + (f"제{sequence[1]}회 " if sequence else "") + ("학위수여식" if "학위수여식" in line else "졸업식")
     candidate = _candidate(title,
         "degree_award_ceremony" if "학위수여식" in line else "graduation_ceremony",
         season["academic_year"], None, segment_id, line, None)
@@ -164,7 +166,8 @@ def _parse_notice_line(line: str, institution: dict, season: dict, segment_id: s
         time_value, time_quote = valid_times[0]
     sequence = re.search(r"제\s*(\d+)\s*회", line)
     degree = "학위수여식" in line
-    title = f"{season['academic_year']}학년도 " + (f"제{sequence[1]}회 " if sequence else "") + ("학위수여식" if degree else "졸업식")
+    term = re.search(r"(?:전기|후기)(?=\s*(?:제\s*\d+\s*회\s*)?(?:졸업식|학위수여식))", line)
+    title = f"{season['academic_year']}학년도 " + (term[0] + " " if term else "") + (f"제{sequence[1]}회 " if sequence else "") + ("학위수여식" if degree else "졸업식")
     return _candidate(title, "degree_award_ceremony" if degree else "graduation_ceremony",
         season["academic_year"], day, segment_id, line, matched.group(0), time_value, time_quote)
 
@@ -273,7 +276,7 @@ def _parse_calendar_change(text: str, season: dict, segment_id: str) -> list[dic
     return result
 
 
-def extract_candidates(document: dict, institution: dict, season: dict) -> list[dict]:
+def _extract_for_year(document: dict, institution: dict, season: dict) -> list[dict]:
     """검증 가능한 정형 매핑을 먼저 적용하여 불필요한 모델 호출을 줄인다.
 
     Args:
@@ -300,6 +303,30 @@ def extract_candidates(document: dict, institution: dict, season: dict) -> list[
             if candidate:
                 results.append(candidate)
     return results
+
+
+def extract_candidates(document: dict, institution: dict, season: dict) -> list[dict]:
+    """사용자 기간 안의 행사에서 원문 학년도별 후보를 독립적으로 읽는다.
+
+    Args:
+        document: 읽은 불변 원문.
+        institution: 대상 기관과 학교급.
+        season: 양끝을 포함하는 실제 행사 날짜 범위.
+    Returns:
+        원문 학년도를 유지한 후보. 대학의 학년도는 날짜에서 역산하지 않는다.
+    """
+    years = {int(year) for segment in document.get("segments", [])
+             for year in re.findall(r"(20\d{2})\s*학년도", segment["text"])}
+    if document.get("source_kind") == "official_api" and len(document.get("segments", [])) == 1:
+        try:
+            raw_year = json.loads(document["segments"][0]["text"]).get("AY")
+            if re.fullmatch(r"20\d{2}", str(raw_year)):
+                years.add(int(raw_year))
+        except (ValueError, TypeError, AttributeError):
+            pass
+    # 연기·조기 개최를 허용하되 원문에 없는 학년도를 달력 날짜로 생성하지 않는다.
+    return [candidate for year in sorted(years)
+            for candidate in _extract_for_year(document, institution, fact_season(season, year))]
 
 
 def _present(evidence, document):
@@ -348,7 +375,11 @@ def value_check(field: str, value, observation: dict, document: dict, event: dic
         and document.get("authority") == "official" and document.get("authority_evidence")
         and document.get("reading", {}).get("content_match") == "expected") else "fail"
     checks["institution"] = "pass" if document.get("reading", {}).get("institution_match") == "matched" else "unknown"
-    checks["season"] = "pass" if candidate.get("academic_year") == season["academic_year"] and candidate.get("season_alignment") == "explicit" else "fail"
+    year = candidate.get("academic_year")
+    allowed_year = type(year) is int
+    candidate_day = candidate.get("event_date", {})
+    period_match = candidate_day.get("precision") == "unknown" or within_period(candidate_day, season)
+    checks["season"] = "pass" if allowed_year and period_match and candidate.get("season_alignment") == "explicit" else "fail"
     checks["event_identity"] = "pass" if (
         same_event(candidate, event, institution) and candidate.get("event_type") in
         {"graduation_ceremony", "graduation_and_completion", "degree_award_ceremony"}
@@ -383,7 +414,7 @@ def value_check(field: str, value, observation: dict, document: dict, event: dic
         )
         if (not same_context or parsed["event_date"] != candidate["event_date"] or
                 any(parsed[key] != candidate.get(key) for key in
-                    ("event_type", "audience", "campus_label", "is_change_notice", "supersedes_text"))):
+                    ("event_type", "audience", "campus_label", "academic_year", "is_change_notice", "supersedes_text"))):
             continue
         if rule == "academic_calendar_row" and parsed["event_title"] != candidate.get("event_title"):
             continue

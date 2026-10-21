@@ -9,6 +9,42 @@ from app.providers import empty_document
 from app.research_records import current_counts, reusable_routes, save_supplement
 from test_grounded_claims import grounded_context, _count, candidate, NORMAL, _save
 from test_rules import notice
+from test_storage import operation
+
+
+def _school_event(ctx, day="2027-01-07", academic_year=2026):
+    """인원 자료가 연결될 실제 행사 학년도와 직접 확인 날짜를 구성한다.
+
+    Args:
+        ctx: 서비스·학교·기간.
+        day: 해당 학년도의 본식 날짜.
+        academic_year: 행사 학년도.
+    Returns:
+        기존 수기 UUID를 가진 행사.
+    """
+    service, school, season = ctx
+    return service.create_event({
+        "institution_id": school["id"], "season_id": season["id"],
+        "title": f"{academic_year}학년도 졸업식", "event_type": "graduation_ceremony",
+        "academic_year": academic_year, "ceremony_term": None, "audience": None,
+        "campus_label": None, "allow_separate_event": False,
+        "operations": [operation("ceremony_status", "scheduled"),
+                       operation("event_date", {"precision": "day", "date": day, "month": None})]})
+
+
+def _event_key(ctx):
+    """검사 문맥의 유일한 행사 UUID를 반환한다.
+
+    Args:
+        ctx: 서비스·학교·기간.
+    Returns:
+        현재 시즌의 유일한 행사 UUID.
+    """
+    service, school, season = ctx
+    events = [event for event in service.events(season["id"])["items"]
+              if event["institution"]["id"] == school["id"]]
+    assert len(events) == 1
+    return events[0]["id"]
 
 
 def _document(school, text, path="students"):
@@ -39,7 +75,9 @@ def _grade_context(ctx):
     service, school, season = ctx
     with service.store.transaction(True) as conn:
         conn.execute("UPDATE institutions SET type='elementary',name='검증초등학교' WHERE id=?", (school["id"],))
-    return service, service.get_institution(school["id"]), season
+    ctx = service, service.get_institution(school["id"]), season
+    _school_event(ctx)
+    return ctx
 
 
 def _write(ctx, documents, *, counts=None, routes=None, **extra):
@@ -96,7 +134,7 @@ def test_count_remaps_document_and_preserves_rejection_and_idempotency(grounded_
     bad = {**claim, "value": 189}
     _write(ctx, [doc], counts=[claim, bad])
     _write(ctx, [doc], counts=[claim, bad])
-    assert _read(ctx) == {school["id"]: 188}
+    assert _read(ctx) == {_event_key(ctx): 188}
     with service.store.transaction() as conn:
         rows = conn.execute("SELECT * FROM count_observations").fetchall()
         assert len(rows) == 2 and {json.loads(row["proof_json"])["allowed"] for row in rows} == {True, False}
@@ -116,7 +154,7 @@ def test_failed_source_does_not_remove_independent_equal_count(grounded_context)
     failed = empty_document(school, doc["display_url"])
     failed["recheck"] = {"status": "failed", "attempted_at": utcnow(), "reason_codes": ["provider_error"]}
     _write(ctx, [failed])
-    assert _read(ctx) == {school["id"]: 188}
+    assert _read(ctx) == {_event_key(ctx): 188}
     failed = empty_document(school, second["display_url"])
     failed["recheck"] = {"status": "failed", "attempted_at": utcnow(), "reason_codes": ["provider_error"]}
     _write(ctx, [failed])
@@ -131,7 +169,7 @@ def test_conflicting_counts_are_held_and_same_source_revision_replaces_support(g
     _write(ctx, [first], counts=[a])
     changed, b = _enrollment(ctx, 189)
     _write(ctx, [changed], counts=[b])
-    assert _read(ctx) == {school["id"]: 189}
+    assert _read(ctx) == {_event_key(ctx): 189}
     independent, c = _enrollment(ctx, 188, "different")
     _write(ctx, [independent], counts=[c])
     assert _read(ctx) == {}
@@ -252,7 +290,7 @@ def test_successful_recheck_adds_new_proof_without_erasing_previous_rejection(gr
     fresh["retrieved_at"] = fresh["last_checked_at"] = utcnow()
     fresh["recheck"] = {"status": "succeeded", "attempted_at": fresh["retrieved_at"], "reason_codes": []}
     _write(ctx, [fresh], counts=[claim])
-    assert _read(ctx) == {school["id"]: 188}
+    assert _read(ctx) == {_event_key(ctx): 188}
     with service.store.transaction() as conn:
         proofs = [json.loads(row[0]) for row in conn.execute("SELECT proof_json FROM count_observations")]
         assert len(proofs) == 2 and {proof["allowed"] for proof in proofs} == {False, True}
@@ -272,13 +310,15 @@ async def test_validated_schoolinfo_source_keeps_count_after_resave_and_restart(
             conn.execute("INSERT INTO institution_identifiers VALUES(?,?,?)", (item["provider"], item["external_key"], school["id"]))
     school = service.get_institution(school["id"])
     ctx = service, school, season
+    _school_event(ctx)
     provider, _ = api_provider() if source == "api" else public_provider()
-    result = await provider.lookup(school, season, IDENTIFIERS)
+    from app.periods import fact_season
+    result = await provider.lookup(school, fact_season(season, 2026), IDENTIFIERS)
     assert result["counts"][0]["value"] == 188
     for _ in range(2):
         service.save_research(school["id"], season["id"], result)
-        assert _read(ctx) == {school["id"]: 188}
+        assert _read(ctx) == {_event_key(ctx): 188}
     restarted = Service(service.store, service.settings)
-    assert _read((restarted, school, season)) == {school["id"]: 188}
+    assert _read((restarted, school, season)) == {_event_key(ctx): 188}
     with service.store.transaction() as conn:
         assert conn.execute("SELECT count(*) FROM count_observations WHERE institution_id=?", (school["id"],)).fetchone()[0] == 1

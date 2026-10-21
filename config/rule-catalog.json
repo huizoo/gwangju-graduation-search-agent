@@ -3,24 +3,29 @@
   "rules": [
     {
       "id": "neis_ceremony_row",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "enabled": true,
       "scope": [
         "ceremony_status",
         "event_date"
       ],
-      "activation_basis": "인증 NEIS 전체 기간에서 첨단고 졸업식 날짜 미지정 탐색 성공. 광주선광학교 실제 5개 과정의 날짜와 행사 식별을 분리하고 날짜 변조·generic 대상 혼합 반례를 차단했다.",
+      "activation_basis": "인증 NEIS 전체 기간에서 첨단고 졸업식 날짜 미지정 탐색 성공. 광주선광학교 실제 5개 과정의 날짜와 행사 식별을 분리하고 날짜 변조·generic 대상 혼합 반례를 차단했다. 1.3.0에서 NEIS AY를 지정하지 않은 실제 날짜 범위 조회로 과거 첨단고 2026-01-21·원문 AY2025 고3 355명과 미래 건국초 2027-01-06·원문 AY2026 초6 188명을 각각 API→JobManager→SQLite→HTML→재시작까지 확인했다.",
       "evidence": [
         "docs/research.md",
         "tests/test_rules.py",
         "tests/test_publication.py",
-        "runtime/provider-live/neis-special-school-scope-check.json"
+        "runtime/provider-live/neis-special-school-scope-check.json",
+        "docs/PERIOD_V3_VALIDATION.md",
+        "tests/test_period_storage.py",
+        "tests/test_period_research_v3.py",
+        "tests/test_period_records.py",
+        "checks/period-v3-results.json"
       ],
-      "limitations": "NEIS에 실제 시작 시각이 없으면 시간은 확인하지 않는다. 1.2.0은 행사 자체의 부정 서술을 분리하고 같은 기관·과정의 HTML 근거를 날짜와 무관하게 연결한다. tests/test_review_regressions.py에서 저장 경로를 검사한다."
+      "limitations": "NEIS에 실제 시작 시각이 없으면 시간은 확인하지 않는다. 1.2.0은 행사 자체의 부정 서술을 분리하고 같은 기관·과정의 HTML 근거를 날짜와 무관하게 연결한다. tests/test_review_regressions.py에서 저장 경로를 검사한다. 기간 3.0은 사용자 기간과 원문 학년도를 분리한다. 같은 정본 행사와 원래 취득 기간으로 재검증하며 모든 학교의 학년도와 대학 전후기를 날짜로 추측하지 않는다. 이전 실행 증거는 해당 버전의 역사로 보존하고 이번 실제 검증과 합산하지 않는다."
     },
     {
       "id": "explicit_notice",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "enabled": true,
       "scope": [
         "ceremony_status",
@@ -31,13 +36,18 @@
       "evidence": [
         "docs/research.md",
         "tests/test_rules.py",
-        "runtime/provider-live/historical-gist-rule-check.json"
+        "runtime/provider-live/historical-gist-rule-check.json",
+        "docs/PERIOD_V3_VALIDATION.md",
+        "tests/test_period_storage.py",
+        "tests/test_period_research_v3.py",
+        "tests/test_period_records.py",
+        "checks/period-v3-results.json"
       ],
-      "limitations": "1.2.0은 기관·행사 명사구와 날짜·시각의 연결어를 검사하고 별도 URL의 명시 취소·미실시를 같은 행사 상태로 검증한다. tests/test_review_regressions.py에 양성·반례를 함께 둔다. 제한된 문장·행사개요 문법이며 모든 자연어 공지 형식이나 현재 시즌 자동 발견율을 보장하지 않는다. 원본 실자료 검증은 1.1.0 당시의 기록으로 보존한다."
+      "limitations": "1.2.0은 기관·행사 명사구와 날짜·시각의 연결어를 검사하고 별도 URL의 명시 취소·미실시를 같은 행사 상태로 검증한다. tests/test_review_regressions.py에 양성·반례를 함께 둔다. 제한된 문장·행사개요 문법이며 모든 자연어 공지 형식이나 현재 시즌 자동 발견율을 보장하지 않는다. 원본 실자료 검증은 1.1.0 당시의 기록으로 보존한다. 기간 3.0은 사용자 기간과 원문 학년도를 분리한다. 같은 정본 행사와 원래 취득 기간으로 재검증하며 모든 학교의 학년도와 대학 전후기를 날짜로 추측하지 않는다. 이전 실행 증거는 해당 버전의 역사로 보존하고 이번 실제 검증과 합산하지 않는다."
     },
     {
       "id": "academic_calendar_row",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "enabled": true,
       "scope": [
         "ceremony_status",
@@ -47,13 +57,18 @@
       "evidence": [
         "docs/evidence/calendar-change-rule.json",
         "tests/test_calendar_change.py",
-        "tests/test_change_storage.py"
+        "tests/test_change_storage.py",
+        "docs/PERIOD_V3_VALIDATION.md",
+        "tests/test_period_storage.py",
+        "tests/test_period_research_v3.py",
+        "tests/test_period_records.py",
+        "checks/period-v3-results.json"
       ],
-      "limitations": "학부/대학원과 학년도, 회차, 변경전/변경후, 두 완전한 날짜와 화살표가 명시된 좁은 행만 지원한다. 날짜 변경만 처리하며 시각·장소 변경, 다른 표 문법, 생략 연도는 추측하지 않는다. 실제 원문은 광주 밖 과거 사례이고 운영 명부에 import하지 않았다. 원문 파서 검증과 합성 대체관계 검증을 실제 광주 일정 변경의 종단 성과로 합산하지 않는다."
+      "limitations": "학부/대학원과 학년도, 회차, 변경전/변경후, 두 완전한 날짜와 화살표가 명시된 좁은 행만 지원한다. 날짜 변경만 처리하며 시각·장소 변경, 다른 표 문법, 생략 연도는 추측하지 않는다. 실제 원문은 광주 밖 과거 사례이고 운영 명부에 import하지 않았다. 원문 파서 검증과 합성 대체관계 검증을 실제 광주 일정 변경의 종단 성과로 합산하지 않는다. 기간 3.0은 사용자 기간과 원문 학년도를 분리한다. 같은 정본 행사와 원래 취득 기간으로 재검증하며 모든 학교의 학년도와 대학 전후기를 날짜로 추측하지 않는다. 이전 실행 증거는 해당 버전의 역사로 보존하고 이번 실제 검증과 합산하지 않는다."
     },
     {
       "id": "grounded_notice",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "enabled": true,
       "scope": [
         "ceremony_status",
@@ -65,9 +80,14 @@
       "evidence": [
         "tests/test_grounded_claims.py",
         "docs/RESEARCH_V2_PROGRESS.md",
-        "docs/RESEARCH_V2_VALIDATION.md"
+        "docs/RESEARCH_V2_VALIDATION.md",
+        "docs/PERIOD_V3_VALIDATION.md",
+        "tests/test_period_storage.py",
+        "tests/test_period_research_v3.py",
+        "tests/test_period_records.py",
+        "checks/period-v3-results.json"
       ],
-      "limitations": "명시된 행사 제목과 역할별 일시 구간, 같은 원문 분절의 연월 제목 바로 뒤 날짜·본식 행을 지원한다. 모호한 표와 문맥 생략을 모델 자신감으로 승인하지 않는다. 실제 광주대학교 검증은 이전 탐색의 공식 경로를 재확인했으며 날짜 게시 후 예산 한도로 중단됐다. 인원까지 포함한 전체 조사 완료나 모든 자연어 의미 오류 차단을 보장하지 않는다."
+      "limitations": "명시된 행사 제목과 역할별 일시 구간, 같은 원문 분절의 연월 제목 바로 뒤 날짜·본식 행을 지원한다. 모호한 표와 문맥 생략을 모델 자신감으로 승인하지 않는다. 실제 광주대학교 검증은 이전 탐색의 공식 경로를 재확인했으며 날짜 게시 후 예산 한도로 중단됐다. 인원까지 포함한 전체 조사 완료나 모든 자연어 의미 오류 차단을 보장하지 않는다. 기간 3.0은 사용자 기간과 원문 학년도를 분리한다. 같은 정본 행사와 원래 취득 기간으로 재검증하며 모든 학교의 학년도와 대학 전후기를 날짜로 추측하지 않는다. 이전 실행 증거는 해당 버전의 역사로 보존하고 이번 실제 검증과 합산하지 않는다. 1.1.0의 실제 과거 건국초 Ollama 탐색은 공식 일정 미발견으로 한도 중단됐고 후보 0건이었다. 이전 광주대 성공을 이번 모델 성공으로 계산하지 않는다. 여러 날짜의 공통 시각은 전체 날짜 목록과 공통 시작의 관계가 명시되어야 하며 일부 날짜·수기 시각을 다른 날로 전파하지 않는다."
     }
   ]
 }

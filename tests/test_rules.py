@@ -28,7 +28,7 @@ def context(source="neis"):
         document = notice(institution, text)
     candidate = extract_candidates(document, institution, season)[0]
     event = {"id": str(uuid4()), "institution": institution, "event_type": candidate["event_type"],
-             "audience": candidate["audience"], "campus_label": None, "_identifiers": {"neis": "F10:123"}}
+             "audience": candidate["audience"], "academic_year": candidate["academic_year"], "campus_label": None, "_identifiers": {"neis": "F10:123"}}
     observation = {"id": str(uuid4()), "institution_id": institution["id"], "season_id": season["id"],
                    "event_id": event["id"], "document_id": document["id"], "candidate": candidate}
     return institution, season, document, event, observation
@@ -111,7 +111,7 @@ def test_notice_does_not_confuse_admission_or_invalid_time(tail, expected):
 
 @pytest.mark.parametrize("text", [
     "검증초등학교 졸업식은 2027년 1월 7일 오전 11시에 시작합니다.",
-    "2025학년도 검증초등학교 졸업식은 2027년 1월 7일 오전 11시에 시작합니다.",
+    "2025학년도 검증초등학교 졸업식은 2026년 1월 7일 오전 11시에 시작합니다.",
     "2026학년도 다른초등학교 졸업식은 2027년 1월 7일 오전 11시에 시작합니다.",
     "2026학년도 검증초등학교 졸업식은 2027년 1월에 합니다.",
     "2026학년도 검증초등학교 졸업식은 2027년 2월 30일 오전 11시에 시작합니다.",

@@ -177,7 +177,8 @@ class Application:
         folder = self.data_dir / "exports"
         folder.mkdir(exist_ok=True)
         # DB와 파일을 한 트랜잭션으로 묶을 수 없으므로 기존 파일 대신 새 불변 버전을 쓴다.
-        path = folder / f"{snapshot['season']['export_key']}-r{snapshot['content_revision']}-{uuid4().hex[:8]}.html"
+        period_name = f"graduation-schedule-{snapshot['season']['search_start']}-{snapshot['season']['search_end']}"
+        path = folder / f"{period_name}-r{snapshot['content_revision']}-{uuid4().hex[:8]}.html"
         temp = folder / f".{uuid4()}.tmp"
         revision = snapshot["content_revision"]
         try:
@@ -221,7 +222,8 @@ class Application:
             from .results import result_rows, PRESENTATION_VERSION
             snapshot = service.snapshot(query["season_id"])
             return {"presentation_version": PRESENTATION_VERSION, "rows": result_rows(snapshot),
-                    "season_id": query["season_id"], "request_job_id": snapshot["request_job_id"]}
+                    "season_id": query["season_id"], "request_job_id": snapshot["request_job_id"],
+                    "active_job_id": snapshot["active_job_id"]}
         if path == "/api/records/natural":
             from .natural import NaturalRecorder
             return NaturalRecorder(service).record(body)
@@ -289,10 +291,12 @@ class Application:
         if path == "/exports/{export_key}/schedule.html":
             from .exporting import current_export
             with self.store.transaction() as conn:
-                row = conn.execute("SELECT e.file_ref,e.publication_policy_version FROM exports e JOIN seasons s ON s.id=e.season_id WHERE s.export_key=?", (request.path_params["export_key"],)).fetchone()
+                row = conn.execute("SELECT e.file_ref,e.publication_policy_version,s.search_start,s.search_end FROM exports e JOIN seasons s ON s.id=e.season_id WHERE s.export_key=?", (request.path_params["export_key"],)).fetchone()
             if not row or row["publication_policy_version"] != "4.0" or not row["file_ref"] or not current_export(row["file_ref"]):
                 raise ApiError("not_found", "현재 정책으로 저장한 일정표가 없습니다.", 404)
-            return FileResponse(row["file_ref"], media_type="text/html; charset=utf-8")
+            return FileResponse(row["file_ref"], media_type="text/html; charset=utf-8",
+                                filename=f"graduation-schedule-{row['search_start']}-{row['search_end']}.html",
+                                content_disposition_type="inline")
         if path == "/api/app/shutdown":
             await self.jobs.shutdown()
             if self.shutdown_callback:

@@ -6,6 +6,7 @@ from datetime import date, timedelta
 from urllib.parse import urlsplit
 
 from .providers import official_channel
+from .identity import ceremony_term
 
 
 def _quotes(evidence: list, document: dict) -> list[str] | None:
@@ -67,7 +68,7 @@ def _ceremony_block(candidate: dict, document: dict, institution: dict, season: 
         candidate: 검증할 미승인 후보.
         document: 읽기 상태와 원문 분절.
         institution: 공식 채널을 확인한 대상 학교.
-        season: 조사 학년도와 날짜 범위.
+        season: 실제 행사일의 고정 날짜 범위.
     Returns:
         해당 본식의 연속 문맥. 관계를 확인하지 못하면 None.
     """
@@ -104,15 +105,20 @@ def _ceremony_block(candidate: dict, document: dict, institution: dict, season: 
         title_area = block[:heading.end()+30]
         if re.search(r"(?:[가-힣]+학과|[가-힣]+학부|단과대학)\s*(?:졸업식|학위\s*수여식)", title_area):
             return None
+        source_term = ceremony_term({"title": title_area})
+        if source_term != ceremony_term(candidate):
+            return None
     years = set(re.findall(r"(20\d{2})\s*학년도", block))
-    if years and years != {str(season["academic_year"])}:
+    year = candidate.get("academic_year")
+    if years and years != {str(year)}:
         return None
-    if candidate.get("academic_year") != season["academic_year"]:
+    # 명시되지 않은 학년도를 달력 날짜에서 채우지 않는다. 지연 행사의 학년도도 원문대로다.
+    if not years and year is not None:
         return None
     if not years:
         days = explicit_days(" ".join(_quotes(candidate.get("date_evidence", []), document) or []))
         if (candidate.get("season_alignment") != "source_context" or not days
-                or not all(season["search_start"] <= day <= season["search_end"] for day in days)):
+                or not any(season["search_start"] <= day <= season["search_end"] for day in days)):
             return None
     elif candidate.get("season_alignment") not in {"explicit", "source_context"}:
         return None
@@ -158,7 +164,7 @@ def _calendar_days(candidate: dict, document: dict, season: dict) -> list[str]:
     Args:
         candidate: 행사 문맥과 날짜의 연속 인용을 제출한 후보.
         document: 분절 경계를 보존한 공식 학사일정 원문.
-        season: 대상 학년도.
+        season: 실제 행사일의 고정 날짜 범위.
     Returns:
         단 하나의 행사 행에 연결된 날짜. 헤더·행 관계가 모호하면 빈 목록.
     """
@@ -180,7 +186,7 @@ def _calendar_days(candidate: dict, document: dict, season: dict) -> list[str]:
         if re.search(r"학위복|대여|반납|수령|기념촬영|식전|공연|예행|설명회|취소|미실시|미개최|실시하지|연기", following):
             continue
         years = set(re.findall(r"(20\d{2})\s*학년도", following))
-        if years and years != {str(season["academic_year"])}:
+        if years and years != {str(candidate.get("academic_year"))}:
             continue
         # 다른 행의 명칭·시각과 날짜를 결합하지 않고 바로 붙은 본식 한 행만 인정한다.
         headers = list(re.finditer(r"(?m)^[ \t]*(20\d{2})[./](\d{1,2})[ \t]*$", segment[:offset + row.start()]))
@@ -193,6 +199,60 @@ def _calendar_days(candidate: dict, document: dict, season: dict) -> list[str]:
     return matches if len(matches) == 1 else []
 
 
+def _common_time_for_days(line: str, days: list[str], value: str) -> bool:
+    """하나의 날짜 목록 바로 뒤 시각만 여러 날의 공통 시각으로 연결한다.
+
+    Args:
+        line: 시각 인용이 속한 하나의 실제 행사 행.
+        days: 같은 문맥에서 별도로 검증한 전체 행사일.
+        value: 확인하려는 본식 시작 시각.
+    Returns:
+        날짜 목록·공통 시작의 관계가 명시된 경우 True.
+    """
+    if "\n" in line or explicit_days(line) != days:
+        return False
+    date_pattern = r"(?<!\d)(20\d{2})\s*(?:년|[./-])\s*(\d{1,2})\s*(?:월|[./-])\s*(\d{1,2})\s*일?\.?"
+    date_matches = list(re.finditer(date_pattern, line))
+    clock_matches = list(re.finditer(
+        r"(오전|오후)?\s*(\d{1,2})(?::([0-5]\d)|시(?:\s*([0-5]?\d)분)?)", line))
+    if not date_matches or not clock_matches:
+        return False
+    first_clock = clock_matches[0]
+    if first_clock.start() < date_matches[-1].end():
+        # '20일 14시, 21일'처럼 특정 날짜 뒤의 시각은 목록 전체에 적용되지 않는다.
+        return False
+    hour = int(first_clock[2])
+    if first_clock[1]:
+        if not 1 <= hour <= 12:
+            return False
+        hour = hour % 12 + (12 if first_clock[1] == "오후" else 0)
+    elif first_clock[3] is None and hour < 13:
+        return False
+    if f"{hour:02}:{int(first_clock[3] or first_clock[4] or 0):02}" != value:
+        return False
+    # 목록 안에는 날짜·요일·연결 기호만 허용한다. 별도 날짜의 역할 설명을 건너뛰지 않는다.
+    phrase = line[date_matches[0].start():first_clock.start()]
+    phrase = re.sub(date_pattern, "D", phrase)
+    phrase = re.sub(r"\([월화수목금토일]\)", "", phrase)
+    phrase = re.sub(r"(?<=[~～–-])\s*(?:\d{1,2}\s*(?:월|[./-])\s*)?\d{1,2}\s*일?\.?", "D", phrase)
+    phrase = re.sub(r"\s+", "", phrase)
+    if re.search(r"~|～|–|-|부터", phrase) and not re.search(r"공통|매일|양일", phrase):
+        # 연속 기간 뒤의 시각은 첫날 시작일 수도 있으므로 매일이라는 관계를 별도로 요구한다.
+        return False
+    if not re.fullmatch(r"D(?:(?:,|·|ㆍ|및|와|과|~|～|–|-|부터)D(?:까지)?)*(?:공통|매일|양일)?[:：]?", phrase):
+        return False
+    if len(clock_matches) > 1:
+        # 명시된 시작~종료 범위만 허용한다. 날짜별 다른 시각 목록은 공통 시작이 아니다.
+        if len(clock_matches) != 2 or not re.fullmatch(
+                r"\s*[-~～–]\s*", line[first_clock.end():clock_matches[1].start()]):
+            return False
+    suffix = line[clock_matches[-1].end():].strip()
+    if not re.fullmatch(r"(?:(?:에|부터)\s*)?(?:(?:졸업식|본식)\s*)?(?:(?:시작|개식)(?:합니다|됩니다)?)?\s*(?:\(예정\))?[.!。]?", suffix):
+        # 시각 뒤에 특정 일자·대상을 한정하는 나머지 문맥이 있으면 공통이라고 해석하지 않는다.
+        return False
+    return True
+
+
 def grounded_claim(field: str, value, candidate: dict, document: dict,
                    institution: dict, season: dict) -> bool:
     """추출 파서의 재발견 여부와 독립적으로 원문 후보의 관계를 확인한다.
@@ -203,14 +263,15 @@ def grounded_claim(field: str, value, candidate: dict, document: dict,
         candidate: 원문 역할별 인용을 가진 후보.
         document: 읽기·공식 관계가 검증된 불변 문서.
         institution: 대상 학교.
-        season: 요청 학년도와 기간.
+        season: 요청한 실제 행사일 범위.
     Returns:
         명시한 값과 실제 본식의 관계를 모두 확인했는지 여부.
     """
     block = _ceremony_block(candidate, document, institution, season)
-    if block is None or candidate.get("ceremony_status") != "scheduled":
+    if block is None:
         return False
-    if re.search(r"(?:졸업식|학위수여식)[^\n.]{0,50}(?:취소|미실시|미개최|실시하지|연기)", block):
+    status = candidate.get("ceremony_status")
+    if status != "scheduled" and field != "ceremony_status":
         return False
     dates = _field_quotes(candidate, "date_evidence", document)
     if not dates:
@@ -229,10 +290,31 @@ def grounded_claim(field: str, value, candidate: dict, document: dict,
     expected = claim.get("dates", [claim.get("date")])
     if (claim.get("precision") != "day" or not parsed_days or expected != parsed_days
             or claim.get("date") != parsed_days[0]
-            or not all(season["search_start"] <= day <= season["search_end"] for day in parsed_days)):
+            or not any(season["search_start"] <= day <= season["search_end"] for day in parsed_days)):
         return False
     if field == "ceremony_status":
-        return value == "scheduled"
+        if status == "scheduled":
+            return value == "scheduled" and not re.search(
+                r"(?:졸업식|학위수여식)[^\n.]{0,50}(?:취소|미실시|미개최|실시하지|연기)", block)
+        # 날짜가 명시된 해당 본식에 붙은 부정만 인정하고 촬영·식전 행사의 취소와 분리한다.
+        from .rules import _NEGATIVE
+        for line in block.splitlines():
+            match = re.search(r"(?:졸업식|학위\s*수여식)(?:은|는|이|을)?\s*[:：]?\s*(.*)$", line)
+            if not match:
+                continue
+            tail = match[1]
+            for day in list(re.finditer(r"(?:20\d{2})\s*(?:년|[./-])\s*\d{1,2}\s*(?:월|[./-])\s*\d{1,2}\s*일?\.?(?:\([월화수목금토일]\))?", tail))[::-1]:
+                tail = tail[:day.start()] + tail[day.end():]
+            tail = re.sub(r"^\s*(?:예정이었으나|예정이던|행사를)?\s*", "", tail).strip()
+            negative = _NEGATIVE.fullmatch(tail)
+            if negative:
+                actual = "cancelled" if "취소" in negative["status"] else "unclear" if "연기" in negative["status"] else "not_held"
+                if value == status == actual and actual in {"cancelled", "not_held"}:
+                    return True
+        return False
+    if status != "scheduled" or re.search(
+            r"(?:졸업식|학위수여식)[^\n.]{0,50}(?:취소|미실시|미개최|실시하지|연기)", block):
+        return False
     if field == "event_date":
         return value == claim
     if field == "start_time":
@@ -243,6 +325,8 @@ def grounded_claim(field: str, value, candidate: dict, document: dict,
         for quote in times:
             line = _role_line(block, quote)
             if re.search(side_role, line) or not re.search(r"일시|시작|개식|본식|졸업식|학위\s*수여식", line):
+                return False
+            if len(parsed_days) > 1 and not _common_time_for_days(line, parsed_days, value):
                 return False
             for m in re.finditer(r"(오전|오후)?\s*(\d{1,2})(?::([0-5]\d)|시(?:\s*([0-5]?\d)분)?)", quote):
                 hour = int(m[2])
@@ -269,8 +353,8 @@ def validate_count(claim: dict, document: dict, institution: dict, season: dict,
         claim: 학년도·종류·학년·단위·근거가 있는 인원 후보.
         document: 해당 후보의 공개 원문.
         institution: 공식 학교 식별자.
-        season: 조사 학년도.
-        event: 대학 인원을 연결할 대표 행사. 초중고 학년 인원에는 필요 없다.
+        season: 행사일 범위 또는 단독 자료 검증의 명시적 학년도.
+        event: 인원을 연결할 행사와 원문 학년도. 초중고 자료 자체 검증에는 생략 가능하다.
     Returns:
         allowed와 채택하지 않은 이유. 미발견을 0명으로 바꾸지 않는다.
     """
@@ -285,8 +369,14 @@ def validate_count(claim: dict, document: dict, institution: dict, season: dict,
             or document.get("institution_id") != institution.get("id")
             or document.get("status") != "ok" or document.get("partial")):
         reasons.append("count_evidence_invalid")
-    if claim["academic_year"] != season["academic_year"]:
+    university = institution.get("type") in {"university", "junior_college"}
+    event_year = (event or {}).get("academic_year")
+    if ((event is not None and event_year != claim["academic_year"])
+            or (event is None and "search_start" not in season and type(season.get("academic_year")) is int
+                and claim["academic_year"] != season["academic_year"])):
         reasons.append("count_wrong_year")
+    if university and event_year is None:
+        reasons.append("count_event_year_unknown")
     grade = {"elementary": 6, "middle": 3, "high": 3}.get(institution.get("type"))
     if grade:
         if claim["kind"] != "graduating_grade_enrollment" or claim["grade"] != grade:
@@ -422,12 +512,24 @@ def validate_count(claim: dict, document: dict, institution: dict, season: dict,
         own = institution.get("name", "").replace(" ", "")
         if any(name not in own and name not in {"대학교", "대학원"} and own not in name for name in names):
             reasons.append("count_wrong_institution")
-        if not re.search(rf"{season['academic_year']}\s*학년도", text):
+        if not re.search(rf"{claim['academic_year']}\s*학년도", text):
             reasons.append("count_year_not_explicit")
         n = re.escape(f"{claim['value']:,}").replace(",", ",?")
         if grade:
-            if not re.search(rf"{grade}\s*학년[^\n]{{0,150}}(?:학생\s*수|합계|계|총)\s*[:|：]?\s*{n}\s*명", text):
+            matches = list(re.finditer(rf"{grade}\s*학년[^\n]{{0,150}}(?:학생\s*수|합계|계|총)\s*[:|：]?\s*{n}\s*명", text))
+            if not matches:
                 reasons.append("count_grade_relation_missing")
+            linked_years = []
+            for match in matches:
+                left = text.rfind("\n", 0, match.start()) + 1
+                right = text.find("\n", match.end())
+                line = text[left:right if right >= 0 else len(text)]
+                line_years = set(re.findall(r"(20\d{2})\s*학년도", line))
+                headers = list(re.finditer(r"(20\d{2})\s*학년도", text[:match.start()]))
+                linked_years.append(line_years if line_years else {headers[-1][1]} if headers else set())
+            # 문서 어딘가의 학년도와 다른 표·행의 학생 수를 교차 결합하지 않는다.
+            if not any(years == {str(claim["academic_year"])} for years in linked_years):
+                reasons.append("count_grade_year_relation_missing")
         else:
             if (not re.search(r"졸업식|학위\s*수여식", text)
                     or re.search(r"[가-힣]+(?:학과|학부)\s*(?:졸업식|학위\s*수여식)", text)):
@@ -438,7 +540,7 @@ def validate_count(claim: dict, document: dict, institution: dict, season: dict,
                 reasons.append("count_department_only")
             count_lines = [line for line in text.splitlines()
                            if re.search(rf"(?:졸업생|학위\s*취득자|학위\s*수여자)[^\n]{{0,60}}(?<![\d,]){n}(?!\d)\s*명", line)]
-            if any(set(re.findall(r"(20\d{2})\s*학년도", line)) - {str(season["academic_year"])}
+            if any(set(re.findall(r"(20\d{2})\s*학년도", line)) - {str(claim["academic_year"])}
                    for line in count_lines):
                 reasons.append("count_other_cohort_year")
             campus = (event or {}).get("campus_label") or institution.get("campus_label")
@@ -447,6 +549,8 @@ def validate_count(claim: dict, document: dict, institution: dict, season: dict,
                 or re.search(r"\S+캠퍼스", text)
             ):
                 reasons.append("count_campus_unmatched")
+            if ceremony_term(event or {}) != ceremony_term({"title": text}):
+                reasons.append("count_term_unmatched")
             event_title = (event or {}).get("event_title", (event or {}).get("title", ""))
             sequence = re.search(r"제\s*(\d+)\s*회", event_title)
             source_sequences = set(re.findall(r"제\s*(\d+)\s*회\s*(?:졸업식|학위\s*수여식)", text))

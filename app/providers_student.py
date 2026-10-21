@@ -101,12 +101,15 @@ class StudentProvider:
 
         Args:
             institution: 공식 목록에서 확인한 학교명·유형·주소.
-            season: 조사 학년도.
+            season: 확인할 행사 학년도가 명시된 내부 조회 문맥.
             identifiers: NEIS 등 기존 공식 학교 식별자.
         Returns:
             StudentResult. 인원 실패는 일정 날짜를 변경하지 않는다.
         """
         empty = {"status": "no_data", "reason_codes": [], "documents": [], "counts": []}
+        # 사용자 시즌의 이름·시작연도 대신 실행기가 고정한 자료 학년도를 사용한다.
+        if type(season.get("academic_year")) is not int:
+            return {**empty, "status": "identity_unresolved", "reason_codes": ["academic_year_required"]}
         if institution.get("type") not in SCHOOL_TYPES:
             return {**empty, "reason_codes": ["ceremony_count_requires_notice"]}
         if institution.get("district") not in DISTRICT_CODES:

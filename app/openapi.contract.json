@@ -3,7 +3,7 @@
   "info": {
     "title": "광주 졸업식 일정 도우미 P0 API",
     "version": "4.0",
-    "description": "로컬 SQLite 졸업식 조사: 전체 학교 날짜·인원, 행사별 시간 조사, 자연어 기록과 결과 계약 2.0"
+    "description": "로컬 SQLite 졸업식 조사: 포함 날짜 범위 시즌, 전체 학교 날짜·행사 학년도 인원, 행사별 시간 조사, 자연어 기록과 결과 계약 3.0"
   },
   "servers": [
     {
@@ -140,7 +140,8 @@
           {
             "LocalToken": []
           }
-        ]
+        ],
+        "description": "search_start와 search_end를 포함하는 실제 행사일 범위로 시즌을 생성한다. 종료일은 시작일의 달력 6개월 후보다 빨라야 한다. 이름·파일명은 자동 구성하며 같은 기간은 기존 시즌 ID를 반환한다. 사용자 입력 학년도는 수집·검증 학년도로 사용하지 않는다."
       }
     },
     "/api/seasons/{id}": {
@@ -194,7 +195,8 @@
           {
             "LocalToken": []
           }
-        ]
+        ],
+        "description": "기존 시즌의 기간은 불변이다. 다른 기간으로 변경하면 409 season_period_immutable을 반환하며 새 시즌 조사를 사용해야 한다."
       }
     },
     "/api/overview": {
@@ -1153,7 +1155,8 @@
           {
             "LocalToken": []
           }
-        ]
+        ],
+        "description": "기간·시즌 revision·조사 목적·대상 행사 ID와 날짜·설정을 시작 시 고정한다. 전체 날짜·인원 조사는 표시 필터와 무관하며 시간 조사는 단일 행사만 대상이다. 시작·재개·저장에 동일 조건과 활성 작업 제한을 적용한다."
       }
     },
     "/api/jobs/{id}": {
@@ -1746,7 +1749,8 @@
             }
           }
         ],
-        "security": []
+        "security": [],
+        "description": "결과 계약 3.0. 선택 기간과 교차하는 현재 허용 날짜·행사 학년도 인원, 시즌과 대상 행사에 연결된 최근 time_search 및 active_job_id를 반환한다."
       }
     },
     "/api/records/natural": {

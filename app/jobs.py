@@ -195,7 +195,10 @@ class Meter:
                 raise BudgetStop("user_cancel")
             item = conn.execute("SELECT * FROM job_items WHERE id=?", (self.item_id,)).fetchone()
             if job["kind"] == "schedule_scan":
-                self.manager.service.save_research(item["institution_id"], job["season_id"], result, conn=conn)
+                snapshot = json.loads(job["scope_snapshot_json"])
+                self.manager._assert_scope(conn, snapshot)
+                self.manager.service.save_research(item["institution_id"], job["season_id"],
+                    {**result, "season_snapshot": snapshot["season"]}, conn=conn)
             history = json.loads(item["history_json"] or "[]") + [{"at": now(), "stage": stage, "trace": result.get("trace", []),
                         "agent_trace": result.get("agent_trace", []), "stop_reason": result.get("stop_reason"),
                         "coverage": result.get("coverage", {}), "errors": result.get("errors", []),
@@ -317,6 +320,8 @@ class JobManager:
                 if row is None:
                     raise ApiError("not_found", "시즌을 찾을 수 없습니다.", 404)
                 season = dict(row)
+                from .periods import validate_period
+                validate_period(season["search_start"], season["search_end"])
                 from .scope import eligible_school
                 institutions = [self.service._institution(conn, row[0]) for row in conn.execute("SELECT id FROM institutions ORDER BY name,id")]
                 institutions = [r for r in institutions if eligible_school(r, season)]
@@ -337,12 +342,12 @@ class JobManager:
                     )]
                 if purpose == "time":
                     target = conn.execute("SELECT * FROM events WHERE id=?", (payload["target_event_id"],)).fetchone()
-                    if (not target or target["season_id"] != season["id"]
+                    if (not target or not conn.execute("SELECT 1 FROM event_seasons WHERE season_id=? AND event_id=?", (season["id"], target["id"])).fetchone()
                             or len(institutions) != 1 or target["institution_id"] != institutions[0]["id"]):
                         raise ApiError("event_match_required", "시간을 찾을 학교와 해당 시즌의 행사를 확인해 주세요.")
                     if conn.execute("SELECT 1 FROM event_aliases WHERE old_id=?", (target["id"],)).fetchone():
                         raise ApiError("event_match_required", "연결된 현재 행사에서 시간 찾기를 눌러 주세요.")
-                    if not self.service._project(conn, target["id"])[0]["publication"]["current_date_allowed"]:
+                    if not self.service._project(conn, target["id"], season_id=season["id"])[0]["publication"]["current_date_allowed"]:
                         raise ApiError("event_match_required", "일정찾기로 졸업식 날짜를 먼저 확인해 주세요.")
                 # 종료일 미상 기관은 남기고, 시즌 시작 전 공식 종료만 큐에서 제외한다.
                 institutions = [r for r in institutions if not (
@@ -368,6 +373,8 @@ class JobManager:
             snapshot = {"season": season, "source_config_hash": self.settings.source_config_hash,
                         "purpose": payload.get("purpose", "date_count"),
                         "target_event_id": payload.get("target_event_id"), "research_version": RESEARCH_VERSION}
+            snapshot["target_event_date"] = (self.service._project(conn, payload["target_event_id"], season_id=season["id"])[0]["fields"]["event_date"]["effective_value"]
+                                              if payload.get("purpose") == "time" else None)
             conn.execute(
                 "INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (job_id, payload["kind"], season["id"] if season else None, "queued", None,
@@ -381,8 +388,30 @@ class JobManager:
                 )
             return self._job(conn, self._row(conn, job_id))
 
+    def _assert_scope(self, conn, snapshot):
+        """실행·재개·저장 직전에 고정 기간과 대상 행사일을 대조한다.
+
+        Args:
+            conn: 작업 상태와 공유하는 거래.
+            snapshot: 작업 시작 시 고정한 범위.
+        Raises:
+            ApiError: 기간이나 대상 행사일이 바뀌었거나 현재 사용할 수 없는 경우.
+        """
+        frozen = snapshot.get("season")
+        if not frozen:
+            return
+        current = self.service._season(conn, frozen["id"])
+        if any(current.get(key) != frozen.get(key) for key in ("id", "search_start", "search_end", "revision")):
+            raise ApiError("season_changed", "조사 기간이 작업 시작 당시와 다릅니다. 새 조사를 시작해 주세요.", 409)
+        if snapshot.get("purpose") == "time":
+            event = self.service._project(conn, snapshot["target_event_id"], season_id=frozen["id"])[0]
+            if (not event["publication"]["current_date_allowed"]
+                    or event["fields"]["event_date"]["effective_value"] != snapshot.get("target_event_date")):
+                raise ApiError("event_date_changed", "졸업식 날짜가 바뀌었습니다. 현재 행사에서 시간을 다시 찾아 주세요.", 409)
+
     def recover(self) -> None:
         """재시작 시 취소 의도를 우선하고 불명확한 호출 비용을 유지한다."""
+        from .scope import RESEARCH_VERSION
         with self.store.transaction(write=True) as conn:
             conn.execute("UPDATE call_reservations SET status='charged_unknown',finished_at=? WHERE status='reserved'", (now(),))
             for row in conn.execute("SELECT * FROM jobs WHERE status IN ('running','pausing','cancelling','queued')").fetchall():
@@ -395,6 +424,12 @@ class JobManager:
                     status, reason = ("paused", "interrupted") if remaining else ("completed", None)
                 conn.execute("UPDATE jobs SET status=?,paused_reason=?,revision=revision+1,updated_at=? WHERE id=?", (status, reason, now(), row["id"]))
                 conn.execute("UPDATE job_segments SET ended_at=? WHERE job_id=? AND ended_at IS NULL", (now(), row["id"]))
+            # 이전 조사 계약에는 자료 학년도·고정 행사일 조건이 없어 그대로
+            # 재개할 수 없다. 화면에서도 불가능한 재개 대신 새 조사를 안내한다.
+            for row in conn.execute("SELECT id,scope_snapshot_json FROM jobs WHERE status='paused' AND paused_reason IS NOT 'configuration_required'").fetchall():
+                if json.loads(row["scope_snapshot_json"]).get("research_version") != RESEARCH_VERSION:
+                    conn.execute("UPDATE jobs SET paused_reason='configuration_required',revision=revision+1,updated_at=? WHERE id=?",
+                                 (now(), row["id"]))
 
     def pause(self, job_id: str) -> dict:
         """다음 호출 전 멈추도록 의도를 먼저 영속화한다.
@@ -465,6 +500,7 @@ class JobManager:
             from .scope import RESEARCH_VERSION
             if json.loads(row["scope_snapshot_json"]).get("research_version") != RESEARCH_VERSION:
                 raise ApiError("settings_changed", "조사 방식이 변경되었습니다. 기록을 유지하고 새 일정찾기를 시작해 주세요.", 409)
+            self._assert_scope(conn, json.loads(row["scope_snapshot_json"]))
             limits = json.loads(row["limits_json"])
             for name, value in (payload["increase_limits"] or {}).items():
                 if value < limits[name]:
@@ -525,6 +561,11 @@ class JobManager:
                 return
             from .scope import RESEARCH_VERSION
             if json.loads(row["scope_snapshot_json"]).get("research_version") != RESEARCH_VERSION:
+                conn.execute("UPDATE jobs SET status='paused',paused_reason='configuration_required' WHERE id=?", (job_id,))
+                return
+            try:
+                self._assert_scope(conn, json.loads(row["scope_snapshot_json"]))
+            except ApiError:
                 conn.execute("UPDATE jobs SET status='paused',paused_reason='configuration_required' WHERE id=?", (job_id,))
                 return
             number = conn.execute("SELECT coalesce(max(segment_number),0)+1 FROM job_segments WHERE job_id=?", (job_id,)).fetchone()[0]
@@ -651,15 +692,22 @@ class JobManager:
                 with self.store.transaction() as conn:
                     institution = self.service._institution(conn, item["institution_id"])
                     documents = self.service._documents(conn, item["institution_id"])
+                    # 원문 취득 시즌과 행사 표시 시즌은 다르다. 정본 행사에 연결된
+                    # 공개 문서만 재사용하고 수기 메모·대화 원문은 전달하지 않는다.
                     linked = {row[0] for row in conn.execute(
-                        "SELECT document_id FROM observations WHERE institution_id=? AND season_id=? AND disposition!='rejected' "
+                        "SELECT o.document_id FROM observations o WHERE o.institution_id=? AND o.disposition!='rejected' "
+                        "AND (o.season_id=? OR EXISTS(SELECT 1 FROM event_seasons es "
+                        "WHERE es.event_id=o.event_id AND es.season_id=?)) "
                         "UNION SELECT m.source_document_id FROM manual_overrides m JOIN events e ON e.id=m.event_id "
-                        "WHERE e.institution_id=? AND e.season_id=? AND m.active=1 AND m.source_document_id IS NOT NULL",
-                        (item["institution_id"], snapshot["season"]["id"], item["institution_id"], snapshot["season"]["id"]))}
+                        "JOIN event_seasons es ON es.event_id=e.id "
+                        "WHERE e.institution_id=? AND es.season_id=? AND m.active=1 AND m.source_document_id IS NOT NULL",
+                        (item["institution_id"], snapshot["season"]["id"], snapshot["season"]["id"],
+                         item["institution_id"], snapshot["season"]["id"]))}
                     linked.update(row[0] for row in conn.execute(
                         "SELECT DISTINCT d.id FROM manual_overrides m JOIN events e ON e.id=m.event_id "
+                        "JOIN event_seasons es ON es.event_id=e.id "
                         "JOIN documents d ON d.institution_id=e.institution_id AND d.display_url=m.source_url "
-                        "WHERE e.institution_id=? AND e.season_id=? AND m.active=1",
+                        "WHERE e.institution_id=? AND es.season_id=? AND m.active=1",
                         (item["institution_id"], snapshot["season"]["id"])))
                     source_keys = {documents[key]["source_key"] for key in linked if key in documents}
                     latest_sources = {}
@@ -677,10 +725,9 @@ class JobManager:
                     routes = reusable_routes(conn, institution["id"], snapshot.get("purpose", "date_count"))
                     target_event = None
                     if snapshot.get("target_event_id"):
-                        projection = self.service._project(conn, snapshot["target_event_id"])[0]
-                        target_event = {k: projection.get(k) for k in ("id", "title", "event_type", "audience", "campus_label")}
-                        target_event["event_date"] = (deepcopy(projection["fields"]["event_date"]["effective_value"])
-                            if projection["publication"]["current_date_allowed"] else None)
+                        projection = self.service._project(conn, snapshot["target_event_id"], season_id=snapshot["season"]["id"])[0]
+                        target_event = {k: projection.get(k) for k in ("id", "title", "event_type", "audience", "campus_label", "academic_year", "ceremony_term")}
+                        target_event["event_date"] = deepcopy(snapshot["target_event_date"])
                     evidence = {"documents": list(latest_sources.values()), "verified_values": {}}
                 import inspect
                 arguments = {"identifiers": identifiers}
@@ -718,22 +765,31 @@ class JobManager:
             if reason in {"segment_budget", "job_budget"} and not cancelled:
                 conn.execute("UPDATE jobs SET status='pausing',paused_reason=? WHERE id=?", (reason, job_id))
             # 저장은 같은 트랜잭션의 취소 검사 뒤 수행해야 취소 후 늦은 응답을 반영하지 않는다.
+            if result is not None and not cancelled and job["kind"] == "schedule_scan":
+                try:
+                    self._assert_scope(conn, snapshot)
+                except ApiError:
+                    result, reason, outcome = None, "configuration_required", "blocked"
+                    error = {"code": "scope_changed", "message": "작업 시작 당시의 기간이나 행사일이 바뀌어 결과를 반영하지 않았습니다.",
+                             "retryable": False, "details": {"reason_codes": ["configuration_required"]}}
             if result is not None and not cancelled:
                 if job["kind"] == "registry_sync":
                     self.service.save_registry_sync(result, conn=conn)
                     outcome = "verified"
                 else:
-                    saved = self.service.save_research(item["institution_id"], snapshot["season"]["id"], result, conn=conn)
+                    self._assert_scope(conn, snapshot)
+                    saved = self.service.save_research(item["institution_id"], snapshot["season"]["id"],
+                        {**result, "season_snapshot": snapshot["season"]}, conn=conn)
                     if result.get("errors"):
                         reason = "provider_error"
                     from .research_records import current_counts
-                    projections = [self.service._project(conn, event_id)[0] for event_id in saved["event_ids"]]
+                    projections = [self.service._project(conn, event_id, season_id=snapshot["season"]["id"])[0] for event_id in saved["event_ids"]]
                     counts = current_counts(self.service, conn, snapshot["season"], projections)
                     if snapshot.get("purpose") == "time":
                         ready = any(e["id"] == snapshot.get("target_event_id") and e["publication"]["current_time_allowed"] for e in projections)
                     else:
-                        ready = any(e["publication"]["current_date_allowed"] and (
-                            e["id"] in counts or e["institution"]["id"] in counts) for e in projections)
+                        relevant = [e for e in projections if e["publication"]["current_date_allowed"]]
+                        ready = bool(relevant) and all(e["id"] in counts for e in relevant)
                     outcome = "verified" if ready else ("no_data" if not saved["observation_ids"] and not reason else "needs_review")
             pending = reason in {"segment_budget", "job_budget", "user_pause", "interrupted"}
             status = "cancelled" if cancelled else ("pending" if pending else ("failed" if error else "done"))

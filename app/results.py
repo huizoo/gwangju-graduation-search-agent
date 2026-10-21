@@ -6,7 +6,7 @@ from .identity import scope
 from .providers import official_channel
 from .scope import eligible_school
 
-PRESENTATION_VERSION = "2.0"
+PRESENTATION_VERSION = "3.0"
 
 
 def human_url(value: object) -> str | None:
@@ -88,7 +88,7 @@ def result_rows(snapshot: dict) -> list[dict]:
         if not groups:
             groups[None] = []
         for key, group in groups.items():
-            date_values, time_values, statuses = set(), set(), set()
+            date_values, time_values, shared_times, statuses = set(), set(), set(), set()
             documents = []
             for event in group:
                 pub = event["publication"]
@@ -97,7 +97,11 @@ def result_rows(snapshot: dict) -> list[dict]:
                     current_value = event.get("fields", {}).get("event_date", {}).get("effective_value") or {}
                     date_values.add(tuple(current_value.get("dates", [pub["calendar_date"]])))
                     if permissions["start_time"]["current_allowed"] and pub.get("calendar_time"):
-                        time_values.add((pub["calendar_date"], pub["calendar_time"]))
+                        timing = (pub["calendar_date"], pub["calendar_time"])
+                        time_values.add(timing)
+                        if (len(current_value.get("dates", [])) > 1
+                                and not event.get("fields", {}).get("start_time", {}).get("manual")):
+                            shared_times.add(timing)
                 status_field = event.get("fields", {}).get("ceremony_status", {})
                 manual = status_field.get("manual")
                 automatic = status_field.get("automatic", {})
@@ -109,8 +113,13 @@ def result_rows(snapshot: dict) -> list[dict]:
                 documents.extend(snapshot.get("documents", {}).get(event["id"], event.get("documents", [])))
             status = "cancelled" if "cancelled" in statuses else "not_held" if statuses else None
             dates = list(next(iter(date_values))) if len(date_values) == 1 and not status else []
+            period = snapshot.get("season")
+            if period:
+                dates = [day for day in dates if period["search_start"] <= day <= period["search_end"]]
             day = dates[0] if dates else None
-            time = next(iter(time_values))[1] if len(time_values) == 1 and next(iter(time_values))[0] == day else None
+            # 자동 공통 시각은 교집합에도 유지하되 특정 날짜에 연결한 수기는 다른 날로 확장하지 않는다.
+            timing = next(iter(time_values)) if len(time_values) == 1 else None
+            time = timing[1] if timing and day and (timing[0] == day or timing in shared_times) else None
             address = institution.get("address") if institution.get("source_checked_at") else None
             # 수기 프로필 수정은 원래의 공식 주소 증명을 자동 상속하지 않는다.
             if "address" in institution.get("profile_overrides", {}):
@@ -120,17 +129,19 @@ def result_rows(snapshot: dict) -> list[dict]:
             label = ""
             if len(groups) > 1 and group:
                 label = " · ".join(filter(None, [group[0].get("audience"), group[0].get("campus_label"),
-                                                  f"제{key[3]}회" if key[3] else None]))
+                                                  f"제{key[3]}회" if key[3] else None,
+                                                  f"{group[0]['academic_year']}학년도" if group[0].get("academic_year") else None,
+                                                  group[0].get("ceremony_term")]))
             elif institution.get("campus_label"):
                 label = institution["campus_label"]
             counts = snapshot.get("counts", {})
             populations = {counts[e["id"]] for e in group if e["id"] in counts}
-            if institution["id"] in counts:
-                populations.add(counts[institution["id"]])
+            event_ids = [e["id"] for e in group]
+            time_search = snapshot.get("time_searches", {}).get(event_ids[0]) if len(event_ids) == 1 else None
             result.append({"institution_id": institution["id"], "event_ids": [e["id"] for e in group],
                            "name": institution["name"], "event_label": label,
                            "date": day, "dates": dates, "district": institution["district"],
                            "start_time": time, "address": address or None,
                            "graduation_count": next(iter(populations)) if len(populations) == 1 and not status else None,
-                           "url": school_link(institution, documents), "status": status})
+                           "url": school_link(institution, documents), "status": status, "time_search": time_search})
     return sorted(result, key=lambda r: (r["date"] or "9999", r["start_time"] or "99:99", r["name"], r["event_label"]))

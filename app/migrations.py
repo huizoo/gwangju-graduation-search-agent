@@ -55,6 +55,7 @@ def install_extensions(store, *, existing: bool):
     with store.transaction() as conn:
         marker = conn.execute("SELECT value FROM app_meta WHERE key='experience_schema'").fetchone()
     if marker and marker[0] == "2":
+        install_periods(store, existing=existing)
         return
     if marker and marker[0] != "1":
         raise ApiError("migration_required", "지원하지 않는 기록 확장 버전입니다. 기존 DB를 보존했습니다.", 409)
@@ -65,6 +66,75 @@ def install_extensions(store, *, existing: bool):
         for statement in EXTENSION_SQL.split(";"):
             if statement.strip():
                 conn.execute(statement)
+    install_periods(store, existing=existing)
+
+
+def install_periods(store, *, existing: bool):
+    """기존 UUID·외래키를 보존하고 기간과 행사 학년도 저장을 분리한다.
+
+    Args:
+        store: 열린 거래가 없는 저장소.
+        existing: 변경 전 백업이 필요한 기존 파일인지 여부.
+    Raises:
+        ApiError: 지원하지 않는 확장 버전 또는 이관 무결성 오류.
+    """
+    import re
+    from .identity import ceremony_term
+    with store.transaction() as conn:
+        marker = conn.execute("SELECT value FROM app_meta WHERE key='period_schema'").fetchone()
+    if marker:
+        if marker[0] != "1":
+            raise ApiError("migration_required", "지원하지 않는 기간 저장 구조입니다.", 409)
+        return
+    if existing:
+        store.backup(store.path.parent / "backups" / f"before-period-1-{fingerprint(utcnow())[:12]}.sqlite3")
+    conn = store.connect()
+    try:
+        # SQLite는 NOT NULL만 제거하는 ALTER를 지원하지 않는다. 부모 UUID를
+        # 그대로 복사해 교체하고 commit 전에 모든 자식 참조를 다시 검사한다.
+        conn.execute("PRAGMA foreign_keys=OFF")
+        conn.execute("BEGIN IMMEDIATE")
+        columns = {r["name"]: dict(r) for r in conn.execute("PRAGMA table_info(seasons)")}
+        if columns["academic_year"]["notnull"]:
+            conn.execute("""CREATE TABLE seasons_period(
+                id TEXT PRIMARY KEY,label TEXT NOT NULL,
+                academic_year INTEGER CHECK(academic_year BETWEEN 2000 AND 2100),
+                search_start TEXT NOT NULL,search_end TEXT NOT NULL CHECK(search_end>=search_start),
+                export_key TEXT UNIQUE NOT NULL,timezone TEXT NOT NULL CHECK(timezone='Asia/Seoul'),
+                region_profile TEXT NOT NULL CHECK(region_profile='gwangju_5_gu'),
+                revision INTEGER NOT NULL DEFAULT 1)""")
+            conn.execute("INSERT INTO seasons_period SELECT * FROM seasons")
+            conn.execute("DROP TABLE seasons")
+            conn.execute("ALTER TABLE seasons_period RENAME TO seasons")
+        event_columns = {r["name"] for r in conn.execute("PRAGMA table_info(events)")}
+        if "academic_year" not in event_columns:
+            conn.execute("ALTER TABLE events ADD COLUMN academic_year INTEGER")
+        if "ceremony_term" not in event_columns:
+            conn.execute("ALTER TABLE events ADD COLUMN ceremony_term TEXT")
+        conn.execute("""CREATE TABLE event_seasons(
+            season_id TEXT NOT NULL REFERENCES seasons(id),event_id TEXT NOT NULL REFERENCES events(id),
+            PRIMARY KEY(season_id,event_id))""")
+        conn.execute("INSERT INTO event_seasons SELECT season_id,id FROM events")
+        for row in conn.execute("SELECT e.*,i.type FROM events e JOIN institutions i ON i.id=e.institution_id").fetchall():
+            years = {int(y) for y in re.findall(r"(20\d{2})\s*학년도", row["title"])}
+            for observation in conn.execute(
+                "SELECT candidate_json FROM observations WHERE event_id=? AND disposition='accepted'", (row["id"],)):
+                candidate = json.loads(observation[0])
+                if candidate.get("academic_year") is not None:
+                    years.add(candidate["academic_year"])
+            conn.execute("UPDATE events SET academic_year=?,ceremony_term=? WHERE id=?",
+                         (next(iter(years)) if len(years) == 1 else None,
+                          ceremony_term(dict(row)), row["id"]))
+        if conn.execute("PRAGMA foreign_key_check").fetchone():
+            raise ApiError("migration_required", "기간 이관의 참조 검사를 통과하지 못해 변경을 취소했습니다.", 409)
+        conn.execute("INSERT INTO app_meta VALUES('period_schema','1')")
+        conn.commit()
+    except BaseException:
+        conn.rollback()
+        raise
+    finally:
+        conn.execute("PRAGMA foreign_keys=ON")
+        conn.close()
 
 
 def reconcile_rules(service):
@@ -78,7 +148,7 @@ def reconcile_rules(service):
     rules = service._enabled_rules()
     if not rules:
         return
-    marker = fingerprint({"rules": rules, "identity": 3})
+    marker = fingerprint({"rules": rules, "identity": 4})
     with service.store.transaction() as conn:
         previous = conn.execute("SELECT value FROM app_meta WHERE key='assessed_rules'").fetchone()
         has_events = conn.execute("SELECT 1 FROM events LIMIT 1").fetchone()
@@ -112,6 +182,8 @@ def reconcile_rules(service):
                                  (current["id"], dumps(candidate), digest, row["id"]))
                 conn.execute("UPDATE manual_overrides SET event_id=? WHERE event_id=?", (current["id"], old["id"]))
                 conn.execute("UPDATE count_observations SET event_id=? WHERE event_id=?", (current["id"], old["id"]))
+                conn.execute("INSERT OR IGNORE INTO event_seasons SELECT season_id,? FROM event_seasons WHERE event_id=?",
+                             (current["id"], old["id"]))
                 conn.execute("INSERT INTO event_aliases VALUES(?,?,?)", (old["id"], current["id"], utcnow()))
                 _audit(conn, "event", current["id"], "link_previous_event", before=old, after={"current_id": current["id"]},
                        actor="system", summary="같은 기관·과정·캠퍼스 행사의 이전 기록 연결")

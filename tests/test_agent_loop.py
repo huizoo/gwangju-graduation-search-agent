@@ -64,6 +64,8 @@ def test_structured_date_and_students_stop_without_model_or_time_search(monkeypa
     def handler(request):
         calls.append(request.url.host)
         assert request.url.host == "open.neis.go.kr"
+        if request.url.params.get("AY") == "2027":
+            return no_calendar()
         return httpx.Response(200, json={"SchoolSchedule": [{"head": [{"list_total_count": 1}, {"RESULT": {"CODE": "INFO-000"}}]}, {"row": [row]}]})
 
     async def forbidden(*args, **kwargs):
@@ -100,13 +102,13 @@ def test_agent_changes_action_after_old_year_search_and_document_observations(mo
     async def model(self, school, window, context):
         contexts.append(deepcopy(context))
         if len(contexts) == 1:
-            assert any(item.get("outcome") == "wrong_year" for item in context["observations"])
+            assert any(item.get("outcome") == "outside_window" for item in context["observations"])
             return decision("search_web", query='"검증초등학교" "2026학년도" 졸업식 날짜', reason="읽은 안내는 이전 학년도이므로 올해 공지를 찾습니다.")
         if len(contexts) == 2:
             assert context["observations"][-1]["tool"] == "search_public_web"
             assert "https://school.example/new" in context["available_links"]
             return decision("fetch_document", url="https://school.example/new", reason="검색에서 발견한 공식 원문을 읽습니다.")
-        assert context["observations"][-1]["document_id"] in {item["id"] for item in context["documents"]}
+        assert any(item.get("document_id") in {doc["id"] for doc in context["documents"]} for item in context["observations"])
         assert context["missing_fields"] == ["graduation_count"]
         return decision(reason="날짜와 같은 원문의 본식 시각은 확인했으며 인원 근거는 확보하지 못했습니다.")
 

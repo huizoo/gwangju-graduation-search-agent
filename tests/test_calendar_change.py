@@ -114,7 +114,7 @@ def test_actual_unverified_capture_fails_value_check_even_when_parser_finds_cand
     document, school, target, candidate, event, observation = actual_context()
     proof = value_check(field, candidate[field], observation, document, event, target, institution=school)
     validate("ValueCheck", proof)
-    assert proof["rule_id"] == "academic_calendar_row" and proof["rule_version"] == "1.0.0"
+    assert proof["rule_id"] == "academic_calendar_row" and proof["rule_version"] == "1.1.0"
     assert proof["status"] == "rejected" and proof["checks"]["content"] == "fail"
     assert not verify(field, candidate[field], observation, document, event, target, institution=school)
     assert document["authority"] == "unverified" and document["authority_evidence"] is None
@@ -144,7 +144,6 @@ def test_actual_unverified_capture_is_held_by_publication_boundary(monkeypatch):
 
 
 @pytest.mark.parametrize("text", [
-    SYNTHETIC_TEXT.replace("2025학년도", "2024학년도"),
     "2024학년도 학부 학사력 변경\n" + SYNTHETIC_TEXT,
     SYNTHETIC_TEXT.replace("학부 ", ""),
     "2025학년도 대학원 학사력 변경\n" + SYNTHETIC_TEXT,
@@ -164,6 +163,16 @@ def test_actual_unverified_capture_is_held_by_publication_boundary(monkeypatch):
 def test_synthetic_ambiguous_change_grammar_does_not_create_candidate(text):
     document, school = synthetic_document(text)
     assert extract_candidates(document, school, season()) == []
+
+
+def test_explicit_university_year_is_not_replaced_by_date_or_legacy_season_year():
+    """늦게 열리는 대학 행사는 명시 학년도를 유지하고 실제 날짜 범위로 찾는다."""
+    document, school = synthetic_document(SYNTHETIC_TEXT.replace("2025학년도", "2024학년도"))
+    candidates = extract_candidates(document, school, season())
+    assert len(candidates) == 1
+    assert candidates[0]["academic_year"] == 2024
+    assert candidates[0]["event_date"]["date"] == "2026-02-20"
+    assert candidates[0]["is_change_notice"]
 
 
 def test_synthetic_round_and_audience_changes_keep_separate_event_identity():

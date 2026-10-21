@@ -37,7 +37,7 @@ def test_duplicate_link_keeps_event_and_observation_history(source_context):
     original_id = saved["event_ids"][0]
     with service.store.transaction(True) as conn:
         canonical_id = service._insert_event(conn, {"institution_id":school["id"],"season_id":season["id"],
-            "title":"졸업식","event_type":"graduation_ceremony","audience":"초등학교 6학년","campus_label":None})
+            "title":"졸업식","academic_year":2026,"event_type":"graduation_ceremony","audience":"초등학교 6학년","campus_label":None})
         before = [(r["id"], r["document_id"]) for r in conn.execute("SELECT * FROM observations")]
         conn.execute("DELETE FROM app_meta WHERE key='assessed_rules'")
     reopened = Service(Store(service.store.path), {"auto_rule_ids":["explicit_notice","neis_ceremony_row"]})

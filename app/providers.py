@@ -12,7 +12,7 @@ import re
 import socket
 import time
 import weakref
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urljoin, urlsplit, urlunsplit
 from uuid import uuid4
@@ -20,6 +20,7 @@ from uuid import uuid4
 import httpx
 from bs4 import BeautifulSoup
 from jsonschema.exceptions import ValidationError
+
 
 _MODEL_SEMAPHORES = weakref.WeakKeyDictionary()
 
@@ -453,11 +454,11 @@ class NeisProvider:
         return neis_registry(rows)
 
     async def calendar(self, institution: dict, season: dict, identifiers: list[dict]) -> dict:
-        """학교 코드와 시즌 전체 기간으로 일정을 조회한다.
+        """학교 코드와 실제 행사 날짜 범위로 전체 일정을 조회한다.
 
         Args:
             institution: 조사 대상 기관.
-            season: 실제 저장된 조사 기간과 학년도.
+            season: 실제 행사일을 찾는 고정 기간. 학년도는 응답 원문에서 보존한다.
             identifiers: 목록 적재에서 확인한 자료원 식별자.
         Returns:
             인증 및 전체 기간·페이지 완전성을 포함한 CalendarResult.
@@ -469,20 +470,21 @@ class NeisProvider:
             result["reason_codes"] = ["configuration_required"]
             return result
         office, school = code
+        # AY를 날짜에서 계산해 제한하면 3월로 연기된 이전 학년도 행사를 누락한다.
         params = {"ATPT_OFCDC_SC_CODE": office, "SD_SCHUL_CODE": school,
-                  "AY": str(season["academic_year"]),
                   "AA_FROM_YMD": season["search_start"].replace("-", ""),
                   "AA_TO_YMD": season["search_end"].replace("-", "")}
         try:
             rows = await self.rows("SchoolSchedule", params)
             for row in rows:
-                if any(str(row.get(k, "")) != str(params[k]) for k in ("ATPT_OFCDC_SC_CODE", "SD_SCHUL_CODE", "AY")):
-                    raise ProviderError("wrong_source", "NEIS 응답 기관·학년도가 요청과 다릅니다.", "neis")
+                if any(str(row.get(k, "")) != str(params[k]) for k in ("ATPT_OFCDC_SC_CODE", "SD_SCHUL_CODE")):
+                    raise ProviderError("wrong_source", "NEIS 응답 기관이 요청과 다릅니다.", "neis")
+                if not re.fullmatch(r"20\d{2}", str(row.get("AY", ""))):
+                    raise ProviderError("wrong_source", "NEIS 원문 학년도를 확인하지 못했습니다.", "neis")
                 if not params["AA_FROM_YMD"] <= str(row.get("AA_YMD", "")) <= params["AA_TO_YMD"]:
                     raise ProviderError("outside_window", "NEIS 응답에 조사 기간 밖 행이 포함됐습니다.", "neis")
-                if "졸업" not in str(row.get("EVENT_NM", "")):
-                    continue
-                result["documents"].append(neis_document(institution, row, params))
+                if "졸업" in str(row.get("EVENT_NM", "")):
+                    result["documents"].append(neis_document(institution, row, params))
             result.update(coverage_complete=True, status="ok" if result["documents"] else "no_data")
         except ProviderError as error:
             result.update(status="configuration_required" if error.code == "configuration_required" else "provider_error",
@@ -636,7 +638,7 @@ class ModelProvider:
 
         Args:
             institution: 조사 학교의 공식 이름·유형·홈페이지.
-            season: 조사 학년도와 기간.
+            season: 실제 행사일의 고정 기간. 원문 학년도와 같은 값으로 취급하지 않는다.
             context: 실행 관리자가 만든 공개 문서·행동·검증 결과.
         Returns:
             행동·근거 후보·인원 후보·종료 이유를 담은 AgentDecision.
@@ -713,10 +715,15 @@ class ModelProvider:
             "date_count 목적은 날짜와 졸업인원 조사다. 시간만을 위한 검색이나 읽기를 하지 않는다. 같은 원문에서 명시된 본식 시각은 제출 가능하다. "
             "date_count에서는 행사 날짜와 대표 행사 식별을 먼저 확보한다. 날짜가 미확인이면 event_date 또는 event_identity 행동을 먼저 선택한다. "
             "특히 대학 인원은 어느 대표 행사인지 확인한 후 조사한다. 인원만 반복 검색하며 날짜를 놓치지 않는다. "
-            "time 목적은 target_event와 같은 학교·학년도·캠퍼스·대표 행사의 실제 시작만 조사한다. "
+            "time 목적은 target_event와 같은 학교·학년도·전기/후기·회차·캠퍼스·대표 행사의 실제 시작만 조사한다. "
+            "시즌은 실제 행사 날짜의 양끝 포함 범위이며 학년도가 아니다. 자료마다 원문 학년도를 따로 읽는다. "
+            "모든 학교의 학년도는 행사 날짜에서 추정하지 않는다. 연기된 졸업식도 원문 학년도를 유지한다. "
+            "원문에 학년도가 없으면 academic_year=null이다. 대학 전기/후기·회차도 원문에서만 확인한다. "
+            "전기/후기·회차가 명시되면 event_title에 원문 표기를 유지한다. 인원은 같은 행사 학년도와 연결해야 한다. "
             "대학은 학교·캠퍼스 대표 학위수여식만 다룬다. 같은 대표 행사의 학부·대학원을 나누지 않는다. "
             "학위복 대여·학위증 수령·촬영·입장·설명회는 본식이 아니다. 모집인원·전체 재학생은 졸업인원이 아니다. "
             "초중고 인원은 해당 학년도 초6·중3·고3 재학생, 대학은 같은 대표 행사의 공개 졸업인원만 제출한다. "
+            "candidate_reviews에서 검증된 학년별 인원은 이미 확보한 자료다. 해당 API를 다시 행사 일정으로 해석하지 않는다. "
             "원문을 읽지 않은 검색 snippet은 후보 근거가 아니다. candidates/counts는 읽은 document_id와 실제 segment_id의 연속 인용을 사용한다. "
             "후보는 evidence_block_id,event_title,event_type,academic_year,ceremony_status,dates,start_time,campus_label,date_quote,time_quote를 사용한다. "
             "읽은 구간의 evidence_block_id로 근거를 선택한다. 서버가 실제 문서와 연속 구간을 문맥 근거로 연결한다. "
@@ -724,7 +731,8 @@ class ModelProvider:
             "section_header가 있으면 같은 원문에서 해당 행 앞의 YYYY.MM 연월 소제목이다. 해당 헤더와 MM.DD 행을 연결하고 date_quote는 행의 실제 날짜 표기를 인용한다. "
             "dates의 연도는 section_header의 달력 연도다. 학년도와 달력 연도는 다르다. 예를 들어 2025학년도 행이라도 헤더가 2026.02면 날짜 연도는 2026이다. "
             "dates는 실제 행사일 YYYY-MM-DD 목록이며 불명이면 []다. 대여·수령 기간은 넣지 않는다. "
-            "원문 행사일이 조사기간 밖이면 dates=[]로 남기고 현재 시즌 자료를 더 찾는다. 범위에 맞추려고 원문 날짜를 변경하지 않는다. "
+            "같은 본식의 여러 날짜 중 하루 이상 조사기간에 포함되면 원문 전체 날짜를 dates에 보존한다. "
+            "모든 행사일이 조사기간 밖이면 dates=[]로 남기고 더 찾는다. 범위에 맞추려고 원문 날짜를 변경하지 않는다. "
             "캠퍼스는 원문에서 확인하지 못하면 null이다. 본식 시각이 없으면 start_time과 time_quote 모두 null이다. "
             "확보한 날짜는 후보로 제출하고 인원 부족만으로 날짜 후보를 생략하지 않는다. 원문에 없는 문장·숫자를 만들지 않는다. "
             "candidate_reviews에서 이미 supported인 날짜 후보는 다시 제출할 필요 없다. 현재 missing_fields에 남은 정보만 다음 행동으로 조사한다. "
@@ -737,11 +745,11 @@ class ModelProvider:
         # 수기 메모와 입력 원문은 고정된 허용 필드에서부터 제외한다.
         public = {
             "institution": {k: institution.get(k) for k in ("id", "name", "type", "campus_label", "homepage_url")},
-            "season": {k: season.get(k) for k in ("academic_year", "search_start", "search_end")},
+            "season": {"search_start": season["search_start"], "search_end": season["search_end"]},
             **{k: context.get(k) for k in ("purpose", "expected_fields", "missing_fields", "conflicts",
                                          "limits_remaining", "available_links", "available_tools", "reusable_routes")},
             "target_event": {k: context.get("target_event", {}).get(k) for k in
-                             ("id", "title", "event_type", "audience", "campus_label", "event_date")}
+                             ("id", "title", "event_type", "audience", "campus_label", "event_date", "academic_year", "ceremony_term")}
                             if context.get("target_event") else None,
             "observations": context.get("observations", [])[-8:],
             "prior_actions": context.get("prior_actions", [])[-8:],
@@ -754,7 +762,7 @@ class ModelProvider:
             {**{k: r[k] for k in ("document_id", "allowed", "reasons", "checks") if k in r},
              **({"proposed": {k: r["candidate"].get(k) for k in ("event_title", "event_date", "start_time")}}
                 if r.get("candidate") else {}),
-             **({"proposed": {k: r["count"].get(k) for k in ("value", "kind", "event_date")}}
+             **({"proposed": {k: r["count"].get(k) for k in ("value", "kind", "academic_year", "event_date")}}
                 if r.get("count") else {})}
             for r in public["candidate_reviews"]]
         public["available_links"] = sorted(public["available_links"] or [],
@@ -774,18 +782,23 @@ class ModelProvider:
             public["available_links"].pop()
         while fixed_size + len(canonical(public)) > limit - 500 and public["candidate_reviews"]:
             public["candidate_reviews"].pop(0)
+        year_pattern = r"20\d{2}"
         block_number = 0
         for doc in reversed(context.get("documents", [])):
+            # 정형 학년 인원은 전용 검증 결과로 전달하고 숫자 행을 행사 일정으로 재해석하지 않는다.
+            if doc.get("source_key", "").startswith("schoolinfo:"):
+                continue
             if fixed_size + len(canonical(public)) > limit - 150:
                 break
             selected = {k: doc.get(k) for k in ("id", "display_url", "title", "status", "source_kind")}
             selected["segments"] = []
             public["documents"].append(selected)
             def relevance(segment):
-                """조기졸업 메뉴보다 실제 행사 명사와 목표 학년도가 있는 구간을 먼저 읽는다."""
+                """조기졸업 메뉴보다 실제 행사 명사와 원문 학년도가 있는 구간을 먼저 읽는다."""
                 text = segment["text"]
                 ceremony = bool(re.search(r"졸업식|학위\s*수여식|학위수여일", text))
-                current = bool(re.search(rf"{season['academic_year']}\s*학년도", text))
+                current = (institution.get("type") not in {"university", "junior_college"}
+                           and bool(re.search(rf"{year_pattern}\s*학년도", text)))
                 return (-int(ceremony), -int(current), -int(bool(re.search(r"학생\s*수|졸업\s*인원", text))))
             segments = sorted(doc.get("segments", []), key=relevance)
             relevant = [segment for segment in segments
@@ -795,34 +808,47 @@ class ModelProvider:
             for segment in segments:
                 if block_number >= 32:
                     break
-                matched = re.search(rf"{season['academic_year']}\s*학년도[\s\S]{{0,60}}?(?:졸업식|학위\s*수여식|학위수여일)", segment["text"])
+                matched = re.search(rf"{year_pattern}\s*학년도[\s\S]{{0,60}}?(?:졸업식|학위\s*수여식|학위수여일)", segment["text"])
                 matched = matched or re.search(r"졸업식|학위\s*수여식|학위수여일|학생\s*수|졸업\s*인원", segment["text"])
                 start = max(0, matched.start() - 500) if matched else 0
                 source = segment["text"][start:start + 4000]
-                block_number += 1
-                excerpt = {"id": segment["id"], "evidence_block_id": f"b{block_number}", "text": ""}
                 rows = list(re.finditer(r"(?:^|\n)(\d{1,2}\.\d{1,2}(?:\([월화수목금토일]\))?)\s*\n([^\n]*(?:졸업식|학위\s*수여식)[^\n]*)", segment["text"]))
-                current_rows = [row for row in rows if re.search(rf"{season['academic_year']}\s*학년도", row[2])]
-                if len(current_rows) == 1:
-                    row = current_rows[0]
-                    headings = list(re.finditer(r"(?:^|\n)((?:20\d{2})\.(?:0?[1-9]|1[0-2]))\s*\n", segment["text"][:row.start()]))
-                    if headings:
-                        # 달력의 숫자 격자를 생략하되 행과 소제목은 각각 실제 원문 그대로 제공한다.
-                        source = segment["text"][row.start(1):row.end(2)]
-                        excerpt["section_header"] = headings[-1][1]
-                selected["segments"].append(excerpt)
-                low, high = 0, len(source)
-                # 줄바꿈·따옴표의 JSON escape까지 세어 실제 예약 한도를 지킨다.
-                while low < high:
-                    middle = (low + high + 1) // 2
-                    excerpt["text"] = source[:middle]
-                    if fixed_size + len(canonical(public)) <= limit:
-                        low = middle
-                    else:
-                        high = middle - 1
-                excerpt["text"] = source[:low]
-                if not excerpt["text"]:
-                    selected["segments"].pop()
+                snippets = []
+                for row in rows:
+                    headings = list(re.finditer(r"(?:^|\n)((?:20\d{2})\.(?:0?[1-9]|1[0-2]))\s*\n", segment["text"][:row.start(1)]))
+                    if not headings:
+                        continue
+                    header_year, header_month = map(int, headings[-1][1].split("."))
+                    row_month, row_day = map(int, re.match(r"(\d+)\.(\d+)", row[1]).groups())
+                    try:
+                        actual_day = date(header_year, row_month, row_day).isoformat()
+                    except ValueError:
+                        continue
+                    if header_month == row_month and season["search_start"] <= actual_day <= season["search_end"]:
+                        # 대학 학년도를 날짜에서 추정하지 않고 실제 연월 제목으로 원문 선택만 한다.
+                        snippets.append((segment["text"][row.start(1):row.end(2)], headings[-1][1]))
+                for source, header in snippets[:4] or [(source, None)]:
+                    if block_number >= 32:
+                        break
+                    block_number += 1
+                    excerpt = {"id": segment["id"], "evidence_block_id": f"b{block_number}", "text": ""}
+                    if header:
+                        excerpt["section_header"] = header
+                    selected["segments"].append(excerpt)
+                    low, high = 0, len(source)
+                    # 줄바꿈·따옴표의 JSON escape까지 세어 실제 예약 한도를 지킨다.
+                    while low < high:
+                        middle = (low + high + 1) // 2
+                        excerpt["text"] = source[:middle]
+                        if fixed_size + len(canonical(public)) <= limit:
+                            low = middle
+                        else:
+                            high = middle - 1
+                    excerpt["text"] = source[:low]
+                    if not excerpt["text"]:
+                        selected["segments"].pop()
+                    if fixed_size + len(canonical(public)) > limit - 150:
+                        break
                 if fixed_size + len(canonical(public)) > limit - 150:
                     break
             if not selected["segments"]:
@@ -894,7 +920,7 @@ class ModelProvider:
 
         Args:
             institution: 기관 이름과 식별자. 사적 메모는 선택하지 않는다.
-            season: 목표 학년도와 기간.
+            season: 실제 행사일을 찾는 고정 기간.
             document: 공개 reader가 읽은 DocumentRead.
         Returns:
             서버 사실 검증 전의 Candidate 목록.
@@ -961,7 +987,7 @@ class ModelProvider:
             "JSON 객체 {\"candidates\": [...]}만 반환하고 아래 후보 추출용 schema를 지킨다.\n"
             + canonical(output_schema)
         )
-        user = canonical({"institution_name": institution["name"], "academic_year": season["academic_year"],
+        user = canonical({"institution_name": institution["name"],
                           "search_start": season["search_start"], "search_end": season["search_end"], "segments": selected})
         try:
             result = await self._structured(system, user, output_schema)

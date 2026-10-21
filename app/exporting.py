@@ -8,7 +8,7 @@ from pathlib import Path
 from .results import result_rows
 
 STATIC = Path(__file__).with_name("static")
-MARKER = '<meta name="schedule-presentation" content="2.0">'
+MARKER = '<meta name="schedule-presentation" content="3.0">'
 
 
 def table_body(rows: list[dict]) -> str:

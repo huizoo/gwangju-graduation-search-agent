@@ -1,4 +1,4 @@
-"""실제 LangGraph·MCP를 통과하는 연구 흐름을 격리 transport로 검사한다."""
+"""실제 학교별 Agent·MCP를 통과하는 연구 흐름을 격리 transport로 검사한다."""
 
 import asyncio
 import json
@@ -99,8 +99,8 @@ def test_missing_services_produce_partial_research_not_fake_results(monkeypatch)
     assert not calls and not result["candidates"] and not result["documents"]
     assert result["status"] == "partial"
     assert {error["provider"] for error in result["errors"]} == {"neis"}
-    assert result["coverage"]["students"]["status"] == "identity_unresolved"
-    assert result["coverage"]["students"]["reason_codes"] == ["district_required"]
+    assert result["coverage"]["students"]["academic_year_coverage"] == []
+    assert not any(item["tool"] == "get_graduating_students" for item in result["trace"])
 
 
 def test_budget_stop_survives_real_mcp_error_boundary():

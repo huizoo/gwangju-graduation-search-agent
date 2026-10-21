@@ -387,14 +387,10 @@
         }
       },
       "required": [
-        "label",
-        "academic_year",
         "search_start",
-        "search_end",
-        "export_key",
-        "timezone",
-        "region_profile"
-      ]
+        "search_end"
+      ],
+      "description": "양끝 포함 행사 날짜 범위. 종료일은 시작일에 달력상 6개월을 더해 말일 보정한 날짜보다 작아야 한다. 이름과 저장 키는 서버 자동 생성. 학년도 등 이전 입력은 호환용이며 조사 자료의 학년도를 고정하지 않는다."
     },
     "OfficialChannel": {
       "type": "object",
@@ -662,9 +658,13 @@
           "minLength": 1
         },
         "academic_year": {
-          "type": "integer",
+          "type": [
+            "integer",
+            "null"
+          ],
           "minimum": 2000,
-          "maximum": 2100
+          "maximum": 2100,
+          "description": "기존 시즌의 역사적 호환 필드. 새 기간 시즌은 null이며 수집·검증 학년도 조건으로 사용하지 않는다."
         },
         "search_start": {
           "type": "string",
@@ -1421,6 +1421,14 @@
               "type": "null"
             }
           ]
+        },
+        "ceremony_term": {
+          "enum": [
+            null,
+            "전기",
+            "후기"
+          ],
+          "description": "원문에 명시된 대학 대표 행사 구분. 날짜에서 추측하지 않는다."
         }
       },
       "required": [
@@ -2090,6 +2098,42 @@
             "sample",
             "authenticated"
           ]
+        },
+        "academic_year_coverage": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "academic_year": {
+                "type": "integer"
+              },
+              "from_date": {
+                "type": "string",
+                "format": "date"
+              },
+              "to_date": {
+                "type": "string",
+                "format": "date"
+              },
+              "status": {
+                "type": "string"
+              },
+              "reason_codes": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            },
+            "required": [
+              "academic_year",
+              "from_date",
+              "to_date",
+              "status",
+              "reason_codes"
+            ]
+          }
         }
       },
       "required": [
@@ -2681,6 +2725,23 @@
           },
           "minItems": 1,
           "maxItems": 4
+        },
+        "academic_year": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 2000,
+          "maximum": 2100,
+          "description": "자료에서 확인한 학년도. 학교 종류와 관계없이 사용자 조사 기간이나 행사 날짜만으로 학년도를 추측하지 않는다."
+        },
+        "ceremony_term": {
+          "enum": [
+            null,
+            "전기",
+            "후기"
+          ],
+          "description": "원문에 명시된 대학 대표 행사 구분. 날짜에서 추측하지 않는다."
         }
       },
       "required": [
@@ -4779,6 +4840,23 @@
         },
         "publication": {
           "$ref": "#/$defs/Publication"
+        },
+        "academic_year": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 2000,
+          "maximum": 2100,
+          "description": "자료에서 확인한 학년도. 학교 종류와 관계없이 사용자 조사 기간이나 행사 날짜만으로 학년도를 추측하지 않는다."
+        },
+        "ceremony_term": {
+          "enum": [
+            null,
+            "전기",
+            "후기"
+          ],
+          "description": "원문에 명시된 대학 대표 행사 구분. 날짜에서 추측하지 않는다."
         }
       },
       "required": [
@@ -4957,7 +5035,8 @@
         "label",
         "search_start",
         "search_end"
-      ]
+      ],
+      "description": "기간 불변. 기간을 바꾸려면 새 시즌 생성. 기존 기간과 같은 값 및 이름만 변경 가능."
     },
     "JobScopeSnapshot": {
       "type": "object",
@@ -4990,6 +5069,16 @@
         },
         "research_version": {
           "type": "string"
+        },
+        "target_event_date": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/DateClaim"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "required": [
@@ -8241,6 +8330,53 @@
             "null"
           ],
           "minimum": 0
+        },
+        "time_search": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "job_id": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "outcome": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "paused_reason": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "revision": {
+                  "type": "integer"
+                },
+                "created_at": {
+                  "type": "string",
+                  "format": "date-time"
+                }
+              },
+              "required": [
+                "job_id",
+                "status",
+                "outcome",
+                "paused_reason",
+                "revision",
+                "created_at"
+              ]
+            }
+          ]
         }
       },
       "required": [
@@ -8263,7 +8399,7 @@
       "additionalProperties": false,
       "properties": {
         "presentation_version": {
-          "const": "2.0"
+          "const": "3.0"
         },
         "rows": {
           "type": "array",
@@ -8281,6 +8417,13 @@
             "null"
           ],
           "format": "uuid"
+        },
+        "active_job_id": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
         }
       },
       "required": [
@@ -8289,7 +8432,7 @@
         "season_id",
         "request_job_id"
       ],
-      "description": "사용자 결과 2.0: 날짜·학교명·시간·졸업인원수·학교 주소. 현재 허용 필드와 공식 홈페이지만 제공한다."
+      "description": "사용자 결과 3.0: 기간 시즌·현재 허용 다섯 열·행사별 실제 시간 조사 작업 상태."
     },
     "NaturalRecordRequest": {
       "type": "object",
@@ -8512,6 +8655,11 @@
         "season_id": {
           "type": "string",
           "format": "uuid"
+        },
+        "academic_year": {
+          "type": "integer",
+          "minimum": 2000,
+          "maximum": 2100
         }
       },
       "required": [

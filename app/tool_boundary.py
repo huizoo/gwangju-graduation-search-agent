@@ -14,6 +14,7 @@ from mcp.shared.memory import create_connected_server_and_client_session
 from .domain import SCHEMA
 from .providers import ProviderError, canonical, utcnow
 from .rules import REGISTERED_RULES
+from .periods import fact_season
 
 
 class ResearchTools:
@@ -33,12 +34,23 @@ class ResearchTools:
         self.institution, self.season, self.identifiers = institution, season, identifiers
         self.calendar, self.search, self.reader = calendar, search, reader
         self.students = students
+        self.student_years = set()
         self.trace = []
         self.server = Server("gwangju-graduation-read-tools", version="0.1.0")
         self.definitions = SCHEMA["$defs"]
         self._register()
         self.session = None
         self.pending_error = None
+
+    def allow_student_years(self, years):
+        """서버가 독립 검증한 행사 원문 학년도만 인원 조회 대상으로 허용한다.
+
+        Args:
+            years: 같은 기관·기간의 근거 검사에 통과한 행사 학년도.
+        Returns:
+            없음. 외부 MCP 도구에는 이 권한 갱신 기능을 노출하지 않는다.
+        """
+        self.student_years.update(year for year in years if type(year) is int)
 
     def _schema(self, name):
         """도구 경계에서 같은 4.0 요청·응답 계약을 사용한다."""
@@ -76,7 +88,10 @@ class ResearchTools:
                 elif name == "get_graduating_students":
                     if arguments["season_id"] != self.season["id"]:
                         raise ValueError("고정 조사 학년도를 벗어난 호출")
-                    result = await self.students.lookup(self.institution, self.season, self.identifiers)
+                    year = arguments.get("academic_year")
+                    if year not in self.student_years:
+                        raise ValueError("검증한 행사 원문 학년도만 인원을 조회할 수 있습니다.")
+                    result = await self.students.lookup(self.institution, fact_season(self.season, year), self.identifiers)
                 elif name == "search_public_web":
                     result = await self.search.search(arguments["query"], arguments.get("include_domains"), arguments["max_results"])
                 else:
@@ -87,7 +102,8 @@ class ResearchTools:
                 raise ValueError("읽기 도구 실행이 중단되었습니다.") from None
             Draft202012Validator(self._schema(specs[name][1]), format_checker=FormatChecker()).validate(result)
             self.trace.append({"tool": name, "at": utcnow(), "status": result.get("status"),
-                               "institution_id": self.institution["id"]})
+                               "institution_id": self.institution["id"],
+                               **({"academic_year": year} if name == "get_graduating_students" else {})})
             return [types.TextContent(type="text", text=canonical(result))]
 
         @self.server.list_resources()

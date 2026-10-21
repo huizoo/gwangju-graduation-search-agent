@@ -180,6 +180,16 @@ def parse_turn(text: str, season: dict, moment: str, *, confirmation_reply=False
     audience = re.search(r"[가-힣A-Za-z]+학과|학부|대학원|(?:초등학교|중학교|고등학교|전공과|유치원)\s*\d학년", event_text)
     sequence = re.search(r"제\s*(\d+)\s*회", event_text)
     campus = re.search(r"[가-힣A-Za-z]+캠퍼스", event_text)
+    academic_years = set(re.findall(r"(20\d{2})\s*학년도", event_text))
+    terms = set(re.findall(r"(?:(?<![가-힣])|(?<=학년도))(전기|후기)(?=\s|학위\s*수여식|졸업식|$)", event_text))
+    if len(academic_years) == 1:
+        result["academic_year"] = int(next(iter(academic_years)))
+    elif len(academic_years) > 1:
+        result["questions"].append("어느 학년도의 졸업식인지 알려 주세요.")
+    if len(terms) == 1:
+        result["ceremony_term"] = next(iter(terms))
+    elif len(terms) > 1:
+        result["questions"].append("전기와 후기 중 어느 졸업식인지 알려 주세요.")
     if audience:
         result["audience"] = audience[0]
     if sequence:
@@ -253,8 +263,16 @@ class NaturalRecorder:
             if len(schools) == 1 and state["intent"] == "record":
                 school = schools[0]
                 matches = [e for e in service._events(conn, season["id"]) if e["institution"]["id"] == school["id"]]
+                fixed = next((e for e in matches if e["id"] == state.get("event_id")), None)
+                if state.get("academic_year") is not None:
+                    matches = [e for e in matches if e.get("academic_year") in (None, state["academic_year"])]
+                if state.get("ceremony_term"):
+                    matches = [e for e in matches if e.get("ceremony_term") in (None, state["ceremony_term"])]
                 if state.get("event_id"):
                     matches = [e for e in matches if e["id"] == state["event_id"]]
+                    if fixed and not matches:
+                        scope_ambiguous = True
+                        questions.append("앞서 기록한 행사와 학년도 또는 전후기가 달라요. 어느 행사를 수정할지 확인해 주세요.")
                 if matches and any(state.get(k) for k in ("audience","sequence","campus_label")):
                     scoped = [e for e in matches if
                         (not state.get("audience") or state["audience"] == e.get("audience")) and
@@ -269,6 +287,12 @@ class NaturalRecorder:
                             matches = []
                             scope_ambiguous = False
                             questions.pop()
+                if len(matches) > 1:
+                    dated = [e for e in matches if state.get("date") and e["publication"]["current_date_allowed"]
+                             and state["date"] in (e["fields"]["event_date"]["effective_value"].get("dates")
+                                                   or [e["publication"]["calendar_date"]])]
+                    if len(dated) == 1:
+                        matches = dated
                 if len(matches) > 1:
                     narrowed = [e for e in matches if any(label and label in all_text
                                 for label in (e.get("audience"), e.get("campus_label")))]
@@ -360,17 +384,23 @@ class NaturalRecorder:
                                       "assessment_fingerprint": digest}, field=name,
                                summary="직접 확인 진술과 기존 값의 차이 보류")
                     service.store.touch(conn, season["id"])
-                    event = service._project(conn, event["id"])[0]
+                    event = service._project(conn, event["id"], season_id=season["id"])[0]
                 if can_save and operations:
                     if event:
+                        if any(event.get(key) is None and state.get(key) is not None
+                               for key in ("academic_year", "ceremony_term")):
+                            service.enrich_event_identity(
+                                conn, event["id"], state.get("academic_year"), state.get("ceremony_term"))
                         updated = service.apply_overrides(event["id"], {"expected_revision": event["revision"], "operations": operations})
                     else:
                         updated = service.create_event({
                             "institution_id": schools[0]["id"], "season_id": season["id"],
                             "title": (f"제{state['sequence']}회 " if state.get("sequence") else "") + ("학위수여식" if state.get("event_type")=="degree_award_ceremony" else "졸업식"),
                             "event_type": state.get("event_type", "graduation_ceremony"), "audience": state.get("audience"),
+                            "academic_year": state.get("academic_year"), "ceremony_term": state.get("ceremony_term"),
                             "campus_label": state.get("campus_label", schools[0].get("campus_label")),
                             "allow_separate_event": False, "operations": operations})
+                    service.link_event_periods(conn, updated["id"])
                     state["event_id"] = updated["id"]
                     changed = [op["field"] for op in operations]
                 if conflicts:

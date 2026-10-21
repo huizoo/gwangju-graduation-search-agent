@@ -28,7 +28,7 @@ CREATE TABLE registry_memberships(
  PRIMARY KEY(snapshot_id,external_key)
 );
 CREATE TABLE seasons(
- id TEXT PRIMARY KEY,label TEXT NOT NULL,academic_year INTEGER NOT NULL CHECK(academic_year BETWEEN 2000 AND 2100),
+ id TEXT PRIMARY KEY,label TEXT NOT NULL,academic_year INTEGER CHECK(academic_year BETWEEN 2000 AND 2100),
  search_start TEXT NOT NULL,search_end TEXT NOT NULL CHECK(search_end>=search_start),export_key TEXT UNIQUE NOT NULL,
  timezone TEXT NOT NULL CHECK(timezone='Asia/Seoul'),region_profile TEXT NOT NULL CHECK(region_profile='gwangju_5_gu'),revision INTEGER NOT NULL DEFAULT 1
 );

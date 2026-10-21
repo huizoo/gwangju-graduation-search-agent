@@ -38,11 +38,11 @@ def neis_context(tmp_path):
     return service, service.get_institution(institution["id"]), season
 
 
-def row_for(institution, season, day="20270107", grade="SIX"):
+def row_for(institution, season, day="20270107", grade="SIX", academic_year=2026):
     """날짜와 대상 학년을 독립적으로 바꿀 수 있는 공식 행을 만든다."""
     return {
         "ATPT_OFCDC_SC_CODE": "F10", "SD_SCHUL_CODE": "123",
-        "SCHUL_NM": institution["name"], "AY": str(season["academic_year"]),
+        "SCHUL_NM": institution["name"], "AY": str(academic_year),
         "AA_YMD": day, "EVENT_NM": "졸업식", "EVENT_CNTNT": "",
         "SCHUL_CRSE_SC_NM": "초등학교", f"{grade}_GRADE_EVENT_YN": "Y",
     }
@@ -58,11 +58,13 @@ async def collect_and_save(context, rows=None, *, failure=False, missing_key=Fal
     def handle(request):
         if failure:
             raise httpx.ConnectError("격리된 연결 실패", request=request)
-        if not rows:
+        selected = [row for row in (rows or [])
+                    if request.url.params["AA_FROM_YMD"] <= row["AA_YMD"] <= request.url.params["AA_TO_YMD"]]
+        if not selected:
             return httpx.Response(200, json={"RESULT": {"CODE": "INFO-200", "MESSAGE": "해당하는 데이터가 없습니다."}})
         return httpx.Response(200, json={"SchoolSchedule": [
-            {"head": [{"list_total_count": len(rows)}, {"RESULT": {"CODE": "INFO-000"}}]},
-            {"row": rows},
+            {"head": [{"list_total_count": len(selected)}, {"RESULT": {"CODE": "INFO-000"}}]},
+            {"row": selected},
         ]})
 
     async with httpx.AsyncClient(transport=httpx.MockTransport(handle)) as client:
@@ -178,7 +180,7 @@ async def test_neis_failure_does_not_invalidate_another_season(neis_context):
         "timezone": "Asia/Seoul", "region_profile": "gwangju_5_gu",
     })
     old_context = (service, institution, old_season)
-    _, old_saved = await collect_and_save(old_context, [row_for(institution, old_season, "20260107")])
+    _, old_saved = await collect_and_save(old_context, [row_for(institution, old_season, "20260107", academic_year=2025)])
     _, current_saved = await collect_and_save(neis_context, [row_for(institution, season)])
     await collect_and_save(neis_context, failure=True)
     assert not publication(neis_context, current_saved["event_ids"][0])["current_date_allowed"]

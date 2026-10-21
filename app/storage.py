@@ -104,7 +104,9 @@ class Store:
         """
         conn.execute("UPDATE app_meta SET value=CAST(value AS INTEGER)+1 WHERE key='content_revision'")
         revision = self.revision(conn)
-        seasons = conn.execute("SELECT id FROM seasons" + (" WHERE id=?" if season_id else ""), (season_id,) if season_id else ()).fetchall()
+        # 한 정본 행사를 여러 기간에서 볼 수 있으므로 파생 HTML은 모두 갱신한다.
+        # 시즌 수가 적은 로컬 앱에서 복잡한 변경 전파 누락을 피하는 보수적 선택이다.
+        seasons = conn.execute("SELECT id FROM seasons").fetchall()
         for season in seasons:
             conn.execute("INSERT INTO exports(season_id,content_revision,status) VALUES(?,?,'pending') ON CONFLICT(season_id) DO UPDATE SET content_revision=excluded.content_revision,status='pending'", (season[0], revision))
         return revision
@@ -263,19 +265,32 @@ class Service:
             Season.
         """
         data = validate("SeasonCreate", payload)
-        if data["search_end"] < data["search_start"]:
-            raise ApiError("invalid_date_range", "종료일은 시작일보다 빠를 수 없습니다.")
+        from .periods import validate_period
+        validate_period(data["search_start"], data["search_end"])
         with self.store.transaction(True) as conn:
+            existing = conn.execute("SELECT id FROM seasons WHERE search_start=? AND search_end=? ORDER BY rowid LIMIT 1",
+                                    (data["search_start"], data["search_end"])).fetchone()
+            if existing:
+                return self._season(conn, existing[0])
+            data = {**data, "label": f"{data['search_start']} ~ {data['search_end']}",
+                    "academic_year": None,
+                    "export_key": f"graduation-schedule-{data['search_start']}-{data['search_end']}",
+                    "timezone": "Asia/Seoul", "region_profile": "gwangju_5_gu"}
             if conn.execute("SELECT 1 FROM seasons WHERE export_key=?", (data["export_key"],)).fetchone():
                 raise ApiError("export_key_exists", "일정표 저장 이름이 이미 사용 중입니다.", 409)
             identity = new_id()
             conn.execute("INSERT INTO seasons(id,label,academic_year,search_start,search_end,export_key,timezone,region_profile) VALUES(?,?,?,?,?,?,?,?)", (identity, *(data[key] for key in ("label", "academic_year", "search_start", "search_end", "export_key", "timezone", "region_profile"))))
+            from .periods import within_period
+            for row in conn.execute("SELECT id FROM events WHERE id NOT IN(SELECT old_id FROM event_aliases)").fetchall():
+                event = self._project(conn, row[0])[0]
+                if within_period(event["fields"]["event_date"]["effective_value"], data):
+                    conn.execute("INSERT OR IGNORE INTO event_seasons VALUES(?,?)", (identity, row[0]))
             self.store.touch(conn, identity)
             _audit(conn, "season", identity, "create", after=data)
             return self._season(conn, identity)
 
     def patch_season(self, identity, payload):
-        """기존 시즌 범위를 변경하고 게시 결과를 다음 조회에서 재계산한다.
+        """기간을 유지한 이름 수정만 허용하고 새 범위는 새 시즌으로 분리한다.
 
         Args:
             identity: 시즌 UUID.
@@ -289,6 +304,8 @@ class Service:
         with self.store.transaction(True) as conn:
             old = _one(conn, "seasons", identity)
             _expect(old, data["expected_revision"])
+            if (data["search_start"], data["search_end"]) != (old["search_start"], old["search_end"]):
+                raise ApiError("season_period_immutable", "기간을 바꾸려면 새 시즌 조사를 시작해 주세요.", 409)
             conn.execute("UPDATE seasons SET label=?,search_start=?,search_end=?,revision=revision+1 WHERE id=?", (data["label"], data["search_start"], data["search_end"], identity))
             revision = self.store.touch(conn, identity)
             _audit(conn, "season", identity, "update", old, data)
@@ -398,6 +415,23 @@ class Service:
             revision = self.store.touch(conn)
             return self._institution(conn, identity)
 
+    def _identity_metadata(self, conn, data):
+        """원문 또는 직접 기록에 명시한 학년도만 새 기록의 식별값으로 쓴다.
+
+        Args:
+            conn: 쓰기 연결.
+            data: 내부 행사 정보.
+        Returns:
+            명시 학년도와 전기·후기. 행사 연기 가능성이 있어 날짜로 학년도를 추측하지 않는다.
+        """
+        import re
+        from .identity import ceremony_term
+        year = data.get("academic_year")
+        years = {int(y) for y in re.findall(r"(20\d{2})\s*학년도", data["title"])}
+        if year is None and len(years) == 1:
+            year = next(iter(years))
+        return year, ceremony_term(data)
+
     def _insert_event(self, conn, data, key=None):
         """서버 발급 불변 키로 새 행사를 저장한다.
 
@@ -408,9 +442,10 @@ class Service:
         Returns:
             행사 UUID.
         """
-        identity = new_id()
-        now = utcnow()
-        conn.execute("INSERT INTO events(id,institution_id,season_id,event_key,title,event_type,audience,campus_label,created_at,updated_at) VALUES(?,?,?,?,?,?,?,?,?,?)", (identity, data["institution_id"], data["season_id"], key or new_id(), data["title"], data["event_type"], data.get("audience"), data.get("campus_label"), now, now))
+        identity, now = new_id(), utcnow()
+        year, term = self._identity_metadata(conn, data)
+        conn.execute("INSERT INTO events(id,institution_id,season_id,event_key,title,event_type,audience,campus_label,created_at,updated_at,academic_year,ceremony_term) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)", (identity, data["institution_id"], data["season_id"], key or new_id(), data["title"], data["event_type"], data.get("audience"), data.get("campus_label"), now, now, year, term))
+        conn.execute("INSERT INTO event_seasons VALUES(?,?)", (data["season_id"], identity))
         return identity
 
     def create_event(self, payload):
@@ -428,14 +463,17 @@ class Service:
             self._season(conn, data["season_id"])
             from .identity import same_event
             institution = self._institution(conn, data["institution_id"])
+            year, term = self._identity_metadata(conn, data)
+            data = {**data, "academic_year": year, "ceremony_term": term}
             existing = [row for row in conn.execute(
-                "SELECT * FROM events WHERE institution_id=? AND season_id=? AND id NOT IN(SELECT old_id FROM event_aliases)",
-                (data["institution_id"], data["season_id"])) if same_event(data, dict(row), institution)]
+                "SELECT * FROM events WHERE institution_id=? AND id NOT IN(SELECT old_id FROM event_aliases)",
+                (data["institution_id"],)) if same_event(data, dict(row), institution)]
             if existing and not data["allow_separate_event"]:
                 raise ApiError("event_match_required", "비슷한 행사가 있습니다. 기존 행사를 선택하거나 별도 행사임을 확인해 주세요.", 409, {"candidate_ids": [row["id"] for row in existing]})
             identity = self._insert_event(conn, data)
             event, context = self._project(conn, identity)
             apply_operations(conn, event, data["operations"], context)
+            self.link_event_periods(conn, identity)
             self.store.touch(conn, data["season_id"])
             _audit(conn, "event", identity, "create", after=data)
             return self._project(conn, identity)[0]
@@ -480,6 +518,7 @@ class Service:
             _expect(row, data["expected_revision"])
             event, context = self._project(conn, identity)
             apply_operations(conn, event, data["operations"], context)
+            self.link_event_periods(conn, identity)
             conn.execute("UPDATE events SET revision=revision+1,updated_at=? WHERE id=?", (utcnow(), identity))
             revision = self.store.touch(conn, row["season_id"])
             return self._project(conn, identity)[0]
@@ -504,7 +543,7 @@ class Service:
             result[row["id"]] = validate("DocumentRead", {key: value for key, value in row.items() if key in names})
         return result
 
-    def _observations(self, conn, institution_id, season_id):
+    def _observations(self, conn, institution_id, season_id=None):
         """기각 관측도 포함한 원본 관측을 읽는다.
 
         Args:
@@ -515,28 +554,41 @@ class Service:
             ID별 Observation.
         """
         result = {}
-        for saved in conn.execute("SELECT * FROM observations WHERE institution_id=? AND season_id=?", (institution_id, season_id)):
+        query = "SELECT * FROM observations WHERE institution_id=?" + (" AND season_id=?" if season_id else "")
+        for saved in conn.execute(query, (institution_id, season_id) if season_id else (institution_id,)):
             row = dict(saved)
             row["candidate"] = json.loads(row.pop("candidate_json"))
             row["reason_codes"] = json.loads(row.pop("reason_codes_json"))
             result[row["id"]] = validate("Observation", row)
         return result
 
-    def _project(self, conn, identity, now=None):
+    def _project(self, conn, identity, now=None, season_id=None):
         """단일 snapshot에서 행사·근거를 조립하고 게시값을 계산한다.
 
         Args:
             conn: 읽기 또는 쓰기 snapshot.
             identity: 행사 UUID.
             now: snapshot 전체에서 동일하게 쓰는 판정시각.
+            season_id: 표시 기간. 없으면 정본의 모든 취득 기간을 사용한다.
         Returns:
             EventProjection과 서버 내부 ValidatedContext.
         """
         row = _one(conn, "events", identity)
-        season = self._season(conn, row["season_id"])
+        origin = self._season(conn, row["season_id"])
         institution = self._institution(conn, row.pop("institution_id"))
         documents = self._documents(conn, institution["id"])
-        observations = self._observations(conn, institution["id"], season["id"])
+        observations = self._observations(conn, institution["id"])
+        observation_seasons = {o["season_id"]: self._season(conn, o["season_id"])
+                               for o in observations.values() if o["event_id"] == identity}
+        season_ids = [r[0] for r in conn.execute("SELECT season_id FROM event_seasons WHERE event_id=?", (identity,))]
+        if season_id:
+            season = self._season(conn, season_id)
+        else:
+            source_periods = [origin, *observation_seasons.values(),
+                              *(self._season(conn, sid) for sid in season_ids)]
+            season = {**origin, "search_start": min(s["search_start"] for s in source_periods),
+                      "search_end": max(s["search_end"] for s in source_periods)}
+        season = {**season, "academic_year": row.get("academic_year")}
         fields = {}
         for name in FIELDS:
             latest = conn.execute("SELECT automatic_json FROM assessments WHERE event_id=? AND field=? ORDER BY seq DESC LIMIT 1", (identity, name)).fetchone()
@@ -559,7 +611,8 @@ class Service:
         for key in ("created_at", "updated_at"):
             row.pop(key)
         row.update(institution=institution, fields=fields, review_required=any(item["review_required"] for item in fields.values()) or bool(blockers), reason_codes=blockers)
-        context = {"documents": documents, "observations": observations, "registered_rules": self._enabled_rules(), "now": now or utcnow(), "event_blockers": blockers, "use_fixture_rules": False}
+        context = {"documents": documents, "observations": observations, "registered_rules": self._enabled_rules(), "now": now or utcnow(), "event_blockers": blockers, "use_fixture_rules": False,
+                   "observation_seasons": observation_seasons, "season_ids": season_ids, "season": season}
         row["_identifiers"] = {item["provider"]: item["external_key"] for item in conn.execute("SELECT provider,external_key FROM institution_identifiers WHERE institution_id=?", (institution["id"],))}
         publication = calculate_publication(row, season, context)
         row.pop("_identifiers")
@@ -603,7 +656,9 @@ class Service:
         """
         self._season(conn, season_id)
         moment = now or utcnow()
-        return [self._project(conn, row[0], moment)[0] for row in conn.execute("SELECT id FROM events WHERE season_id=? AND id NOT IN(SELECT old_id FROM event_aliases) ORDER BY created_at,id", (season_id,))]
+        return [self._project(conn, row[0], moment, season_id=season_id)[0] for row in conn.execute(
+            "SELECT e.id FROM events e JOIN event_seasons es ON es.event_id=e.id "
+            "WHERE es.season_id=? AND e.id NOT IN(SELECT old_id FROM event_aliases) ORDER BY e.created_at,e.id", (season_id,))]
 
     def events(self, season_id, view="all", **filters):
         """같은 게시 판정에서 일반·판매·관리 조회를 선택한다.
@@ -796,7 +851,19 @@ class Service:
             latest = conn.execute("SELECT id FROM jobs WHERE kind='schedule_scan' AND season_id=? AND coalesce(json_extract(request_json,'$.purpose'),'date_count')='date_count' ORDER BY (status='cancelled'),created_at DESC,rowid DESC LIMIT 1", (season_id,)).fetchone()
             targets = [self._institution(conn, row[0]) for row in conn.execute("SELECT id FROM institutions ORDER BY name,id")]
             targets = [school for school in targets if eligible_school(school, season)]
+            active = conn.execute("SELECT id FROM jobs WHERE status IN ('queued','running','pausing','cancelling') ORDER BY created_at DESC LIMIT 1").fetchone()
+            time_searches = {}
+            for job in conn.execute(
+                "SELECT j.*,ji.outcome FROM jobs j LEFT JOIN job_items ji ON ji.job_id=j.id "
+                "WHERE j.season_id=? AND json_extract(j.scope_snapshot_json,'$.purpose')='time' "
+                "ORDER BY j.created_at DESC,j.rowid DESC", (season_id,)):
+                target = json.loads(job["scope_snapshot_json"]).get("target_event_id")
+                if target and target not in time_searches:
+                    time_searches[target] = {"job_id": job["id"], "status": job["status"], "outcome": job["outcome"],
+                                            "paused_reason": job["paused_reason"], "revision": job["revision"],
+                                            "created_at": job["created_at"]}
             return {"season": season, "events": events, "targets": targets,
+                    "active_job_id": active[0] if active else None, "time_searches": time_searches,
                     "counts": current_counts(self, conn, season, events),
                     "request_job_id": latest[0] if latest else None, "documents": documents, "overview": self._overview(conn, season, events), "content_revision": self.store.revision(conn), "publication_policy_version": POLICY_VERSION, "generated_at": moment}
 
@@ -1004,7 +1071,7 @@ class Service:
         from app.publication import _support
         from app.rules import supersession_edges, value_check
         event, context = self._project(conn, event_id)
-        season = self._season(conn, event["season_id"])
+        season = context["season"]
         event["_identifiers"] = {item["provider"]: item["external_key"] for item in conn.execute("SELECT provider,external_key FROM institution_identifiers WHERE institution_id=?", (event["institution"]["id"],))}
         observations = [item for item in context["observations"].values() if item["event_id"] == event_id and item["disposition"] != "rejected"]
         accepted_ids = set()
@@ -1019,7 +1086,10 @@ class Service:
                 references.append((observation, value))
                 document = context["documents"][observation["document_id"]]
                 for rule_id, rule_version in context["registered_rules"].items():
-                    proof = validate("ValueCheck", value_check(name, value, observation, document, event, season, institution=event["institution"]))
+                    from .periods import fact_season
+                    source_period = context["observation_seasons"].get(observation["season_id"], season)
+                    proof = validate("ValueCheck", value_check(name, value, observation, document, event,
+                        fact_season(source_period, candidate.get("academic_year")), institution=event["institution"]))
                     actual_checks.append(proof)
                     if proof["rule_id"] != rule_id or proof["rule_version"] != rule_version or proof["status"] != "supported":
                         continue
@@ -1133,20 +1203,47 @@ class Service:
                     if document.get("source_kind") == "official_api" and document.get("status") == "ok"
                     and document.get("reading", {}).get("content_match") == "expected"}
         rows = conn.execute(
-            "SELECT DISTINCT d.id,d.source_key,d.recheck_json FROM documents d "
+            "SELECT DISTINCT d.id,d.source_key,d.recheck_json,d.segments_json FROM documents d "
             "WHERE d.institution_id=? AND d.source_kind='official_api' AND d.status='ok' "
             "AND (d.source_key LIKE 'neis:SchoolSchedule:%' OR d.source_key LIKE 'https://open.neis.go.kr/hub/SchoolSchedule?%') "
-            "AND (EXISTS(SELECT 1 FROM observations o WHERE o.document_id=d.id AND o.season_id=?) "
+            "AND (EXISTS(SELECT 1 FROM observations o LEFT JOIN event_seasons es ON es.event_id=o.event_id "
+            "WHERE o.document_id=d.id AND (o.season_id=? OR es.season_id=?)) "
             "OR EXISTS(SELECT 1 FROM manual_overrides m JOIN events e ON e.id=m.event_id "
-            "WHERE e.season_id=? AND m.active=1 AND (m.source_document_id=d.id "
+            "JOIN event_seasons es ON es.event_id=e.id "
+            "WHERE es.season_id=? AND m.active=1 AND (m.source_document_id=d.id "
             "OR (m.source_document_id IS NULL AND m.source_url=d.display_url))))",
-            (institution_id, season_id, season_id),
+            (institution_id, season_id, season_id, season_id),
         ).fetchall()
         valid_codes = set(SCHEMA["$defs"]["ReasonCode"]["enum"])
+        period = self._season(conn, season_id)
         for row in rows:
-            if complete and row["source_key"] in returned:
+            try:
+                raw = json.loads(next(s["text"] for s in json.loads(row["segments_json"]) if s["id"] == "row"))
+                encoded_day = str(raw["AA_YMD"])
+                if len(encoded_day) != 8 or not encoded_day.isdigit():
+                    continue
+                raw_day = datetime.strptime(encoded_day, "%Y%m%d").date().isoformat()
+            except (ValueError, KeyError, StopIteration, TypeError):
                 continue
-            codes = ["recheck_failed", "not_found"] if complete else ["recheck_failed", *coverage.get("reason_codes", [])]
+            # 겹친 기간에 연결된 정본의 다른 날짜 원문은 이번 API 조회 대상이 아니다.
+            if not period["search_start"] <= raw_day <= period["search_end"]:
+                continue
+            relevant = coverage
+            if coverage.get("academic_year_coverage") is not None:
+                try:
+                    relevant = next(part for part in coverage["academic_year_coverage"]
+                                    if part["academic_year"] == int(raw["AY"])
+                                    and part["from_date"] <= raw_day <= part["to_date"])
+                except (ValueError, KeyError, StopIteration, TypeError):
+                    # 이번에 실제 조회한 학년도·날짜 구간 밖 근거에는 실패를 전파하지 않는다.
+                    continue
+            if relevant.get("status") not in {"ok", "no_data", "provider_error"}:
+                continue
+            complete_part = (relevant["status"] in {"ok", "no_data"}
+                             and (bool(coverage.get("academic_year_coverage")) or complete))
+            if row["source_key"] in returned:
+                continue
+            codes = ["recheck_failed", "not_found"] if complete_part else ["recheck_failed", *relevant.get("reason_codes", [])]
             recheck = {"status": "failed", "attempted_at": checked_at, "reason_codes": sorted(set(codes) & valid_codes)}
             previous = json.loads(row["recheck_json"])
             if previous == recheck:
@@ -1172,6 +1269,9 @@ class Service:
                 return self.save_research(institution_id, season_id, result, conn=transaction)
         institution = self._institution(conn, institution_id)
         season = self._season(conn, season_id)
+        frozen = result.get("season_snapshot")
+        if frozen and any(frozen.get(key) != season.get(key) for key in ("id", "search_start", "search_end", "revision")):
+            raise ApiError("season_changed", "작업을 시작한 조사 기간과 저장 조건이 다릅니다. 새 조사를 시작해 주세요.", 409)
         from .claims import validate_count
         raw_documents = {d["id"]: d for d in result.get("documents", [])}
         channels = list(institution["official_channels"])
@@ -1200,14 +1300,20 @@ class Service:
         for extracted in result.get("candidates", []):
             original = validate("Candidate", extracted["candidate"])
             candidate = copy.deepcopy(original)
+            target_matches = True
             if result.get("purpose") == "time":
-                from .identity import same_event
+                from .identity import compatible_scope, same_event
                 target = _one(conn, "events", result.get("target_event_id"))
-                if (target["institution_id"] != institution_id or target["season_id"] != season_id
-                        or not same_event(candidate, dict(target), institution)):
+                possible_scope = (same_event(candidate, dict(target), institution)
+                                  or ((candidate.get("academic_year") is None or target.get("academic_year") is None)
+                                      and compatible_scope(candidate, dict(target), institution)))
+                if (target["institution_id"] != institution_id
+                        or not conn.execute("SELECT 1 FROM event_seasons WHERE season_id=? AND event_id=?", (season_id, target["id"])).fetchone()
+                        or not possible_scope):
                     # 다른 행사 후보도 원문에는 남기되 대상 행사의 자동값으로 연결하지 않는다.
                     candidate["event_key_hint"] = None
                     candidate["season_alignment"] = "unknown"
+                    target_matches = False
             document_id = document_ids.get(extracted["document_id"])
             if document_id is None:
                 raise ApiError("evidence_link_invalid", "관측 원문이 조사 결과에 없습니다.")
@@ -1217,15 +1323,31 @@ class Service:
             source_document = next(d for d in result["documents"] if d["id"] == extracted["document_id"])
             grounded_identity = grounded_claim("event_date", candidate["event_date"], candidate,
                                               source_document, institution, season)
-            if ((candidate["event_key_hint"] or grounded_identity)
-                    and candidate["academic_year"] == season["academic_year"]
-                    and (candidate["season_alignment"] == "explicit" or grounded_identity)
+            from .rules import value_check
+            probe_event = {"id": new_id(), "institution": institution, "title": candidate["event_title"],
+                           "event_type": candidate["event_type"], "audience": candidate.get("audience"),
+                           "campus_label": candidate.get("campus_label"), "academic_year": candidate.get("academic_year"),
+                           "ceremony_term": candidate.get("ceremony_term")}
+            probe_event["_identifiers"] = {r["provider"]: r["external_key"] for r in conn.execute(
+                "SELECT provider,external_key FROM institution_identifiers WHERE institution_id=?", (institution_id,))}
+            probe_observation = {"id": new_id(), "candidate": candidate, "document_id": source_document["id"],
+                                 "institution_id": institution_id, "event_id": probe_event["id"], "season_id": season_id}
+            status_proof = value_check("ceremony_status", candidate["ceremony_status"], probe_observation,
+                                      source_document, probe_event, season, institution=institution)
+            date_proof = value_check("event_date", candidate["event_date"], probe_observation,
+                                    source_document, probe_event, season, institution=institution)
+            date_supported = grounded_identity or date_proof["status"] == "supported"
+            status_linkable = (status_proof["status"] == "supported" and (
+                candidate["event_key_hint"] or (
+                    candidate["ceremony_status"] in {"cancelled", "not_held"}
+                    and candidate["event_date"].get("precision") == "day")))
+            if (target_matches and (date_supported or status_linkable)
                     and candidate["event_type"] != "unknown"):
-                from .identity import scope
+                from .identity import same_dates, scope
                 candidate["event_key_hint"] = candidate["event_key_hint"] or "server-linked"
-                event_key = fingerprint({"institution_id": institution_id, "season_id": season_id,
+                event_key = fingerprint({"institution_id": institution_id,
                                          "scope": scope(candidate, institution)})
-                existing = conn.execute("SELECT id FROM events WHERE institution_id=? AND season_id=? AND event_key=?", (institution_id, season_id, event_key)).fetchone()
+                existing = conn.execute("SELECT id FROM events WHERE institution_id=? AND event_key=?", (institution_id, event_key)).fetchone()
                 if existing:
                     alias = conn.execute("SELECT current_id FROM event_aliases WHERE old_id=?", (existing[0],)).fetchone()
                     if alias:
@@ -1234,19 +1356,60 @@ class Service:
                 if not existing:
                     from .identity import same_event
                     matches = [dict(row) for row in conn.execute(
-                        "SELECT * FROM events WHERE institution_id=? AND season_id=? AND id NOT IN(SELECT old_id FROM event_aliases)", (institution_id, season_id))
+                        "SELECT * FROM events WHERE institution_id=? AND id NOT IN(SELECT old_id FROM event_aliases)", (institution_id,))
                         if same_event(candidate, dict(row), institution)]
+                    if not matches and candidate.get("academic_year") is None:
+                        from .identity import compatible_scope
+                        known = [dict(row) for row in conn.execute(
+                            "SELECT * FROM events WHERE institution_id=? AND academic_year IS NOT NULL "
+                            "AND id NOT IN(SELECT old_id FROM event_aliases)", (institution_id,))
+                            if compatible_scope(candidate, dict(row), institution)]
+                        exact = []
+                        for row in known:
+                            previous = self._project(conn, row["id"])[0]
+                            if (previous["publication"]["current_date_allowed"]
+                                    and same_dates(previous["fields"]["event_date"]["effective_value"], candidate["event_date"])
+                                    and (date_supported or status_proof["status"] == "supported")):
+                                exact.append(row)
+                        if len(exact) == 1:
+                            # 원문 학년도를 채워 넣지 않는다. 검증한 동일 행사일과
+                            # 유일한 범위 관계로 서버 연결만 남긴다.
+                            matches = exact
+                        elif known:
+                            candidate["event_key_hint"] = None
+                    if not matches and candidate.get("academic_year") is not None:
+                        uncertain = [dict(row) for row in conn.execute(
+                            "SELECT * FROM events WHERE institution_id=? AND academic_year IS NULL AND id NOT IN(SELECT old_id FROM event_aliases)", (institution_id,))
+                            if same_event(candidate, {**dict(row), "academic_year": candidate["academic_year"]}, institution)]
+                        exact = [row for row in uncertain if date_supported and
+                                 same_dates(self._project(conn, row["id"])[0]["fields"]["event_date"]["effective_value"], candidate["event_date"])]
+                        if len(exact) == 1:
+                            self.enrich_event_identity(conn, exact[0]["id"], candidate.get("academic_year"), scope(candidate, institution)[5])
+                            matches = [dict(conn.execute("SELECT * FROM events WHERE id=?", (exact[0]["id"],)).fetchone())]
+                        elif uncertain:
+                            candidate["event_key_hint"] = None
                     if len(matches) == 1:
                         existing = (matches[0]["id"],)
                         event_key = matches[0]["event_key"]
                     elif len(matches) > 1:
                         # 이미 여러 행사에 연결될 수 있으면 새 중복 행사도 만들지 않는다.
                         candidate["event_key_hint"] = None
+                if (existing and candidate.get("academic_year") is None
+                        and scope(candidate, institution)[3] is None
+                        and scope(candidate, institution)[5] is None):
+                    previous = self._project(conn, existing[0])[0]
+                    if not same_dates(previous["fields"]["event_date"]["effective_value"], candidate["event_date"]):
+                        # 학년도·회차·전후기가 모두 없는 다른 날짜는 동일 본식이라는
+                        # 증거도 별도 행사라는 증거도 아니다. 새 행사로 숨기지 않고 보류한다.
+                        existing, candidate["event_key_hint"] = None, None
                 if existing:
                     event_id = existing[0]
                 elif candidate["event_key_hint"]:
-                    event_id = self._insert_event(conn, {"institution_id": institution_id, "season_id": season_id, "title": candidate["event_title"], "event_type": candidate["event_type"], "audience": candidate["audience"], "campus_label": candidate["campus_label"]}, event_key)
+                    from .identity import ceremony_term
+                    event_id = self._insert_event(conn, {"institution_id": institution_id, "season_id": season_id, "title": candidate["event_title"], "event_type": candidate["event_type"], "audience": candidate["audience"], "campus_label": candidate["campus_label"],
+                        "academic_year": candidate.get("academic_year"), "ceremony_term": ceremony_term(candidate)}, event_key)
                 if event_id:
+                    conn.execute("INSERT OR IGNORE INTO event_seasons VALUES(?,?)", (season_id, event_id))
                     candidate["event_key_hint"] = event_key
                     events.add(event_id)
                     reasons = ["rule_not_enabled"]
@@ -1261,7 +1424,7 @@ class Service:
             _audit(conn, "event" if event_id else "observation", event_id or identity, "research_candidate", after={"original_candidate": original, "observation_id": identity}, actor="system", summary="원문 후보 보존 및 서버 행사 연결")
         self._apply_calendar_recheck(conn, institution_id, season_id, result)
         # 실패 재확인도 기존 행사에 반영되므로 신규 후보가 없어도 revision을 갱신한다.
-        events.update(row[0] for row in conn.execute("SELECT id FROM events WHERE institution_id=? AND season_id=? AND id NOT IN(SELECT old_id FROM event_aliases)", (institution_id, season_id)))
+        events.update(row[0] for row in conn.execute("SELECT e.id FROM events e JOIN event_seasons es ON es.event_id=e.id WHERE e.institution_id=? AND es.season_id=? AND e.id NOT IN(SELECT old_id FROM event_aliases)", (institution_id, season_id)))
         success = any(document.get("status") == "ok" and document.get("reading", {}).get("content_match") == "expected" for document in result.get("documents", []))
         for blocker in result.get("event_blockers", []):
             source_key = blocker.get("source_key")
@@ -1281,11 +1444,46 @@ class Service:
             refreshed = {document_ids[document["id"]] for document in result.get("documents", []) if document.get("status") == "ok" and document.get("reading", {}).get("content_match") == "expected"}
             self._reassess(conn, event_id, refreshed)
             self._apply_source_blockers(conn, event_id)
+            self.link_event_periods(conn, event_id)
             conn.execute("UPDATE events SET revision=revision+1,last_attempt_at=?,last_successful_source_check_at=CASE WHEN ? THEN ? ELSE last_successful_source_check_at END,change_check_status=?,updated_at=? WHERE id=?", (utcnow(), success, utcnow(), "completed" if success else "limited", utcnow(), event_id))
         from .research_records import save_supplement
         save_supplement(self, conn, institution, season, result, document_ids)
         revision = self.store.touch(conn, season_id)
         return {"document_ids": list(document_ids.values()), "observation_ids": observations, "event_ids": sorted(events), "content_revision": revision}
+
+    def enrich_event_identity(self, conn, event_id, academic_year=None, ceremony_term=None):
+        """근거로 유일하게 연결한 기존 행사에 빠진 식별 정보만 보완한다.
+
+        Args:
+            conn: 검증과 공유하는 쓰기 거래.
+            event_id: 보존할 행사 UUID.
+            academic_year: 명시 근거로 확인한 학년도.
+            ceremony_term: 명시 근거의 전기 또는 후기.
+        Raises:
+            ApiError: 이미 확인한 식별 정보와 충돌하는 경우.
+        """
+        old = _one(conn, "events", event_id)
+        for key, value in (("academic_year", academic_year), ("ceremony_term", ceremony_term)):
+            if value is not None and old.get(key) not in (None, value):
+                raise ApiError("event_match_required", "행사의 학년도 또는 회차가 다릅니다.", 409)
+        conn.execute("UPDATE events SET academic_year=coalesce(academic_year,?),ceremony_term=coalesce(ceremony_term,?) WHERE id=?",
+                     (academic_year, ceremony_term, event_id))
+        _audit(conn, "event", event_id, "identity_enriched", before=old,
+               after={"academic_year": academic_year, "ceremony_term": ceremony_term}, actor="system")
+
+    def link_event_periods(self, conn, event_id):
+        """검증된 정본 행사일과 겹치는 기간에 UUID만 연결한다.
+
+        Args:
+            conn: 쓰기 거래.
+            event_id: 수기·원문을 복사하지 않고 재사용할 행사 UUID.
+        """
+        from .periods import within_period
+        event = self._project(conn, event_id)[0]
+        value = event["fields"]["event_date"]["effective_value"]
+        for period in conn.execute("SELECT * FROM seasons").fetchall():
+            if within_period(value, dict(period)):
+                conn.execute("INSERT OR IGNORE INTO event_seasons VALUES(?,?)", (period["id"], event_id))
 
 
     def _apply_source_blockers(self, conn, event_id):

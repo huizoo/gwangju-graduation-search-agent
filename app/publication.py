@@ -108,7 +108,7 @@ def _within(value, season):
         if value.get("precision") == "day":
             day = date.fromisoformat(value["date"])
             days = [date.fromisoformat(v) for v in value.get("dates", [value["date"]])]
-            return day == min(days) and all(
+            return day == min(days) and any(
                 date.fromisoformat(season["search_start"]) <= item <= date.fromisoformat(season["search_end"])
                 for item in days)
         if value.get("precision") == "month":
@@ -265,14 +265,28 @@ def _support(field, automatic, event, season, context, now):
         document_id = observation.get("document_id")
         document = documents.get(document_id, {})
         candidate = observation.get("candidate") or {}
+        source_seasons = context.get("observation_seasons")
+        source_season = (source_seasons or {}).get(observation.get("season_id"))
+        if source_seasons is None and observation.get("season_id") == season.get("id"):
+            source_season = season
+        from .identity import academic_year
+        fact_year = academic_year(event)
+        if "academic_year" not in event:
+            fact_year = season.get("academic_year")  # 이전 계약의 독립 게시 검사 호환.
+        year_matches = candidate.get("academic_year") == fact_year
+        linked_unknown_year = (candidate.get("academic_year") is None and bool(event.get("event_key"))
+                               and candidate.get("event_key_hint") == event["event_key"])
+        if source_season is None or not (year_matches or linked_unknown_year):
+            continue
+        from .periods import fact_season
+        source_season = fact_season(source_season, fact_year)
+        fact_event = {**event, "academic_year": fact_year}
         if (
             observation.get("disposition") != "accepted"
             or observation.get("institution_id") != event["institution"]["id"]
             or document.get("institution_id") != event["institution"]["id"]
-            or observation.get("season_id") != season["id"]
             or observation.get("event_id") != event["id"]
-            or candidate.get("academic_year") != season["academic_year"]
-            or not same_event(candidate, event, event["institution"])
+            or not same_event(candidate, fact_event, event["institution"])
             or candidate.get("event_type") not in GRADUATION_EVENTS
             or candidate.get("event_key_hint") != event.get("event_key")
             or (candidate.get("season_alignment") != "explicit"
@@ -292,7 +306,7 @@ def _support(field, automatic, event, season, context, now):
         if reading.get("content_match") != "expected" or reading.get("institution_match") != "matched" or reading.get("scope") not in ("full_text", "rendered_dom"):
             continue
         quote = _literal_support(candidate, field, document)
-        if quote is None or not RULES.verify(rule, proof.get("rule_version"), field, automatic.get("value"), observation, document, event, season):
+        if quote is None or not RULES.verify(rule, proof.get("rule_version"), field, automatic.get("value"), observation, document, fact_event, source_season):
             continue
         if field == "start_time" and (candidate.get("event_date") or {}).get("date") != automatic.get("bound_date"):
             continue
@@ -401,7 +415,8 @@ def calculate_publication(event, season, validated_context):
         raise ValueError("validated_context.now must be a timezone-aware timestamp")
     permissions, values, bound_dates = {}, {}, {}
     global_reasons = set(validated_context.get("event_blockers", [])) | (set(event.get("reason_codes", [])) & EVENT_BLOCKERS)
-    if event.get("season_id") != season.get("id") or event.get("event_type") not in GRADUATION_EVENTS:
+    memberships = validated_context.get("season_ids", [event.get("season_id")])
+    if season.get("id") not in memberships or event.get("event_type") not in GRADUATION_EVENTS:
         global_reasons.add("event_match_required")
     for name in FIELDS:
         values[name], bound_dates[name], permissions[name] = _field(name, event.get("fields", {}).get(name, {}), event, season, validated_context, now)

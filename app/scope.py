@@ -1,7 +1,7 @@
 """조회와 기본 조사에 공통으로 적용하는 학교 범위."""
 
 TARGET_TYPES = frozenset({"elementary", "middle", "high", "university", "junior_college"})
-RESEARCH_VERSION = "2.0"
+RESEARCH_VERSION = "3.0"
 
 
 def eligible_school(institution: dict, season: dict | None = None) -> bool:
