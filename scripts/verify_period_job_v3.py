@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 
 from fastapi.testclient import TestClient
 from app.api import create_app
+from app.exporting import schedule_filename
 from app.config import load_settings
 from app.domain import utcnow
 from app.research import ResearchRunner
@@ -129,7 +130,7 @@ def main():
                                                   "publication_policy_version": "4.0"})
             assert response.status_code == 202 and response.json()["status"] == "current"
             html = client.get(response.json()["url"]).text
-            html_path = output / f"graduation-schedule-{args.start}-{args.end}.html"
+            html_path = output / schedule_filename(season)
             html_path.write_text(html)
             assert args.school in html and args.expected_date in html and str(args.expected_count) in html
             report.update(season=season, row=row, event_academic_year=event["academic_year"],

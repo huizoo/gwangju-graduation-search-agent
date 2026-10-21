@@ -8,7 +8,7 @@ import httpx
 import pytest
 
 from app.api import create_app
-from app.exporting import current_export
+from app.exporting import current_export, schedule_filename
 from tests.test_jobs_api import institution_payload, settings_for
 
 
@@ -27,8 +27,7 @@ def payload(season):
 
 def latest_path(runtime, season):
     """프로그램 없이 열 수 있는 기간별 최신 파일의 경로를 얻는다."""
-    return runtime.data_dir / "exports" / (
-        f"graduation-schedule-{season['search_start']}-{season['search_end']}.html")
+    return runtime.data_dir / "exports" / schedule_filename(season)
 
 
 @pytest.mark.asyncio

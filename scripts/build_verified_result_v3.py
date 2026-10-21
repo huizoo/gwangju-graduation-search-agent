@@ -13,7 +13,7 @@ sys.path.insert(0, str(ROOT))
 
 from app.config import load_settings
 from app.domain import utcnow
-from app.exporting import render_export
+from app.exporting import render_export, schedule_filename
 from app.results import result_rows
 from app.storage import Service, Store
 from verify_sources_v2 import database_signature
@@ -71,7 +71,8 @@ def main():
         snapshot = service.snapshot(season["id"])
         rows = result_rows(snapshot)
         assert len(rows) == 339
-        target = ROOT / "output" / f"graduation-schedule-{season['search_start']}-{season['search_end']}.html"
+        target = ROOT / "output" / schedule_filename(season)
+        target.parent.mkdir(parents=True, exist_ok=True)
         if season["id"] == old_period["id"]:
             checked = [next(row for row in rows if row["name"] == name)
                        for name in ("건국초등학교", "광주대학교")]

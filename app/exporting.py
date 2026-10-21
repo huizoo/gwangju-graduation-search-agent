@@ -2,6 +2,7 @@
 
 import base64
 import hashlib
+from datetime import date
 from html import escape
 from pathlib import Path
 
@@ -9,6 +10,21 @@ from .results import result_rows
 
 STATIC = Path(__file__).with_name("static")
 MARKER = '<meta name="schedule-presentation" content="3.0">'
+
+
+def schedule_filename(season: dict) -> str:
+    """저장·다운로드에 사용할 한국어 기간 파일명을 한곳에서 구성한다.
+
+    Args:
+        season: 검증된 search_start와 search_end를 포함한 시즌.
+    Returns:
+        광주 졸업식 일정표 (YYYY.MM.DD~YYYY.MM.DD).html 형식의 이름.
+    Raises:
+        ValueError: 저장된 날짜가 올바른 ISO 날짜가 아닌 경우.
+    """
+    start = date.fromisoformat(season["search_start"]).strftime("%Y.%m.%d")
+    end = date.fromisoformat(season["search_end"]).strftime("%Y.%m.%d")
+    return f"광주 졸업식 일정표 ({start}~{end}).html"
 
 
 def table_body(rows: list[dict]) -> str:

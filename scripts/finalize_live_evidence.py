@@ -73,13 +73,12 @@ def main() -> None:
                 } for event in events if event["publication"]["calendar_eligible"]],
             })
         exports = []
-        for season, filename in ((current, "graduation-schedule-2026.html"),
-                                 (historical, "historical-gist-verification-2025.html")):
+        for season in (current, historical):
             exported = write("/api/exports/html", {"season_id": season["id"], "include_notes": False,
                                                   "publication_policy_version": "4.0"})
             assert exported["status"] == "current", exported["status"]
             content = client.get(exported["url"]).raise_for_status().content
-            target = output / filename
+            target = output / exported["filename"]
             target.write_bytes(content)
             exports.append({
                 "season": season, "snapshot": exported, "file": str(target.relative_to(ROOT)),

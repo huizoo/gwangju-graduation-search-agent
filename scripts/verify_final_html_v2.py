@@ -14,7 +14,7 @@ HELPER = "$HOME/.agents/skills/browser-verification/scripts/playwright-session.m
 
 def main():
     """서버 없이 최종 파일 바이트를 검증하고 브라우저 소유 자원을 정리한다."""
-    source = ROOT / "output/graduation-schedule-2026.html"
+    source = ROOT / "output/광주 졸업식 일정표 (2026.12.01~2027.03.31).html"
     content = source.read_bytes()
     out = ROOT / "runtime/improvements-20261021" / datetime.now().strftime("final-html-browser-%H%M%S")
     out.mkdir(parents=True)

@@ -74,7 +74,7 @@
 - 검증 서버 두 개를 종료한 뒤 **같은 HTML 바이트**를 data URL로 열어 검색·필터·페이지·인쇄와 외부 리소스 요청 0건을 확인했다. 자동화 도구가 `file://`를 차단하므로 OS에서 파일을 더블 클릭하는 동작은 이번 자동화로 검증하지 않았다.
 - 전용 helper 종료 상태 `FINISHED`, 정리 방식 `exact-close`, 잔여 프로세스 0과 자체 서버 종료를 확인했다.
 
-저장 예제 [graduation-schedule-2026.html](../output/graduation-schedule-2026.html)은 실제 자료와 최종 모델 작업 사본의 근거를 새 검증 사본에서 다시 검증해 합친 결과다. 339개 대상과 건국초 날짜·188명, 광주대학교 날짜를 포함한다. 합성 학교나 합성 전화 확인값은 들어 있지 않다. 원본 사용자 DB에는 검증 데이터를 쓰지 않았다. 통합 기록은 `runtime/improvements-20261021/final-result/20261021T032108853636Z/result.json`, 재현 스크립트는 `scripts/build_verified_result_v2.py`다.
+당시 저장 예제 `graduation-schedule-2026.html`은 실제 자료와 최종 모델 작업 사본의 근거를 새 검증 사본에서 다시 검증해 합친 결과다. 339개 대상과 건국초 날짜·188명, 광주대학교 날짜를 포함했다. 합성 학교나 합성 전화 확인값은 들어 있지 않다. 원본 사용자 DB에는 검증 데이터를 쓰지 않았다. HTML은 후속 사용자 요청으로 정리했고 검증 기록은 보존한다. [파일명 변경·정리 기록](EXPORT_FILENAME_UPDATE.md)을 참조한다. 통합 기록은 `runtime/improvements-20261021/final-result/20261021T032108853636Z/result.json`, 재현 스크립트는 `scripts/build_verified_result_v2.py`다.
 
 이 최종 파일도 별도 전용 브라우저에서 **4개 추가 검사 통과**했다. 339행·다섯 열·외부 리소스 0건, 건국초 날짜·188명·홈페이지, 광주대학교 날짜·공란 시간과 인원·홈페이지, 대학명과 날짜 동시 필터의 1행 결과를 확인했다. 화면을 직접 보고 파일 해시가 검증 전후 같은지도 확인했다. `runtime/improvements-20261021/final-html-browser-122309/result.json`과 `scripts/verify_final_html_v2.py`에 기록했다. 전용 helper는 `FINISHED`, `exact-close`, 잔여 프로세스 0으로 종료했다.
 

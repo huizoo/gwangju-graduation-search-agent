@@ -236,7 +236,7 @@ def main() -> None:
             }, json={"season_id": season["id"], "include_notes": False, "publication_policy_version": "4.0"})
             require(export.status_code == 202 and export.json()["status"] == "current", "html_export_api_success")
             html = client.get(export.json()["url"]).content
-            (output / "graduation-schedule-2026.html").write_bytes(html)
+            (output / export.json()["filename"]).write_bytes(html)
             soup = BeautifulSoup(html, "html.parser")
             require([cell.get_text(" ", strip=True) for cell in soup.select("thead th")] ==
                     ["날짜", "학교명", "시간", "졸업인원수", "장소"], "five_column_html_order")

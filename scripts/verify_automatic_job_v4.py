@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT))
 
 from fastapi.testclient import TestClient
 from app.api import create_app
+from app.exporting import schedule_filename
 from app.config import load_settings
 from app.domain import utcnow
 from app.research import ResearchRunner
@@ -125,7 +126,7 @@ def main():
             assert row["start_time"] is None
             event = runtime.service.event_detail(row["event_ids"][0])["event"]
             assert event["academic_year"] == args.expected_year
-            auto_file = runtime.data_dir / "exports" / f"graduation-schedule-{args.start}-{args.end}.html"
+            auto_file = runtime.data_dir / "exports" / schedule_filename(season)
             deadline = time.monotonic() + 10
             while time.monotonic() < deadline:
                 export_state = client.get(f"/api/exports/{season['id']}").json()
@@ -138,7 +139,7 @@ def main():
             report.update(automatic_html_without_export_button=True,
                           research_summary=result["research_summary"],
                           html_save=result["html_save"])
-            html_path = output / f"graduation-schedule-{args.start}-{args.end}.html"
+            html_path = output / schedule_filename(season)
             html_path.write_text(html)
             assert args.school in html and args.expected_date in html and str(args.expected_count) in html
             report.update(season=season, row=row, event_academic_year=event["academic_year"],

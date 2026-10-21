@@ -10,10 +10,10 @@ import subprocess
 ROOT = Path(__file__).resolve().parents[1]
 HELPER = "$HOME/.agents/skills/browser-verification/scripts/playwright-session.mjs"
 CASES = [
-    {"key": "past", "path": "output/graduation-schedule-2025-12-01-2026-03-15.html",
+    {"key": "past", "path": "output/광주 졸업식 일정표 (2025.12.01~2026.03.15).html",
      "schools": [{"name": "첨단고등학교", "date": "2026-01-21", "count": "355", "district": "광산구",
                   "home": "http://cheomdan.gen.hs.kr/"}]},
-    {"key": "existing", "path": "output/graduation-schedule-2026-12-01-2027-03-31.html",
+    {"key": "existing", "path": "output/광주 졸업식 일정표 (2026.12.01~2027.03.31).html",
      "schools": [{"name": "건국초등학교", "date": "2027-01-06", "count": "188", "district": "북구",
                   "home": "http://geonkuk.gen.es.kr/"},
                  {"name": "광주대학교", "date": "2027-02-19", "count": "", "district": "남구",

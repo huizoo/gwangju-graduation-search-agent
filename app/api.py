@@ -161,7 +161,7 @@ class Application:
 
     def export_result(self, season_id: str) -> dict:
         """검증된 같은 정책 파일만 현재 일정 URL로 제공한다."""
-        from .exporting import current_export
+        from .exporting import current_export, schedule_filename
         with self.store.transaction() as conn:
             season = conn.execute("SELECT * FROM seasons WHERE id=?", (season_id,)).fetchone()
             if season is None:
@@ -175,6 +175,7 @@ class Application:
                 "url": f"/exports/{season['export_key']}/schedule.html" if valid else None,
                 "error": json.loads(row["error_json"]) if row and row["error_json"] else None,
                 "publication_policy_version": "4.0",
+                "filename": schedule_filename(season),
                 "withheld_event_count": sum(not e["publication"]["calendar_eligible"] for e in self.service._events(conn, season_id)),
             }
 
@@ -194,18 +195,21 @@ class Application:
 
     def _write_export(self, payload: dict) -> dict:
         """불변 버전과 프로그램 없이 여는 기간별 최신 파일을 함께 저장한다."""
-        from .exporting import render_export
+        from .exporting import render_export, schedule_filename
         snapshot = self.service.snapshot(payload["season_id"])
         folder = self.data_dir / "exports"
         # DB와 파일을 한 트랜잭션으로 묶을 수 없으므로 기존 파일 대신 새 불변 버전을 쓴다.
-        period_name = f"graduation-schedule-{snapshot['season']['search_start']}-{snapshot['season']['search_end']}"
-        path = folder / f"{period_name}-r{snapshot['content_revision']}-{uuid4().hex[:8]}.html"
+        filename = schedule_filename(snapshot["season"])
+        # 이전 불변 버전은 내부 폴더에 두고 사용자용 파일에는 revision을 붙이지 않는다.
+        version_folder = folder / "versions" / f"r{snapshot['content_revision']}-{uuid4().hex[:8]}"
+        path = version_folder / filename
         temp = folder / f".{uuid4()}.tmp"
-        latest = folder / f"{period_name}.html"
+        latest = folder / filename
         latest_temp = folder / f".{uuid4()}.latest.tmp"
         revision = snapshot["content_revision"]
         try:
             folder.mkdir(exist_ok=True)
+            version_folder.mkdir(parents=True, exist_ok=True)
             html = render_export(snapshot, include_notes=payload["include_notes"])
             temp.write_text(html, encoding="utf-8")
             latest_temp.write_text(html, encoding="utf-8")
@@ -239,13 +243,12 @@ class Application:
         Returns:
             모든 사용자 시즌의 파일이 현재 내용으로 저장됐는지 여부.
         """
-        from .exporting import current_export
+        from .exporting import current_export, schedule_filename
         with self.export_lock:
             complete = True
             for season in self.service.list_seasons()["items"]:
                 identity = season["id"]
-                latest = self.data_dir / "exports" / (
-                    f"graduation-schedule-{season['search_start']}-{season['search_end']}.html")
+                latest = self.data_dir / "exports" / schedule_filename(season)
                 with self.store.transaction() as conn:
                     row = conn.execute("SELECT * FROM exports WHERE season_id=?", (identity,)).fetchone()
                     revision = self.store.revision(conn)
@@ -399,13 +402,13 @@ class Application:
                 raise ApiError("not_found", "백업을 찾을 수 없습니다.", 404)
             return FileResponse(target, filename="졸업식-기록-백업.sqlite3", media_type="application/vnd.sqlite3")
         if path == "/exports/{export_key}/schedule.html":
-            from .exporting import current_export
+            from .exporting import current_export, schedule_filename
             with self.store.transaction() as conn:
                 row = conn.execute("SELECT e.file_ref,e.publication_policy_version,s.search_start,s.search_end FROM exports e JOIN seasons s ON s.id=e.season_id WHERE s.export_key=?", (request.path_params["export_key"],)).fetchone()
             if not row or row["publication_policy_version"] != "4.0" or not row["file_ref"] or not current_export(row["file_ref"]):
                 raise ApiError("not_found", "현재 정책으로 저장한 일정표가 없습니다.", 404)
             return FileResponse(row["file_ref"], media_type="text/html; charset=utf-8",
-                                filename=f"graduation-schedule-{row['search_start']}-{row['search_end']}.html",
+                                filename=schedule_filename(row),
                                 content_disposition_type="inline")
         if path == "/api/app/shutdown":
             paused = any(job["status"] in {"queued", "running", "pausing", "cancelling"}

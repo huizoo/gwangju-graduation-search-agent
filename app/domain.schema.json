@@ -6506,6 +6506,10 @@
         "withheld_event_count": {
           "type": "integer",
           "minimum": 0
+        },
+        "filename": {
+          "type": "string",
+          "description": "광주 졸업식 일정표 (YYYY.MM.DD~YYYY.MM.DD).html 형식의 사용자 파일명"
         }
       },
       "required": [
@@ -6517,7 +6521,8 @@
         "url",
         "error",
         "publication_policy_version",
-        "withheld_event_count"
+        "withheld_event_count",
+        "filename"
       ]
     },
     "BackupResult": {

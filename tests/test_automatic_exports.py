@@ -9,13 +9,13 @@ from fastapi.testclient import TestClient
 import pytest
 
 from app.api import create_app
+from app.exporting import schedule_filename
 from tests.test_jobs_api import institution_payload, job_payload, manual_event, settings_for
 
 
 def latest_file(runtime, season):
     """기간별 고정 HTML 경로를 반환한다."""
-    return runtime.data_dir / "exports" / (
-        f"graduation-schedule-{season['search_start']}-{season['search_end']}.html")
+    return runtime.data_dir / "exports" / schedule_filename(season)
 
 
 def wait_for(predicate, timeout=8):
@@ -43,9 +43,9 @@ def test_manual_change_exports_without_open_or_download_and_restart(tmp_path):
         path = latest_file(runtime, season)
         wait_for(lambda: path.exists() and "자동저장 검사학교" in path.read_text())
         assert "2027-01-07" in path.read_text()
-        before = sorted(path.parent.glob("*-r*.html"))
+        before = sorted(path.parent.glob("versions/*/*.html"))
         assert runtime._refresh_exports()
-        assert sorted(path.parent.glob("*-r*.html")) == before
+        assert sorted(path.parent.glob("versions/*/*.html")) == before
     # 앱이 꺼진 사이의 저장 변경도 다음 시작에서 복구한다.
     runtime.service.create_institution(institution_payload("재시작 검사학교"))
     with TestClient(create_app(settings), base_url="http://127.0.0.1"):

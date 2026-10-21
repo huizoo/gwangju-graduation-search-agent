@@ -11,7 +11,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 from app.config import load_settings
-from app.exporting import render_export
+from app.exporting import render_export, schedule_filename
 from app.results import result_rows
 from app.storage import Service, Store
 
@@ -69,7 +69,8 @@ def main():
     assert university["graduation_count"] is None
     assert len(rows) == 339
     html = render_export(snapshot)
-    target = ROOT / "output/graduation-schedule-2026.html"
+    target = ROOT / "output" / schedule_filename(season)
+    target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(html, encoding="utf-8")
     report = {"source_run": str(args.source_run), "agent_run": str(args.agent_run),
               "output": str(target), "rows": len(rows), "checked_rows": [elementary, university],
