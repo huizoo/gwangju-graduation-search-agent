@@ -236,6 +236,21 @@ def test_same_representative_ceremony_does_not_split_undergraduate_and_graduate(
     assert len(rows) == 1 and rows[0]["date"] == "2027-02-20"
 
 
+@pytest.mark.parametrize("other_date", ["2027-02-20", "2027-02-21"])
+def test_university_graduation_and_degree_award_names_share_event_scope(grounded_context, other_date):
+    """학위수여식 종류의 동의어가 중복이나 날짜 충돌 누락을 만들지 않는다."""
+    service, _, season = grounded_context
+    _save(grounded_context, NORMAL, candidate())
+    second = NORMAL.replace("2027. 2. 20.(토)", "2027. 2. 21.(일)") if other_date.endswith("21") else NORMAL
+    _save(grounded_context, second, candidate(second, date=other_date,
+          date_quote="2027. 2. 21.(일)" if other_date.endswith("21") else "2027. 2. 20.(토)",
+          start=None, event_type="graduation_ceremony"))
+    assert len(service.events(season["id"])["items"]) == 1
+    rows = result_rows(service.snapshot(season["id"]))
+    assert len(rows) == 1
+    assert rows[0]["date"] == ("2027-02-20" if other_date.endswith("20") else None)
+
+
 @pytest.mark.parametrize("distinction", ["sequence", "campus"])
 def test_explicit_distinct_representative_ceremonies_remain_separate(grounded_context, distinction):
     """회차나 캠퍼스가 명시적으로 다른 대표 본식은 각각 게시한다."""
@@ -304,6 +319,31 @@ def _count(document, *, value=132, kind="ceremony_graduates", grade=None, **chan
              "event_date": "2027-02-20" if grade is None else None, **changes}
     validate("CountClaim", claim)
     return claim
+
+
+def test_university_synonym_migration_preserves_count_evidence(grounded_context):
+    """이전 종류 명칭별 중복을 연결해도 인원 관측과 그 원문은 유지한다."""
+    from app.domain import fingerprint
+    service, school, season = grounded_context
+    text = NORMAL + "\n졸업생 총 132명"
+    doc = notice(school, text)
+    saved = _save(grounded_context, text, candidate(text), document=doc, counts=[_count(doc)])
+    assert result_rows(service.snapshot(season["id"]))[0]["graduation_count"] == 132
+    with service.store.transaction(True) as conn:
+        duplicate = service._insert_event(conn, {"institution_id": school["id"], "season_id": season["id"],
+            "title": "학위수여식", "event_type": "graduation_ceremony", "audience": None, "campus_label": None})
+        conn.execute("UPDATE count_observations SET event_id=?", (duplicate,))
+        before = dict(conn.execute("SELECT * FROM count_observations").fetchone())
+        conn.execute("UPDATE app_meta SET value=? WHERE key='assessed_rules'",
+                     (fingerprint({"rules": service._enabled_rules(), "identity": 2}),))
+    reopened = Service(Store(service.store.path), service.settings)
+    rows = result_rows(reopened.snapshot(season["id"]))
+    assert len(rows) == 1 and rows[0]["date"] == "2027-02-20" and rows[0]["graduation_count"] == 132
+    with reopened.store.transaction() as conn:
+        after = dict(conn.execute("SELECT * FROM count_observations").fetchone())
+        assert after["event_id"] == saved["event_ids"][0]
+        assert {k: v for k, v in before.items() if k != "event_id"} == {k: v for k, v in after.items() if k != "event_id"}
+        assert not conn.execute("PRAGMA foreign_key_check").fetchall()
 
 
 def test_current_graduating_grade_enrollment_is_a_valid_count(grounded_context):

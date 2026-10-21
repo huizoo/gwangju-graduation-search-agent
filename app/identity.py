@@ -24,6 +24,8 @@ def scope(value: dict, institution: dict) -> tuple:
         if audience == default and kind == "graduation_and_completion":
             kind = "graduation_ceremony"
     if institution.get("type") in {"university", "junior_college"}:
+        if kind in {"graduation_ceremony", "degree_award_ceremony"}:
+            kind = "degree_award_ceremony"
         # 한 대표 학위수여식의 학위 과정 표기는 행사 식별자가 아니다.
         if audience in {"", "졸업 대상 학생", "학부", "대학원", "학부 및 대학원",
                         "학부 졸업 대상 학생", "대학원 졸업 대상 학생", "학부 졸업생", "대학원 졸업생",

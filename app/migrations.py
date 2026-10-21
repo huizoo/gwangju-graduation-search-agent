@@ -78,7 +78,7 @@ def reconcile_rules(service):
     rules = service._enabled_rules()
     if not rules:
         return
-    marker = fingerprint({"rules": rules, "identity": 2})
+    marker = fingerprint({"rules": rules, "identity": 3})
     with service.store.transaction() as conn:
         previous = conn.execute("SELECT value FROM app_meta WHERE key='assessed_rules'").fetchone()
         has_events = conn.execute("SELECT 1 FROM events LIMIT 1").fetchone()
@@ -111,6 +111,7 @@ def reconcile_rules(service):
                     conn.execute("UPDATE observations SET event_id=?,candidate_json=?,fingerprint=? WHERE id=?",
                                  (current["id"], dumps(candidate), digest, row["id"]))
                 conn.execute("UPDATE manual_overrides SET event_id=? WHERE event_id=?", (current["id"], old["id"]))
+                conn.execute("UPDATE count_observations SET event_id=? WHERE event_id=?", (current["id"], old["id"]))
                 conn.execute("INSERT INTO event_aliases VALUES(?,?,?)", (old["id"], current["id"], utcnow()))
                 _audit(conn, "event", current["id"], "link_previous_event", before=old, after={"current_id": current["id"]},
                        actor="system", summary="같은 기관·과정·캠퍼스 행사의 이전 기록 연결")
