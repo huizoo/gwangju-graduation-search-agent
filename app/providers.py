@@ -21,6 +21,8 @@ import httpx
 from bs4 import BeautifulSoup
 from jsonschema.exceptions import ValidationError
 
+from .http_compat import CompatibilityError, is_legacy_p3p_error, read_legacy_p3p
+
 
 _MODEL_SEMAPHORES = weakref.WeakKeyDictionary()
 
@@ -173,6 +175,7 @@ class HttpGateway:
                 request_kwargs["extensions"] = {"sni_hostname": host}
             lock = self._locks.setdefault(host, asyncio.Lock())
             response = None
+            compatibility_used = False
             retry_count = self.execution["http_max_retries"] if retries is None else retries
             for attempt in range(retry_count + 1):
                 reservation_id = await reserve(self.meter, "http_requests")
@@ -198,6 +201,26 @@ class HttpGateway:
                             )
                             await settle(self.meter, reservation_id)
                     except (httpx.HTTPError, OSError, ValueError) as error:
+                        if (public and method.upper() == "GET" and not kwargs
+                                and not compatibility_used and is_legacy_p3p_error(error)):
+                            # 다른 프로토콜 오류나 API에는 관대한 파서를 적용하지 않는다.
+                            compatibility_used = True
+                            await settle(self.meter, reservation_id)
+                            reservation_id = await reserve(self.meter, "http_requests")
+                            delay = self.execution["per_host_min_interval_ms"] / 1000 - (time.monotonic() - self._last[host])
+                            if delay > 0:
+                                await asyncio.sleep(delay)
+                            self._last[host] = time.monotonic()
+                            try:
+                                response = await read_legacy_p3p(
+                                    current, addresses[0], self.execution["http_timeout_seconds"],
+                                    self.execution["document_max_bytes"],
+                                )
+                                await settle(self.meter, reservation_id)
+                            except (httpx.HTTPError, OSError, ValueError) as compat_error:
+                                code = compat_error.code if isinstance(compat_error, CompatibilityError) else "access_failed"
+                                raise ProviderError(code, "공개 자료의 응답 형식을 읽지 못했습니다.", "http") from None
+                            break
                         if attempt < retry_count:
                             continue
                         code = "tls_error" if "CERTIFICATE_VERIFY" in str(error) else "access_failed"
