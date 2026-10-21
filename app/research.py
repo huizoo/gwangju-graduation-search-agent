@@ -317,6 +317,9 @@ class ResearchRunner:
             if document["status"] != "ok":
                 for code in document["reason_codes"] or ["provider_error"]:
                     add_error("reader", code, f"공식 원문 읽기: {outcome}")
+            # 새 원문만 먼저 저장하면 옛 버전이 보류되어 같은 작업의 행사일 검사에
+            # 걸린다. 정형 후보의 재검증까지 묶어 원문과 필드 지원을 함께 교체한다.
+            assess()
             await checkpoint("document_read")
             return outcome
 

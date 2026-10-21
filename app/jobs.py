@@ -196,10 +196,12 @@ class Meter:
             item = conn.execute("SELECT * FROM job_items WHERE id=?", (self.item_id,)).fetchone()
             if job["kind"] == "schedule_scan":
                 snapshot = json.loads(job["scope_snapshot_json"])
-                self.manager._assert_scope(conn, snapshot)
+                self.manager._assert_scope(conn, snapshot, self.job_id)
                 self.manager.service.save_research(item["institution_id"], job["season_id"],
                     {**result, "season_snapshot": snapshot["season"]}, conn=conn)
             history = json.loads(item["history_json"] or "[]") + [{"at": now(), "stage": stage, "trace": result.get("trace", []),
+                        "document_versions": [{"source_key": document["source_key"], "content_hash": document["content_hash"]}
+                                              for document in result.get("documents", [])],
                         "agent_trace": result.get("agent_trace", []), "stop_reason": result.get("stop_reason"),
                         "coverage": result.get("coverage", {}), "errors": result.get("errors", []),
                         "discovery_mode": result.get("discovery_mode", "blind_window")}]
@@ -395,14 +397,15 @@ class JobManager:
                 )
             return self._job(conn, self._row(conn, job_id))
 
-    def _assert_scope(self, conn, snapshot):
+    def _assert_scope(self, conn, snapshot, job_id=None):
         """실행·재개·저장 직전에 고정 기간과 대상 행사일을 대조한다.
 
         Args:
             conn: 작업 상태와 공유하는 거래.
             snapshot: 작업 시작 시 고정한 범위.
+            job_id: 원문 재검토를 계속하는 기존 작업 UUID.
         Raises:
-            ApiError: 기간이나 대상 행사일이 바뀌었거나 현재 사용할 수 없는 경우.
+            ApiError: 기간·행사일이 바뀌거나 새 원문 재검토 이외의 보류 사유가 있는 경우.
         """
         frozen = snapshot.get("season")
         if not frozen:
@@ -412,9 +415,54 @@ class JobManager:
             raise ApiError("season_changed", "조사 기간이 작업 시작 당시와 다릅니다. 새 조사를 시작해 주세요.", 409)
         if snapshot.get("purpose") == "time":
             event = self.service._project(conn, snapshot["target_event_id"], season_id=frozen["id"])[0]
-            if (not event["publication"]["current_date_allowed"]
-                    or event["fields"]["event_date"]["effective_value"] != snapshot.get("target_event_date")):
+            if (event["fields"]["event_date"]["effective_value"] != snapshot.get("target_event_date")
+                    or (not event["publication"]["current_date_allowed"]
+                        and not self._pending_source_review(conn, event, job_id))):
                 raise ApiError("event_date_changed", "졸업식 날짜가 바뀌었습니다. 현재 행사에서 시간을 다시 찾아 주세요.", 409)
+
+    def _pending_source_review(self, conn, event, job_id):
+        """정상 취득한 새 본문이 모델 재검토를 기다리는 동안 같은 작업만 이어간다.
+
+        Args:
+            conn: 원문·행사와 공유하는 읽기 연결.
+            event: 고정 행사일과 값이 같은 현재 투영.
+            job_id: 새 원문을 직접 저장한 작업 UUID.
+        Returns:
+            날짜 근거의 보류 이유가 새 공식 본문의 미검토뿐인지 여부.
+            반환값은 게시 권한을 바꾸지 않으며 접근 실패·취소·충돌은 허용하지 않는다.
+        """
+        if not job_id:
+            return False
+        own_versions = set()
+        for row in conn.execute("SELECT history_json FROM job_items WHERE job_id=? AND institution_id=?",
+                                (job_id, event["institution"]["id"])):
+            for entry in json.loads(row[0]):
+                own_versions.update((version["source_key"], version["content_hash"])
+                                    for version in entry.get("document_versions", []))
+        field = event["fields"]["event_date"]
+        permission = event["publication"]["field_permissions"]["event_date"]
+        if (field["effective_basis"] != "official"
+                or set(permission["reason_codes"]) != {"recheck_failed"}):
+            return False
+        documents = self.service._documents(conn, event["institution"]["id"])
+        supports = field["automatic"].get("value_check", {}).get("document_ids", [])
+        if not supports:
+            return False
+        from .publication import _authority
+        for identity in supports:
+            old = documents.get(identity)
+            if not old or set(old.get("recheck", {}).get("reason_codes", [])) != {"semantic_review_required"}:
+                return False
+            versions = [document for document in documents.values() if document["source_key"] == old["source_key"]]
+            latest = max(versions, key=lambda document: (document["retrieved_at"], document["id"]))
+            if ((latest["source_key"], latest["content_hash"]) not in own_versions
+                    or latest["content_hash"] == old["content_hash"] or latest["status"] != "ok"
+                    or latest.get("recheck", {}).get("status") != "succeeded"
+                    or latest["reading"]["content_match"] != "expected"
+                    or latest["reading"]["scope"] not in {"full_text", "rendered_dom"}
+                    or not _authority(latest, event["institution"], datetime.now(timezone.utc))):
+                return False
+        return True
 
     def recover(self) -> None:
         """재시작 시 취소 의도를 우선하고 불명확한 호출 비용을 유지한다."""
@@ -507,7 +555,7 @@ class JobManager:
             from .scope import RESEARCH_VERSION
             if json.loads(row["scope_snapshot_json"]).get("research_version") != RESEARCH_VERSION:
                 raise ApiError("settings_changed", "조사 방식이 변경되었습니다. 기록을 유지하고 새 일정찾기를 시작해 주세요.", 409)
-            self._assert_scope(conn, json.loads(row["scope_snapshot_json"]))
+            self._assert_scope(conn, json.loads(row["scope_snapshot_json"]), job_id)
             limits = json.loads(row["limits_json"])
             for name, value in (payload["increase_limits"] or {}).items():
                 if value < limits[name]:
@@ -571,7 +619,7 @@ class JobManager:
                 conn.execute("UPDATE jobs SET status='paused',paused_reason='configuration_required' WHERE id=?", (job_id,))
                 return
             try:
-                self._assert_scope(conn, json.loads(row["scope_snapshot_json"]))
+                self._assert_scope(conn, json.loads(row["scope_snapshot_json"]), job_id)
             except ApiError:
                 conn.execute("UPDATE jobs SET status='paused',paused_reason='configuration_required' WHERE id=?", (job_id,))
                 return
@@ -774,7 +822,7 @@ class JobManager:
             # 저장은 같은 트랜잭션의 취소 검사 뒤 수행해야 취소 후 늦은 응답을 반영하지 않는다.
             if result is not None and not cancelled and job["kind"] == "schedule_scan":
                 try:
-                    self._assert_scope(conn, snapshot)
+                    self._assert_scope(conn, snapshot, job_id)
                 except ApiError:
                     result, reason, outcome = None, "configuration_required", "blocked"
                     error = {"code": "scope_changed", "message": "작업 시작 당시의 기간이나 행사일이 바뀌어 결과를 반영하지 않았습니다.",
@@ -784,7 +832,7 @@ class JobManager:
                     self.service.save_registry_sync(result, conn=conn)
                     outcome = "verified"
                 else:
-                    self._assert_scope(conn, snapshot)
+                    self._assert_scope(conn, snapshot, job_id)
                     saved = self.service.save_research(item["institution_id"], snapshot["season"]["id"],
                         {**result, "season_snapshot": snapshot["season"]}, conn=conn)
                     if result.get("errors"):

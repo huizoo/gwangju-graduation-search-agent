@@ -1140,6 +1140,10 @@ class Service:
                 if len(grouped) > 1:
                     automatic.update(status="conflict", reason_codes=["conflict"], evidence_ids=sorted({item[0]["id"] for item in supported}), fingerprint=fingerprint(sorted(grouped)))
                 else:
+                    # 같은 값의 새 근거가 다른 검증 규칙을 통과해도 옛 실패 원문만
+                    # 대표로 선택하지 않는다. 값 충돌은 위에서 먼저 분리한다.
+                    supported.sort(key=lambda pair: context["documents"][pair[0]["document_id"]].get(
+                        "recheck", {}).get("status") == "failed")
                     automatic.update(copy.deepcopy(supported[0][1]))
                     automatic["assessment_id"] = new_id()
                     automatic["fingerprint"] = fingerprint({"value": automatic["value"], "bound_date": automatic["bound_date"]})

@@ -366,3 +366,87 @@ def test_model_without_read_evidence_cannot_generate_fact_candidates(monkeypatch
                "missing_fields": ["event_date", "graduation_count"]}
     result = asyncio.run(ModelProvider(settings).decide(institution, season, context))
     assert result["candidates"] == result["counts"] == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("case", ["registered", "model_only", "changed_date", "cancelled", "access_failed", "outside_job"])
+async def test_time_job_rechecks_new_source_version_before_next_scope_check(tmp_path, monkeypatch, case):
+    """조회수 갱신은 본식 값을 보존하고 실제 날짜 변경은 작업의 기준일과 충돌한다."""
+    from app.api import create_app
+    from app.domain import dumps
+    from test_jobs_api import settings_for, institution_payload
+    from test_rules import notice
+    from test_grounded_claims import NORMAL, candidate
+
+    settings = settings_for(tmp_path)
+    runtime = create_app(settings).state.runtime
+    school = runtime.service.create_institution({
+        **institution_payload("검증대학교"), "type": "university", "homepage_url": "https://school.example"})
+    season = runtime.service.list_seasons()["items"][0]
+    channel = {"url": "https://school.example", "verified_by_url": "https://directory.example/university",
+               "verified_at": "2026-10-21T01:00:00Z"}
+    with runtime.store.transaction(True) as conn:
+        conn.execute("UPDATE institutions SET official_channels_json=? WHERE id=?", (dumps([channel]), school["id"]))
+    school = runtime.service.get_institution(school["id"])
+    old = notice(school, NORMAL + "\n조회수: 1")
+    old["authority_evidence"] = {"channel_url": channel["url"], **{key: channel[key] for key in ("verified_by_url", "verified_at")}}
+    saved = runtime.service.save_research(school["id"], season["id"], {
+        "documents": [old], "candidates": [{"document_id": old["id"], "candidate": candidate()}]})
+    event_id = saved["event_ids"][0]
+    before = runtime.service.event_detail(event_id)["event"]
+    assert before["publication"]["current_date_allowed"] and before["publication"]["current_time_allowed"]
+    text = NORMAL.replace("2027. 2. 20.", "2027. 2. 21.") if case == "changed_date" else NORMAL
+    if case == "registered":
+        text = "2026학년도 검증대학교 학위수여식은 2027년 2월 20일 오후 2시에 시작합니다."
+    elif case == "cancelled":
+        text += "\n학위수여식은 취소합니다."
+    model_calls = []
+
+    async def choose(self, school, window, context):
+        assert case not in {"registered", "access_failed"}
+        model_calls.append(context)
+        # 새 원문을 아직 검증하지 않았을 때 옛 값이 화면에 다시 나와서는 안 된다.
+        pending = runtime.service.event_detail(event_id)["event"]["publication"]
+        assert not pending["current_date_allowed"] and not pending["current_time_allowed"]
+        doc = context["documents"][-1]
+        if case == "model_only":
+            from app.jobs import JobManager
+            # 실행기 메모리가 없어도 저장한 작업 소유 원문으로 검토 조건을 복원한다.
+            with runtime.store.transaction() as conn:
+                JobManager(runtime.service, settings)._assert_scope(conn, job["scope_snapshot"], job["id"])
+        if case == "outside_job":
+            external = notice(school, text + "\n조회수: 99")
+            external["authority_evidence"] = old["authority_evidence"]
+            runtime.service.save_research(school["id"], season["id"], {"documents": [external], "candidates": []})
+        changes = {"date": "2027-02-21", "date_quote": "2027. 2. 21.(토)",
+                   "time_quote": "일시 : 2027. 2. 21.(토) 14:00"} if case == "changed_date" else {}
+        if case == "cancelled":
+            changes.update(ceremony_status="cancelled", start=None)
+        return decision(candidates=[{"document_id": doc["id"], "candidate": candidate(text, **changes)}])
+
+    monkeypatch.setattr(ModelProvider, "decide", choose)
+
+    class Runner(ResearchRunner):
+        def __init__(self, fixed, meter=None):
+            client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request:
+                httpx.Response(503 if case == "access_failed" else 200, text="<html><body>" + text + "\n조회수: 2</body></html>",
+                               headers={"content-type": "text/html"})))
+            super().__init__(fixed, meter, HttpGateway(fixed, meter, client, resolve))
+
+    runtime.jobs.runner_factory = Runner
+    job = runtime.jobs.create({"kind": "schedule_scan", "purpose": "time", "season_id": season["id"],
+        "mode": "recheck", "selection": {"scope": "ids", "institution_ids": [school["id"]]},
+        "limits": None, "target_event_id": event_id}, str(uuid4()))
+    await runtime.jobs.run(job["id"])
+    item = runtime.jobs.items(job["id"])[0]
+    after = runtime.service.event_detail(event_id)["event"]
+    if case in {"changed_date", "cancelled", "access_failed", "outside_job"}:
+        assert not after["publication"]["current_date_allowed"]
+        assert not after["publication"]["current_time_allowed"]
+        assert item["outcome"] != "verified"
+    else:
+        assert item["outcome"] == "verified" and item["error"] is None
+        assert after["publication"]["current_date_allowed"] and after["publication"]["current_time_allowed"]
+        assert after["publication"]["calendar_date"] == "2027-02-20"
+        assert after["publication"]["calendar_time"] == "14:00"
+    assert bool(model_calls) == (case in {"model_only", "changed_date", "cancelled", "outside_job"})
