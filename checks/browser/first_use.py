@@ -11,12 +11,12 @@ import sys
 from threading import Event
 from unittest.mock import patch
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app.providers import ProviderError
-from verify_period_ui_v3 import ControlledRunner, HELPER, LocalApp
+from checks.browser.periods import ControlledRunner, HELPER, LocalApp
 
 
 class SyntheticRegistry:
@@ -63,7 +63,7 @@ class SyntheticRegistry:
 
 def main():
     """하나의 전용 lease와 신규 DB에서 첫 사용 흐름을 확인하고 정확히 종료한다."""
-    out = ROOT / "runtime/first-use-v6" / datetime.now().strftime("browser-%Y%m%d-%H%M%S")
+    out = ROOT / "runtime/verification/browser/first_use" / datetime.now().strftime("browser-%Y%m%d-%H%M%S")
     out.mkdir(parents=True)
     local = LocalApp(out)
     registry = SyntheticRegistry()

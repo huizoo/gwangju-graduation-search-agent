@@ -55,7 +55,7 @@ yarn-error.log*
 pnpm-debug.log*
 
 # 아래 루트 경로는 실행 데이터 전용이다.
-# 고정 테스트 자료와 검토한 증빙은 tests/fixtures/ 또는 docs/evidence/에 둔다.
+# 필요한 고정 검사 입력만 검토 후 tests/fixtures/에 둔다. 실행 증빙은 runtime/에 둔다.
 /data/
 /runtime/
 /.runtime/

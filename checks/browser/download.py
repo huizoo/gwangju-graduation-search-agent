@@ -9,12 +9,12 @@ import subprocess
 import sys
 import time
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app.exporting import schedule_filename
-from verify_period_ui_v3 import HELPER, LocalApp
+from checks.browser.periods import HELPER, LocalApp
 
 
 def seed(service):
@@ -43,7 +43,7 @@ def seed(service):
 
 def main():
     """하나의 전용 lease에서 파일 이름·바이트·오프라인 필터를 확인하고 정리한다."""
-    out = ROOT / "runtime/korean-filename-v5" / datetime.now().strftime("browser-%Y%m%d-%H%M%S")
+    out = ROOT / "runtime/verification/browser/download" / datetime.now().strftime("browser-%Y%m%d-%H%M%S")
     out.mkdir(parents=True)
     local = LocalApp(out)
     season = seed(local.runtime.service)

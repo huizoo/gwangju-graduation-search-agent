@@ -8,12 +8,12 @@ import subprocess
 import sys
 from threading import Event
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app.jobs import BudgetStop
-from verify_period_ui_v3 import HELPER, LocalApp, fixtures
+from checks.browser.periods import HELPER, LocalApp, fixtures
 
 
 class CheckpointRunner:
@@ -63,7 +63,7 @@ class CheckpointRunner:
 
 def main():
     """한 새 lease로 중간 저장·인쇄·완료·재개 불가 안내를 확인한다."""
-    out = ROOT / "runtime/period-ui-20261021" / datetime.now().strftime("checkpoint-%H%M%S")
+    out = ROOT / "runtime/verification/browser/checkpoint" / datetime.now().strftime("checkpoint-%H%M%S")
     out.mkdir(parents=True)
     local = LocalApp(out)
     season, event = fixtures(local.runtime.service)

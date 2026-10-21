@@ -11,7 +11,7 @@ import sys
 from threading import Event, Thread
 import time
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
 from app.api import create_app
@@ -144,7 +144,7 @@ def fixtures(service):
 
 def main():
     """한 전용 브라우저 lease에서 실제 화면을 확인하고 정리 증거를 남긴다."""
-    out = ROOT / "runtime/period-ui-20261021" / datetime.now().strftime("browser-%H%M%S")
+    out = ROOT / "runtime/verification/browser/periods" / datetime.now().strftime("browser-%H%M%S")
     out.mkdir(parents=True)
     local = LocalApp(out)
     season, event = fixtures(local.runtime.service)
@@ -192,7 +192,7 @@ def main():
         evidence["assertions"][name] = {"passed": bool(passed), "actual": actual}
         if not passed:
             raise AssertionError(f"{name}: {actual}")
-        print(f"browser-v3: {name}", flush=True)
+        print(f"browser-periods: {name}", flush=True)
 
     def shot(name):
         """검사 폴더에 화면을 저장한다."""
@@ -269,7 +269,7 @@ def main():
         ControlledRunner.mode = "empty"; ControlledRunner.release.clear(); click_time("화면검사02학교")
         check("second_target_running", wait("document.querySelector('tr[data-name=\"화면검사02학교\"] .time-research')?.dataset.state==='running'"), row_state("화면검사02학교"))
         filter_rows()
-        colors = evaluate("""() => {const rows=[...document.querySelectorAll('tbody tr[data-date]')];const groups={};for(const row of rows){if(row.dataset.date)(groups[row.dataset.date]??=new Set()).add(getComputedStyle(row).backgroundColor);}const before=rows.filter(r=>r.dataset.date==='2027-01-08').map(r=>r.className.match(/date-color-\d/)[0]);document.querySelector('[data-control=next]').click();return {groups:Object.fromEntries(Object.entries(groups).map(([d,c])=>[d,[...c]])),sameDayColors:[...new Set(before)],secondPage:[...document.querySelectorAll('tbody tr:not([hidden])')].filter(r=>r.dataset.date==='2027-01-08').map(r=>getComputedStyle(r).backgroundColor)};}""")
+        colors = evaluate(r"""() => {const rows=[...document.querySelectorAll('tbody tr[data-date]')];const groups={};for(const row of rows){if(row.dataset.date)(groups[row.dataset.date]??=new Set()).add(getComputedStyle(row).backgroundColor);}const before=rows.filter(r=>r.dataset.date==='2027-01-08').map(r=>r.className.match(/date-color-\d/)[0]);document.querySelector('[data-control=next]').click();return {groups:Object.fromEntries(Object.entries(groups).map(([d,c])=>[d,[...c]])),sameDayColors:[...new Set(before)],secondPage:[...document.querySelectorAll('tbody tr:not([hidden])')].filter(r=>r.dataset.date==='2027-01-08').map(r=>getComputedStyle(r).backgroundColor)};}""")
         group_colors = [value[0] for value in colors["groups"].values()]
         check("adjacent_date_groups_and_page_boundary", all(len(value) == 1 for value in colors["groups"].values()) and len(set(group_colors)) == 3 and len(colors["sameDayColors"]) == 1 and colors["secondPage"] == [group_colors[0]] * 3, colors)
         filtered = filter_rows("", "남구")
@@ -323,7 +323,7 @@ def main():
         mobile = evaluate("() => ({width:innerWidth,scroll:document.documentElement.scrollWidth})")
         check("mobile_app_no_horizontal_overflow", mobile["scroll"] <= mobile["width"], mobile); shot("app-mobile.png")
         evaluate("() => {window.__downloadName=null;const original=HTMLAnchorElement.prototype.click;HTMLAnchorElement.prototype.click=function(){window.__downloadName=this.download;original.call(this);};document.querySelector('#save-html').click();return true;}")
-        check("download_filename_has_period", wait("window.__downloadName?.includes('2026-12-01_2027-03-31')"), evaluate("() => window.__downloadName"))
+        check("download_filename_has_period", wait("window.__downloadName==='광주 졸업식 일정표 (2026.12.01~2027.03.31).html'"), evaluate("() => window.__downloadName"))
         html = render_export(local.runtime.service.snapshot(season["id"]))
         (out / "offline-fixture.html").write_text(html)
         local.stop()

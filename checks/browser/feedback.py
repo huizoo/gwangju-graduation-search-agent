@@ -11,12 +11,12 @@ import sys
 from threading import Event
 import time
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from app.jobs import BudgetStop
 from app.exporting import schedule_filename
-from verify_period_ui_v3 import HELPER, LocalApp, fixtures
+from checks.browser.periods import HELPER, LocalApp, fixtures
 
 
 class FeedbackRunner:
@@ -69,10 +69,16 @@ def main():
     parser.add_argument("--live-url", help="root가 시작한 실제 DB 사본 앱. 이 스크립트는 종료하지 않는다.")
     parser.add_argument("--live-season-id", help="사본에서 조회할 과거 일반 시즌. 조사 작업은 시작하지 않는다.")
     options = parser.parse_args()
-    out = ROOT / "runtime/usability-v4" / datetime.now().strftime("browser-%H%M%S")
+    out = ROOT / "runtime/verification/browser/feedback" / datetime.now().strftime("browser-%H%M%S")
     out.mkdir(parents=True)
     local = LocalApp(out)
     season, event = fixtures(local.runtime.service)
+    # 공식 관계가 있는 행의 링크 표시만 검사하는 합성 입력이며 사이트를 요청하지 않는다.
+    with local.runtime.store.transaction(True) as conn:
+        channels = [{"url": "https://school.example/", "verified_by_url": "https://directory.example/",
+                     "verified_at": "2026-10-20T01:00:00Z"}]
+        conn.execute("UPDATE institutions SET homepage_url=?,official_channels_json=? WHERE id=(SELECT institution_id FROM events WHERE id=?)",
+                     ("https://school.example/", json.dumps(channels), event["id"]))
     local.runtime.jobs.runner_factory = FeedbackRunner
     local.runtime.shutdown_callback = lambda: setattr(local.server, "should_exit", True)
     report = {"synthetic_only_for_mutations": True, "external_api_or_model_called": False,
@@ -157,6 +163,9 @@ def main():
             source_clone()
         invoke(["run", "--lease", lease, "--", "goto", local.url])
         assert wait("document.querySelectorAll('#results tbody tr').length===45")
+        link = evaluate("() => {const a=document.querySelector('tr[data-name=\"화면검사01학교\"] a');return a&&{href:a.href,target:a.target,rel:a.rel};}")
+        check("school_link_is_human_homepage", link == {
+            "href": "https://school.example/", "target": "_blank", "rel": "noopener noreferrer"}, link)
         labels = evaluate("() => ({buttons:[...document.querySelectorAll('button')].map(n=>n.textContent),summary:document.querySelector('#research-summary').textContent,management:document.querySelector('footer summary').textContent,duplicateRange:!!document.querySelector('#season-range')})")
         check("simple_labels_and_initial_full_research_notice", not labels["duplicateRange"] and labels["management"] == "관리" and
               all(value in labels["buttons"] for value in ["일정표 열기", "파일 내려받기", "기록 백업", "학교 목록 갱신", "프로그램 종료"]) and
@@ -175,7 +184,19 @@ def main():
             run("async (page) => {await page.locator('tr[data-name=\"화면검사01학교\"] .find-time').click();}")
             check("time_feedback_" + mode, wait("document.querySelector('tr[data-name=\"화면검사01학교\"] td:nth-child(3)').innerText.includes(" + json.dumps(text) + ")"),
                 evaluate("() => document.querySelector('tr[data-name=\"화면검사01학교\"] td:nth-child(3)').innerText"))
+            check("time_summary_" + mode,
+                  wait("document.querySelector('#job-message').textContent===" + json.dumps(text)),
+                  evaluate("() => document.querySelector('#job-message').textContent"))
         check("time_only_jobs_do_not_claim_full_research", "아직 시작하지" in evaluate("() => document.querySelector('#research-summary').textContent"), True)
+        with local.runtime.store.transaction() as conn:
+            before_ids = [row[0] for row in conn.execute("SELECT id FROM events ORDER BY id")]
+        run("async(page)=>{await page.locator('#record-text').fill('화면검사03학교 졸업식은 1월 8일 오전 9시래. 방금 학교에 전화해서 확인했어.');await page.locator('#record-form button[type=submit]').click();}")
+        check("natural_record_updates_existing_event",
+              wait("document.querySelector('tr[data-name=\"화면검사03학교\"] td:nth-child(3)').innerText==='09:00'"),
+              evaluate("() => document.querySelector('#conversation').textContent"))
+        with local.runtime.store.transaction() as conn:
+            after_ids = [row[0] for row in conn.execute("SELECT id FROM events ORDER BY id")]
+        check("natural_record_does_not_duplicate_event", before_ids == after_ids, {"before": len(before_ids), "after": len(after_ids)})
         # 같은 브라우저의 기록 버튼을 거치지 않은 저장도 revision 폴링으로 반영돼야 한다.
         current = local.runtime.service.event_detail(event["id"])["event"]
         local.runtime.service.apply_overrides(event["id"], {"expected_revision": current["revision"], "operations": [{
@@ -240,6 +261,8 @@ def main():
         invoke(["run", "--lease", lease, "--", "goto", "data:text/html;base64," + base64.b64encode(html).decode()])
         offline = evaluate("() => ({rows:document.querySelectorAll('tbody tr').length,resources:performance.getEntriesByType('resource').length,management:!!document.querySelector('#research-summary,#html-save-message,#shutdown'),time:document.querySelector('tr[data-name=\"화면검사01학교\"] td:nth-child(3)').textContent})")
         check("automatic_file_opens_without_program", offline == {"rows": 45, "resources": 0, "management": False, "time": "11:15"}, offline)
+        check("offline_keeps_school_homepage_link",
+              evaluate("() => document.querySelector('tr[data-name=\"화면검사01학교\"] a')?.href") == "https://school.example/", True)
         if options.live_url:
             invoke(["run", "--lease", lease, "--", "goto", options.live_url])
             assert wait("document.querySelectorAll('#results tbody tr').length>0")
