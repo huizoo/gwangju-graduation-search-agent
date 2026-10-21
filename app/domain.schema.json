@@ -6306,7 +6306,7 @@
         },
         "include_notes": {
           "type": "boolean",
-          "description": "이전 요청 호환용. 표현 계약 1.0의 네 열 HTML에는 값과 무관하게 사적 메모를 포함하지 않는다."
+          "description": "이전 요청 호환용. 표현 계약 2.0의 다섯 열 HTML에는 값과 무관하게 사적 메모를 포함하지 않는다."
         },
         "publication_policy_version": {
           "const": "4.0"

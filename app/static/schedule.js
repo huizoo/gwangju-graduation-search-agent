@@ -1,37 +1,46 @@
-/* 저장 HTML과 실행 앱은 같은 검색·기간·페이지 규칙을 사용한다. */
+/* 앱과 저장 HTML은 필터에 맞는 전체 행을 보존해 같은 인쇄 결과를 만든다. */
 window.setupSchedule = function (root) {
   const find = id => root.querySelector(`[data-control="${id}"]`);
   const rows = [...root.querySelectorAll("tbody tr[data-name]")];
-  const query = find("query"), mode = find("date-mode");
-  const from = find("from-date"), to = find("to-date");
+  const query = find("query"), district = find("district"), day = find("date");
+  const selectedDistrict = district.value;
+  const districts = [...new Set(["동구", "서구", "남구", "북구", "광산구", ...rows.map(row => row.dataset.district).filter(Boolean)])];
+  district.replaceChildren(new Option("전체 구", ""), ...districts.map(value => new Option(value, value)));
+  district.value = districts.includes(selectedDistrict) ? selectedDistrict : "";
   let page = 0;
+  rows.forEach(row => {
+    const date = row.dataset.date;
+    const color = [...date].reduce((value, char) => (value * 31 + char.charCodeAt(0)) >>> 0, 0) % 6;
+    row.className = date ? `date-color-${color}` : "date-unknown";
+  });
   function render() {
     const term = query.value.trim().toLocaleLowerCase().replace(/\s+/g, "");
-    const end = mode.value === "day" ? from.value : to.value;
-    const invalid = from.value && end && from.value > end;
-    const matching = rows.filter(row => !invalid &&
+    const matching = rows.filter(row =>
       row.dataset.name.toLocaleLowerCase().replace(/\s+/g, "").includes(term) &&
-      (!from.value || (row.dataset.date && row.dataset.date >= from.value)) &&
-      (!end || (row.dataset.date && row.dataset.date <= end)));
+      (!district.value || row.dataset.district === district.value) &&
+      (!day.value || (row.dataset.dates || row.dataset.date).split(" ").includes(day.value)));
     const pages = Math.max(1, Math.ceil(matching.length / 20));
     page = Math.max(0, Math.min(page, pages - 1));
-    rows.forEach(row => { row.hidden = true; });
-    matching.slice(page * 20, (page + 1) * 20).forEach(row => { row.hidden = false; });
-    find("to-wrap").hidden = mode.value === "day";
+    rows.forEach(row => { row.hidden = true; row.dataset.match = "false"; row.classList.remove("date-group-start", "page-start"); });
+    matching.forEach((row, index) => {
+      row.dataset.match = "true";
+      row.classList.toggle("date-group-start", index === 0 || row.dataset.date !== matching[index - 1].dataset.date);
+    });
+    matching.slice(page * 20, (page + 1) * 20).forEach((row, index) => { row.hidden = false; row.classList.toggle("page-start", index === 0); });
     find("empty").hidden = matching.length > 0;
-    find("empty").textContent = invalid ? "날짜 범위를 확인해 주세요." : "조건에 맞는 학교가 없습니다.";
     find("count").textContent = `${matching.length}건 / 전체 ${rows.length}건`;
     find("page").textContent = `${page + 1} / ${pages} 페이지`;
     find("previous").disabled = page === 0;
     find("next").disabled = page >= pages - 1;
   }
-  [query, mode, from, to].forEach(input => {
+  [query, district, day].forEach(input => {
     input.oninput = () => { page = 0; render(); };
     input.onchange = () => { page = 0; render(); };
   });
-  find("reset").onclick = () => { query.value = from.value = to.value = ""; mode.value = "day"; page = 0; render(); };
+  find("reset").onclick = () => { query.value = district.value = day.value = ""; page = 0; render(); };
   find("previous").onclick = () => { page--; render(); };
   find("next").onclick = () => { page++; render(); };
+  find("print").onclick = () => window.print();
   render();
 };
 document.querySelectorAll("[data-schedule]").forEach(window.setupSchedule);

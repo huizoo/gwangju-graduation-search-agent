@@ -12,16 +12,9 @@
   <div class="season-bar"><label>조사 시즌 <select id="season-select"></select></label><span id="season-range"></span></div></header>
   <p id="message" role="status" aria-live="polite" hidden></p>
   <div class="input-panels">
-    <section class="panel" aria-labelledby="research-title"><h2 id="research-title">조사 맡기기</h2>
-      <form id="research-form">
-        <label for="school-query">알아볼 학교</label>
-        <input id="school-query" type="search" placeholder="학교 이름을 적고 선택해 주세요" autocomplete="off">
-        <div id="school-options" class="school-options" aria-label="학교 검색 결과"></div>
-        <div id="selected-schools" class="selected-schools"></div>
-        <label class="check"><input type="checkbox" id="all-schools"> 등록된 모든 기관 조사</label>
-        <button class="primary" type="submit" id="research-submit">조사 시작</button>
-        <button type="button" id="reuse-targets">현재 표의 학교 선택</button>
-      </form>
+    <section class="panel" aria-labelledby="research-title"><h2 id="research-title">일정찾기</h2>
+      <p class="hint">광주 학교의 졸업식 날짜와 인원수를 찾아요.</p>
+      <form id="research-form"><button class="primary" type="submit" id="research-submit">일정찾기</button></form>
       <div id="job" hidden><p id="job-message" role="status"></p><div class="actions" id="job-actions"></div></div>
     </section>
     <section class="panel" aria-labelledby="record-title"><h2 id="record-title">직접 확인한 내용</h2>
@@ -40,12 +33,12 @@
     <div id="results" data-schedule>
       <div class="schedule-tools">
         <label class="schedule-search">학교명 검색<input type="search" data-control="query" placeholder="학교 이름"></label>
-        <label>날짜 선택<select data-control="date-mode"><option value="day">하루</option><option value="range">기간</option></select></label>
-        <label>날짜 / 시작일<input type="date" data-control="from-date"></label>
-        <label data-control="to-wrap" hidden>종료일<input type="date" data-control="to-date"></label>
+        <label>구<select data-control="district"><option value="">전체 구</option></select></label>
+        <label>날짜<input type="date" data-control="date"></label>
         <button data-control="reset" type="button">전체 보기</button>
+        <button data-control="print" type="button">인쇄</button>
       </div>
-      <table class="schedule-table"><thead><tr><th scope="col">학교명</th><th scope="col">졸업식 날짜</th><th scope="col">실제 시작 시각</th><th scope="col">학교 위치(주소)</th></tr></thead><tbody></tbody></table>
+      <table class="schedule-table"><thead><tr><th scope="col">날짜</th><th scope="col">학교명</th><th scope="col">시간</th><th scope="col">졸업인원수</th><th scope="col">장소</th></tr></thead><tbody></tbody></table>
       <p class="empty" data-control="empty" hidden>조건에 맞는 학교가 없습니다.</p>
       <div class="schedule-footer"><span data-control="count" role="status"></span>
         <div class="paging"><button data-control="previous" type="button">이전</button><span data-control="page"></span><button data-control="next" type="button">다음</button></div>

@@ -196,7 +196,8 @@ class Meter:
             item = conn.execute("SELECT * FROM job_items WHERE id=?", (self.item_id,)).fetchone()
             if job["kind"] == "schedule_scan":
                 self.manager.service.save_research(item["institution_id"], job["season_id"], result, conn=conn)
-            history = [{"at": now(), "stage": stage, "trace": result.get("trace", []),
+            history = json.loads(item["history_json"] or "[]") + [{"at": now(), "stage": stage, "trace": result.get("trace", []),
+                        "agent_trace": result.get("agent_trace", []), "stop_reason": result.get("stop_reason"),
                         "coverage": result.get("coverage", {}), "errors": result.get("errors", []),
                         "discovery_mode": result.get("discovery_mode", "blind_window")}]
             conn.execute("UPDATE job_items SET stage=?,history_json=? WHERE id=?", (stage, dump(history), self.item_id))
@@ -316,8 +317,13 @@ class JobManager:
                 if row is None:
                     raise ApiError("not_found", "시즌을 찾을 수 없습니다.", 404)
                 season = dict(row)
+                from .scope import eligible_school
                 institutions = [self.service._institution(conn, row[0]) for row in conn.execute("SELECT id FROM institutions ORDER BY name,id")]
+                institutions = [r for r in institutions if eligible_school(r, season)]
                 selection = payload["selection"]
+                purpose = payload.get("purpose", "date_count")
+                if payload.get("purpose") == "date_count" and selection["scope"] != "all":
+                    raise ApiError("scope_invalid", "일정찾기는 전체 학교를 조사합니다. 구와 검색 조건은 결과에 적용해 주세요.")
                 if selection["scope"] == "ids":
                     ids = set(selection["institution_ids"])
                     institutions = [r for r in institutions if r["id"] in ids]
@@ -329,12 +335,21 @@ class JobManager:
                         and (not selection["districts"] or r["district"] in selection["districts"])
                         and selection["query"].casefold() in r["name"].casefold()
                     )]
+                if purpose == "time":
+                    target = conn.execute("SELECT * FROM events WHERE id=?", (payload["target_event_id"],)).fetchone()
+                    if (not target or target["season_id"] != season["id"]
+                            or len(institutions) != 1 or target["institution_id"] != institutions[0]["id"]):
+                        raise ApiError("event_match_required", "시간을 찾을 학교와 해당 시즌의 행사를 확인해 주세요.")
+                    if conn.execute("SELECT 1 FROM event_aliases WHERE old_id=?", (target["id"],)).fetchone():
+                        raise ApiError("event_match_required", "연결된 현재 행사에서 시간 찾기를 눌러 주세요.")
+                    if not self.service._project(conn, target["id"])[0]["publication"]["current_date_allowed"]:
+                        raise ApiError("event_match_required", "일정찾기로 졸업식 날짜를 먼저 확인해 주세요.")
                 # 종료일 미상 기관은 남기고, 시즌 시작 전 공식 종료만 큐에서 제외한다.
                 institutions = [r for r in institutions if not (
                     r["operation_status"] == "closed_confirmed" and r["operation_effective_date"]
                     and r["operation_effective_date"] <= season["search_start"]
                 )]
-                if payload["mode"] != "recheck":
+                if payload["mode"] != "recheck" and purpose != "time":
                     events = self.service._events(conn, season["id"])
                     if payload["mode"] == "initial":
                         attempted = {e["institution"]["id"] for e in events}
@@ -349,7 +364,10 @@ class JobManager:
                 targets = [(provider, None) for provider in payload["providers"]]
             job_id = str(uuid4())
             limits = payload["limits"] or deepcopy(self.settings.data["execution"])
-            snapshot = {"season": season, "source_config_hash": self.settings.source_config_hash}
+            from .scope import RESEARCH_VERSION
+            snapshot = {"season": season, "source_config_hash": self.settings.source_config_hash,
+                        "purpose": payload.get("purpose", "date_count"),
+                        "target_event_id": payload.get("target_event_id"), "research_version": RESEARCH_VERSION}
             conn.execute(
                 "INSERT INTO jobs VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                 (job_id, payload["kind"], season["id"] if season else None, "queued", None,
@@ -444,6 +462,9 @@ class JobManager:
                                {"existing_job_id": active["id"]})
             if json.loads(row["scope_snapshot_json"])["source_config_hash"] != self.settings.source_config_hash:
                 raise ApiError("settings_changed", "설정이 바뀌었습니다. 이전 설정을 복원하거나 새 조사를 시작해 주세요.", 409, {"reason_codes": ["configuration_required"]})
+            from .scope import RESEARCH_VERSION
+            if json.loads(row["scope_snapshot_json"]).get("research_version") != RESEARCH_VERSION:
+                raise ApiError("settings_changed", "조사 방식이 변경되었습니다. 기록을 유지하고 새 일정찾기를 시작해 주세요.", 409)
             limits = json.loads(row["limits_json"])
             for name, value in (payload["increase_limits"] or {}).items():
                 if value < limits[name]:
@@ -500,6 +521,10 @@ class JobManager:
             if row["status"] != "queued":
                 return
             if json.loads(row["scope_snapshot_json"])["source_config_hash"] != self.settings.source_config_hash:
+                conn.execute("UPDATE jobs SET status='paused',paused_reason='configuration_required' WHERE id=?", (job_id,))
+                return
+            from .scope import RESEARCH_VERSION
+            if json.loads(row["scope_snapshot_json"]).get("research_version") != RESEARCH_VERSION:
                 conn.execute("UPDATE jobs SET status='paused',paused_reason='configuration_required' WHERE id=?", (job_id,))
                 return
             number = conn.execute("SELECT coalesce(max(segment_number),0)+1 FROM job_segments WHERE job_id=?", (job_id,)).fetchone()[0]
@@ -648,7 +673,23 @@ class JobManager:
                         for document in latest_sources.values()
                     ]
                     identifiers = [dict(r) for r in conn.execute("SELECT provider,external_key FROM institution_identifiers WHERE institution_id=?", (item["institution_id"],))]
-                result = await asyncio.wait_for(runner.run(institution, snapshot["season"], identifiers=identifiers), max(0, remaining - (time.monotonic() - started)))
+                    from .research_records import reusable_routes
+                    routes = reusable_routes(conn, institution["id"], snapshot.get("purpose", "date_count"))
+                    target_event = None
+                    if snapshot.get("target_event_id"):
+                        projection = self.service._project(conn, snapshot["target_event_id"])[0]
+                        target_event = {k: projection.get(k) for k in ("id", "title", "event_type", "audience", "campus_label")}
+                        target_event["event_date"] = (deepcopy(projection["fields"]["event_date"]["effective_value"])
+                            if projection["publication"]["current_date_allowed"] else None)
+                    evidence = {"documents": list(latest_sources.values()), "verified_values": {}}
+                import inspect
+                arguments = {"identifiers": identifiers}
+                # 오래된 격리 실행기도 검증에 사용할 수 있으나 실제 실행기는 확장 계약을 받는다.
+                if "purpose" in inspect.signature(runner.run).parameters:
+                    arguments.update(purpose=snapshot.get("purpose", "date_count"), target_event=target_event,
+                                     routes=routes, existing_evidence=evidence)
+                result = await asyncio.wait_for(runner.run(institution, snapshot["season"], **arguments), max(0, remaining - (time.monotonic() - started)))
+                result.update(purpose=snapshot.get("purpose", "date_count"), target_event_id=snapshot.get("target_event_id"))
         except BudgetStop as exc:
             reason, outcome = exc.reason, "limit_reached"
         except asyncio.TimeoutError:
@@ -685,7 +726,14 @@ class JobManager:
                     saved = self.service.save_research(item["institution_id"], snapshot["season"]["id"], result, conn=conn)
                     if result.get("errors"):
                         reason = "provider_error"
-                    ready = any(self.service._project(conn, event_id)[0]["publication"]["sales_ready"] for event_id in saved["event_ids"])
+                    from .research_records import current_counts
+                    projections = [self.service._project(conn, event_id)[0] for event_id in saved["event_ids"]]
+                    counts = current_counts(self.service, conn, snapshot["season"], projections)
+                    if snapshot.get("purpose") == "time":
+                        ready = any(e["id"] == snapshot.get("target_event_id") and e["publication"]["current_time_allowed"] for e in projections)
+                    else:
+                        ready = any(e["publication"]["current_date_allowed"] and (
+                            e["id"] in counts or e["institution"]["id"] in counts) for e in projections)
                     outcome = "verified" if ready else ("no_data" if not saved["observation_ids"] and not reason else "needs_review")
             pending = reason in {"segment_budget", "job_budget", "user_pause", "interrupted"}
             status = "cancelled" if cancelled else ("pending" if pending else ("failed" if error else "done"))
@@ -696,8 +744,10 @@ class JobManager:
             )
             conn.execute("UPDATE call_reservations SET status='charged_unknown',finished_at=? WHERE job_item_id=? AND status='reserved'", (now(), item_id))
             if result:
-                conn.execute("UPDATE job_items SET history_json=? WHERE id=?", (dump([{
+                history = json.loads(conn.execute("SELECT history_json FROM job_items WHERE id=?", (item_id,)).fetchone()[0] or "[]")
+                conn.execute("UPDATE job_items SET history_json=? WHERE id=?", (dump(history + [{
                     "at": now(), "trace": result.get("trace", []), "coverage": result.get("coverage", {}),
+                    "agent_trace": result.get("agent_trace", []), "stop_reason": result.get("stop_reason"),
                     "errors": result.get("errors", []), "discovery_mode": result.get("discovery_mode"),
                 }]), item_id))
             conn.execute("UPDATE jobs SET updated_at=?,revision=revision+1 WHERE id=?", (now(), job_id))

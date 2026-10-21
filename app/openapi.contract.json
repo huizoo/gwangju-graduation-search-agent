@@ -738,7 +738,7 @@
                 "all"
               ]
             },
-            "description": "calendar: 검증 이력 일반 조회, sales: sales_ready만, all: 관리 기록. 동일 Publication 사용."
+            "description": "이전 내부 조회 호환: calendar는 검증 이력, sales는 sales_ready, all은 관리 기록. 사용자 일정표는 이 구분 없이 /api/results를 사용한다."
           },
           {
             "name": "review_only",

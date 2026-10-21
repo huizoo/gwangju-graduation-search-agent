@@ -1,4 +1,4 @@
-"""조회에 필요한 네 열만 담은 독립 HTML을 안전하게 생성한다."""
+"""조회·필터·인쇄에 필요한 다섯 열의 독립 HTML을 안전하게 생성한다."""
 
 import base64
 import hashlib
@@ -8,7 +8,7 @@ from pathlib import Path
 from .results import result_rows
 
 STATIC = Path(__file__).with_name("static")
-MARKER = '<meta name="schedule-presentation" content="1.0">'
+MARKER = '<meta name="schedule-presentation" content="2.0">'
 
 
 def table_body(rows: list[dict]) -> str:
@@ -17,7 +17,7 @@ def table_body(rows: list[dict]) -> str:
     Args:
         rows: 서버의 현재 허용 결과 행.
     Returns:
-        네 칸으로 구성된 tbody 내용.
+        다섯 칸으로 구성된 tbody 내용.
     """
     output = []
     for row in rows:
@@ -28,11 +28,17 @@ def table_body(rows: list[dict]) -> str:
             name += f'<span class="event-label">{escape(row["event_label"])}</span>'
         if row["status"]:
             name += '<span class="cancelled"> · ' + ("취소" if row["status"] == "cancelled" else "미실시") + "</span>"
-        cells = [name, escape(row["date"] or "미확인"), escape(row["start_time"] or "미확인"),
-                 escape(row["address"] or "미확인")]
-        labels = ["학교명", "졸업식 날짜", "실제 시작 시각", "학교 위치(주소)"]
-        output.append(f'<tr data-name="{escape(row["name"], quote=True)}" data-date="{row["date"] or ""}">' +
-                      "".join(f'<td data-label="{label}">{value}</td>' for label, value in zip(labels, cells)) + "</tr>")
+        dates = row.get("dates") or ([row["date"]] if row["date"] else [])
+        count = row.get("graduation_count")
+        cells = [escape("\n".join(dates)), name, escape(row["start_time"] or ""),
+                 escape(str(count)) if count is not None else "", escape(row["address"] or "")]
+        labels = ["날짜", "학교명", "시간", "졸업인원수", "장소"]
+        attrs = {"name": row["name"], "date": row["date"] or "", "dates": " ".join(dates),
+                 "district": row.get("district") or ""}
+        attributes = " ".join(f'data-{key}="{escape(value, quote=True)}"' for key, value in attrs.items())
+        output.append(f"<tr {attributes}>" + "".join(
+            f'<td data-label="{label}"' + (' class="date-list"' if label == "날짜" else "") + f'>{value}</td>'
+            for label, value in zip(labels, cells)) + "</tr>")
     return "".join(output)
 
 
@@ -40,19 +46,19 @@ def schedule_markup(rows: list[dict]) -> str:
     """앱과 HTML에서 같은 필터·표·페이지 구조를 제공한다.
 
     Args:
-        rows: 네 열 결과.
+        rows: 다섯 열 결과.
     Returns:
         외부 요청 없이 작동하는 일정표 영역.
     """
     return f"""<section data-schedule aria-label="졸업식 일정표">
 <div class="schedule-tools">
 <label class="schedule-search">학교명 검색<input type="search" data-control="query" placeholder="학교 이름" autocomplete="off"></label>
-<label>날짜 선택<select data-control="date-mode"><option value="day">하루</option><option value="range">기간</option></select></label>
-<label>날짜 / 시작일<input type="date" data-control="from-date"></label>
-<label data-control="to-wrap" hidden>종료일<input type="date" data-control="to-date"></label>
+<label>구<select data-control="district"><option value="">전체 구</option></select></label>
+<label>날짜<input type="date" data-control="date"></label>
 <button type="button" data-control="reset">전체 보기</button>
+<button type="button" data-control="print">인쇄</button>
 </div>
-<table class="schedule-table"><thead><tr><th scope="col">학교명</th><th scope="col">졸업식 날짜</th><th scope="col">실제 시작 시각</th><th scope="col">학교 위치(주소)</th></tr></thead>
+<table class="schedule-table"><thead><tr><th scope="col">날짜</th><th scope="col">학교명</th><th scope="col">시간</th><th scope="col">졸업인원수</th><th scope="col">장소</th></tr></thead>
 <tbody>{table_body(rows)}</tbody></table>
 <p class="empty" data-control="empty" hidden>조건에 맞는 학교가 없습니다.</p>
 <div class="schedule-footer"><span data-control="count" role="status" aria-live="polite"></span>
@@ -84,7 +90,7 @@ def render_export(snapshot: dict, *, include_notes: bool = False) -> str:
 
 
 def current_export(path: str | Path) -> bool:
-    """이전의 경고 기반 HTML을 새 사용자 결과로 재사용하지 않는다.
+    """현재 표현 계약의 HTML인지 확인해 오래된 표 구조의 재사용을 막는다.
 
     Args:
         path: 저장 파일 경로.

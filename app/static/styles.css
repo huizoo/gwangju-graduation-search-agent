@@ -2,9 +2,7 @@ header{margin-bottom:26px}.eyebrow{color:#627763;font-size:15px;letter-spacing:.
 h2{font-size:23px;margin:0 0 16px}.season-bar{display:flex;gap:18px;align-items:center;flex-wrap:wrap}.season-bar span,.hint{font-size:15px;color:#627064}.season-bar select{margin-left:8px}
 .input-panels{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}.panel{min-width:0;padding:24px;background:#fff;border:1px solid #dde4d9;border-radius:16px}
 .panel input[type=search],textarea{width:100%;margin:7px 0 12px}textarea{resize:vertical;border:1px solid #8a9d91;border-radius:10px;padding:12px;line-height:1.6}
-.primary{background:#23614a;color:white;border-color:#23614a}.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}.check{display:flex;gap:8px;align-items:center;margin:12px 0;font-size:16px}.check input{min-height:24px;width:22px;height:22px}
-.school-options{display:grid;gap:6px;max-height:220px;overflow:auto}.school-options button{text-align:left;font-size:16px;background:#f6f8f2}
-.selected-schools{display:flex;gap:6px;flex-wrap:wrap}.selected-schools button{min-height:36px;padding:3px 10px;font-size:14px;background:#edf3e8}
+.primary{background:#23614a;color:white;border-color:#23614a}.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
 .hint{margin-top:-5px}#conversation{font-size:16px;max-height:280px;overflow:auto}.reply{padding:12px;background:#edf4e9;border-radius:8px;margin:10px 0;white-space:pre-wrap}.user-line{color:#617163;white-space:pre-wrap;padding:8px 0}
 #job{margin-top:18px;border-top:1px solid #e3eadf}#job-message{font-size:16px}#message{padding:12px 16px;background:#fff0d7;border-radius:10px}
 .results{margin-top:32px}.results-heading{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}.results-heading h2{margin:0}

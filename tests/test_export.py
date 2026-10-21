@@ -63,11 +63,11 @@ def _event(*, eligible=True, ready=True, name="광주 확인학교"):
 
 
 def test_current_result_masks_held_values_without_exposing_internal_metadata():
-    """과거 확인값·내부 상태를 출력하지 않고 같은 행에 미확인을 표시한다."""
+    """과거 확인값·내부 상태를 출력하지 않고 같은 행의 해당 칸을 비운다."""
     html = render_export({"events": [_event(ready=False), _event(eligible=False)],
                           "content_revision": 7, "generated_at": "2026-10-20T01:00:00Z"})
     assert "2027-01-08" not in html and "2099-12-31" not in html
-    assert "미확인" in html
+    assert "미확인" not in html
     assert "과거 확인값" not in html and "재확인 실패" not in html
     assert "revision" not in html and "판매 준비" not in html
     assert "2026-10-20" not in html
@@ -94,7 +94,8 @@ def test_untrusted_values_cannot_create_active_content():
     assert not any(tag in {"img", "svg", "iframe", "object"} for tag, _ in parser.tags)
     assert not any(key.startswith("on") for _, attrs in parser.tags for key in attrs)
     assert "javascript:" not in html and "password" not in html and "secret" not in html
-    assert "https://school.example/notice?a=1" in html
+    assert 'href="https://school.example"' in html
+    assert "https://school.example/notice" not in html
     assert "fetch(" not in html and "https://cdn" not in html
     assert "script-src &#x27;sha256-" in html
     assert "초등학교 6학년" not in html  # 단일 행사는 불필요한 대상 설명을 반복하지 않는다.
@@ -127,7 +128,7 @@ def test_empty_snapshot_explains_missing_schedule():
     assert "등록 기관" not in html
 
 
-def test_partial_time_unknown_keeps_date_and_four_columns():
+def test_partial_time_unknown_keeps_date_and_five_columns():
     """시간만 현재 사용할 수 없으면 정상 날짜와 주소를 유지한다."""
     event = _event()
     event["publication"]["field_permissions"]["start_time"]["current_allowed"] = False
@@ -135,8 +136,8 @@ def test_partial_time_unknown_keeps_date_and_four_columns():
     parser = _Tags()
     parser.feed(html)
     assert "2027-01-08" in html and "10:30" not in html
-    assert sum(tag == "th" for tag, _ in parser.tags) == 4
-    assert sum(tag == "td" for tag, _ in parser.tags) == 4
+    assert sum(tag == "th" for tag, _ in parser.tags) == 5
+    assert sum(tag == "td" for tag, _ in parser.tags) == 5
 
 
 def test_api_link_falls_back_to_school_and_missing_target_is_in_same_table():
