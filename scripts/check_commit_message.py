@@ -1,10 +1,14 @@
-"""커밋 제목에 한국어가 포함되는지만 확인하며 본문 언어는 강제하지 않는다."""
+"""한국어 커밋 제목과 메시지의 비밀값 노출을 검사하며 본문 언어는 강제하지 않는다."""
 
 import argparse
 from pathlib import Path
 import re
 import subprocess
 import sys
+
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from check_publication_safety import local_secrets, scan_content
 
 
 KOREAN = re.compile(r"[가-힣ㄱ-ㅎㅏ-ㅣ]")
@@ -39,6 +43,16 @@ def main() -> int:
     except (OSError, UnicodeError, subprocess.CalledProcessError):
         print("커밋 메시지를 확인하지 못했습니다. 메시지 파일과 Git 상태를 확인해 주세요.", file=sys.stderr)
         return 2
+    try:
+        findings = scan_content("(commit-message)", cleaned.encode("utf-8"),
+                                local_secrets(Path(__file__).resolve().parents[1]))
+    except (OSError, ValueError):
+        print("커밋 메시지의 비밀값 검사를 완료하지 못했습니다.", file=sys.stderr)
+        return 2
+    if findings:
+        categories = ", ".join(sorted({item.category for item in findings}))
+        print(f"커밋 메시지에서 공개할 수 없는 항목이 발견되었습니다: {categories}", file=sys.stderr)
+        return 1
     if not validate_message(cleaned):
         print("커밋 제목에 한국어로 변경 내용을 적어 주세요. 기술명과 영어 접두사는 함께 사용할 수 있습니다.",
               file=sys.stderr)

@@ -208,12 +208,21 @@ def test_deleted_intermediate_secret_is_caught_before_push(repo):
     assert any(item.category == "secret-file" for item in found)
 
 
-def test_history_does_not_require_manifest_in_old_commits(repo):
-    """기존 정제 자료는 이력 내용 검사에서 오늘의 검토 명부를 요구하지 않는다."""
-    stage(repo, "assets/registry/old.json", b'{"public": true}')
+def test_old_data_without_manifest_requires_exact_tip_history_approval(repo):
+    """명부가 없던 과거 자료는 최신 명부의 정확한 과거 승인으로만 허용한다."""
+    path, content = "assets/registry/old.json", b'{"public": true}'
+    stage(repo, path, content)
     git(repo, "commit", "-qm", "예전 공개 명부")
+    assert GUARD.check_history(repo, "HEAD")[0][0].category == "unreviewed-data"
+    git(repo, "rm", path)
+    manifest = {"version": 1, "files": {}, "historical_files": {path: [{
+        "sha256": hashlib.sha256(content).hexdigest(), "purpose": "검토한 예전 공개 명부"}]}}
+    stage(repo, GUARD.DATA_MANIFEST, json.dumps(manifest).encode())
+    git(repo, "commit", "-qm", "검토한 과거 자료 등록")
     assert GUARD.check_history(repo, "HEAD")[0] == []
-    assert GUARD.check(repo, "tree", "HEAD")[0][0].category == "unreviewed-data"
+    stage(repo, path, content)
+    # 현재 파일에는 과거 승인만으로 게시를 허용하지 않는다.
+    assert GUARD.check(repo, "tracked")[0][0].category == "unreviewed-data"
 
 
 def test_shallow_history_fails_closed(repo, monkeypatch):
@@ -247,3 +256,58 @@ def test_oversize_blob_is_blocked_instead_of_silently_skipped(repo, monkeypatch)
     stage(repo, "large.bin", b"1234567890")
     monkeypatch.setattr(GUARD, "MAX_BYTES", 5)
     assert GUARD.check(repo, "staged")[0][0].category == "oversize-unscanned"
+
+
+@pytest.mark.parametrize("remove_manifest", [False, True])
+def test_unreviewed_intermediate_data_cannot_be_hidden_by_later_deletion(repo, remove_manifest):
+    """새 원문을 커밋 후 지우거나 중간에 명부를 지워도 전송 검사를 통과하지 못한다."""
+    manifest = {"version": 1, "files": {}}
+    stage(repo, GUARD.DATA_MANIFEST, json.dumps(manifest).encode())
+    git(repo, "commit", "-qm", "공개 검토 기준")
+    base = git(repo, "rev-parse", "HEAD").decode().strip()
+    if remove_manifest:
+        git(repo, "rm", GUARD.DATA_MANIFEST)
+    path, content = "docs/evidence/raw.json", b'{"unreviewed": "collected source"}'
+    stage(repo, path, content)
+    git(repo, "commit", "-qm", "미검토 원문 추가")
+    git(repo, "rm", path)
+    stage(repo, GUARD.DATA_MANIFEST, json.dumps(manifest).encode())
+    git(repo, "commit", "-qm", "최신 파일에서 제거")
+    tip = git(repo, "rev-parse", "HEAD").decode().strip()
+    assert GUARD.check(repo, "tree", tip)[0] == []
+    findings, _ = GUARD.check_push(repo, f"refs/heads/main {tip} refs/heads/main {base}\n")
+    assert any(item.path == path and item.category == "unreviewed-data" for item in findings)
+    if not remove_manifest:
+        # 당시 명부가 존재했던 자료는 사후 historical_files 추가로 과거 누락을 우회할 수 없다.
+        manifest["historical_files"] = {path: [{
+            "sha256": hashlib.sha256(content).hexdigest(), "purpose": "사후 과거 승인 시도"}]}
+        stage(repo, GUARD.DATA_MANIFEST, json.dumps(manifest).encode())
+        git(repo, "commit", "-qm", "현재 명부에 과거 승인 추가")
+        assert any(item.category == "unreviewed-data" for item in GUARD.check_history(repo, "HEAD", base)[0])
+
+
+def test_history_scans_commit_message_without_echoing_secret(repo):
+    """파일이 안전해도 커밋 본문에 남은 알려진 키와 로컬 키를 탐지한다."""
+    api_secret = "sk-" + "B" * 35
+    local_secret = "nonstandard-history-credential-123"
+    (repo / ".env").write_text(f"SCHOOLINFO_API_KEY={local_secret}\n")
+    stage(repo, "guide.md", b"public")
+    git(repo, "commit", "-qm", "문서: 검사용 기록", "-m", f"{api_secret}\n{local_secret}")
+    assert GUARD.check(repo, "tree", "HEAD")[0] == []
+    findings, _ = GUARD.check_history(repo, "HEAD")
+    assert {item.category for item in findings} == {"api-key", "local-secret"}
+    assert all(item.path.startswith("(commit-message)/") for item in findings)
+    output = json.dumps([item.__dict__ for item in findings])
+    assert api_secret not in output and local_secret not in output
+
+
+def test_history_approval_requires_exact_digest(repo):
+    """과거 승인에 같은 경로가 있어도 다른 버전의 원문은 허용하지 않는다."""
+    path = "docs/evidence/old.txt"
+    stage(repo, path, b"unreviewed change")
+    git(repo, "commit", "-qm", "이전 수집 원문")
+    git(repo, "rm", path)
+    stage(repo, GUARD.DATA_MANIFEST, json.dumps({"version": 1, "files": {}, "historical_files": {
+        path: [{"sha256": hashlib.sha256(b"reviewed original").hexdigest(), "purpose": "검토한 원본"}]}}).encode())
+    git(repo, "commit", "-qm", "검토한 원본만 등록")
+    assert any(item.category == "unreviewed-data" for item in GUARD.check_history(repo, "HEAD")[0])

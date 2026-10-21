@@ -214,14 +214,15 @@ def allowances(root: Path, all_entries: list[tuple[str, str, str]]) -> set[tuple
     return result
 
 
-def reviewed_data(root: Path, all_entries: list[tuple[str, str, str]]) -> dict:
+def reviewed_data(root: Path, all_entries: list[tuple[str, str, str]], include_history: bool = False) -> dict:
     """공개 검토를 마친 데이터의 해시와 목적을 같은 Git 스냅샷에서 읽는다.
 
     Args:
         root: 검사 저장소.
         all_entries: 검사 대상과 같은 index 또는 tree의 전체 항목.
+        include_history: 명부가 없던 과거 snapshot용 정확한 이력 해시도 합칠지 여부.
     Returns:
-        파일 경로별 SHA256과 공개 목적. 명부가 없으면 빈 값.
+        파일 경로별 승인 목록. 명부가 없으면 빈 값.
     Raises:
         ValueError: 검토 목록의 형식 또는 파일 모드가 잘못된 경우.
     """
@@ -233,12 +234,27 @@ def reviewed_data(root: Path, all_entries: list[tuple[str, str, str]]) -> dict:
     data = json.loads(blob(root, entry[2]))
     if not isinstance(data, dict) or data.get("version") != 1 or not isinstance(data.get("files"), dict):
         raise ValueError("검토 목록 형식이 올바르지 않습니다.")
-    for path, approval in data["files"].items():
-        if (not isinstance(approval, dict) or not isinstance(approval.get("purpose"), str)
-                or not approval["purpose"].strip()
-                or not re.fullmatch(r"[0-9a-f]{64}", approval.get("sha256", ""))):
-            raise ValueError("각 공개 자료의 정확한 해시와 검토 목적이 필요합니다.")
-    return data["files"]
+    history = data.get("historical_files", {})
+    if not isinstance(history, dict) or any(not isinstance(items, list) for items in history.values()):
+        raise ValueError("과거 검토 목록은 경로별 승인 배열이어야 합니다.")
+    current = {path: [approval] for path, approval in data["files"].items()}
+    for path, approvals in [*current.items(), *history.items()]:
+        if not approvals:
+            raise ValueError("과거 승인 배열은 비어 있을 수 없습니다.")
+        for approval in approvals:
+            if (not isinstance(approval, dict) or not isinstance(approval.get("purpose"), str)
+                    or not approval["purpose"].strip()
+                    or not re.fullmatch(r"[0-9a-f]{64}", approval.get("sha256", ""))):
+                raise ValueError("각 공개 자료의 정확한 해시와 검토 목적이 필요합니다.")
+    if include_history:
+        for path, approvals in history.items():
+            current.setdefault(path, []).extend(approvals)
+    return current
+
+
+def data_is_approved(approved: dict, path: str, digest: str) -> bool:
+    """현재 또는 과거 승인 중 경로와 전체 파일 해시가 정확히 같은 항목만 인정한다."""
+    return any(item["sha256"] == digest for item in approved.get(path, []))
 
 
 def needs_review(path: str) -> bool:
@@ -274,8 +290,7 @@ def inspect_entries(root: Path, targets: list[tuple[str, str, str]], secrets: li
             findings.append(Finding(path, 0, "oversize-unscanned"))
             continue
         if approved is not None and needs_review(path):
-            expected = approved.get(path, {}).get("sha256")
-            if expected != hashlib.sha256(content).hexdigest():
+            if not data_is_approved(approved, path, hashlib.sha256(content).hexdigest()):
                 findings.append(Finding(path, 0, "unreviewed-data"))
         findings.extend(item for item in scan_content(path, content, secrets)
                         if (item.path, item.category, item.line_sha256) not in (allowed or set()))
@@ -298,7 +313,7 @@ def check_history(root: Path, tip: str, base: str | None = None) -> tuple[list[F
         tip: 검사할 마지막 커밋.
         base: 이미 원격에 있는 커밋. 로컬에 없으면 전체 도달 이력을 검사한다.
     Returns:
-        manifest 승인을 제외한 이력 내용 탐지와 고유 경로·blob 수.
+        이력 자료·메시지 탐지와 고유 경로·blob 수. 이전 명부가 없을 때만 tip의 과거 승인을 사용한다.
     Raises:
         RuntimeError: shallow 저장소라 전체 전송 이력을 확인할 수 없는 경우.
     """
@@ -313,11 +328,29 @@ def check_history(root: Path, tip: str, base: str | None = None) -> tuple[list[F
             base_oid = None
         if base_oid:
             arguments.append("^" + base_oid)
-    targets = set()
+    fallback = reviewed_data(root, entries(root, "tree", tip_oid), include_history=True)
+    secrets, targets, findings, hashes = local_secrets(root), set(), [], {}
     for commit in git(root, *arguments).decode().splitlines():
-        targets.update(entries(root, "tree", commit))
+        snapshot = entries(root, "tree", commit)
+        has_manifest = any(item[0] == DATA_MANIFEST for item in snapshot)
+        approved = reviewed_data(root, snapshot) if has_manifest else fallback
+        for path, mode, oid in snapshot:
+            if not needs_review(path) or mode not in {"100644", "100755"}:
+                continue
+            try:
+                if oid not in hashes:
+                    hashes[oid] = hashlib.sha256(blob(root, oid)).hexdigest()
+            except OverflowError:
+                findings.append(Finding(path, 0, "oversize-unscanned"))
+                continue
+            if not data_is_approved(approved, path, hashes[oid]):
+                findings.append(Finding(path, 0, "unreviewed-data"))
+        targets.update(snapshot)
+        message = git(root, "show", "-s", "--format=%B", commit)
+        findings.extend(scan_content(f"(commit-message)/{commit}", message, secrets))
     ordered = sorted(targets)
-    return inspect_entries(root, ordered, local_secrets(root)), len(ordered)
+    findings.extend(inspect_entries(root, ordered, secrets))
+    return list(dict.fromkeys(findings)), len(ordered)
 
 
 def check_push(root: Path, input_text: str) -> tuple[list[Finding], int]:
@@ -354,9 +387,9 @@ def main() -> int:
     group = parser.add_mutually_exclusive_group()
     group.add_argument("--staged", action="store_true", help="커밋 예정 변경의 index blob 검사 (기본값)")
     group.add_argument("--tracked", action="store_true", help="index의 전체 추적 파일 검사")
-    group.add_argument("--history", help="지정 커밋까지 도달 가능한 이력의 내용 검사 (manifest 제외)")
+    group.add_argument("--history", help="지정 커밋까지 이력 자료의 검토 승인·내용·커밋 메시지 검사")
     parser.add_argument("--base", help="--history 검사에서 제외할 이미 검토한 기준 커밋")
-    group.add_argument("--pre-push", action="store_true", help="Git pre-push 입력의 전송 ref 최신 tree 검사")
+    group.add_argument("--pre-push", action="store_true", help="Git pre-push 전송 ref와 중간 이력 검사")
     group.add_argument("--tree", help="지정 커밋/tree의 전체 파일 검사")
     parser.add_argument("--json", action="store_true", help="탐지 값 없이 JSON 출력")
     args = parser.parse_args()

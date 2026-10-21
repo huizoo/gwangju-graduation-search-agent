@@ -39,6 +39,7 @@ def test_real_hook_rejects_english_and_accepts_korean(tmp_path):
     (tmp_path / "scripts").mkdir()
     shutil.copy2(ROOT / ".githooks/commit-msg", tmp_path / ".githooks/commit-msg")
     shutil.copy2(ROOT / "scripts/check_commit_message.py", tmp_path / "scripts/check_commit_message.py")
+    shutil.copy2(ROOT / "scripts/check_publication_safety.py", tmp_path / "scripts/check_publication_safety.py")
     (tmp_path / "sample.txt").write_text("public sample")
     git("add", "sample.txt")
     rejected = git("commit", "-m", "feat: add sample", check=False)
@@ -50,5 +51,14 @@ def test_real_hook_rejects_english_and_accepts_korean(tmp_path):
     message.write_text("; 한국어 템플릿 안내\nfeat: add sample\n", encoding="utf-8")
     rejected = git("commit", "-F", "message.txt", check=False)
     assert rejected.returncode != 0
+    secret = "sk-" + "A" * 35
+    rejected = git("commit", "-m", "개선: 설정 추가", "-m", secret, check=False)
+    assert rejected.returncode != 0 and b"api-key" in rejected.stderr
+    assert secret.encode() not in rejected.stderr
+    local_key = "nonstandard-local-secret-13579"
+    (tmp_path / ".env").write_text(f"SCHOOLINFO_API_KEY={local_key}\n")
+    rejected = git("commit", "-m", "개선: 설정 추가", "-m", local_key, check=False)
+    assert rejected.returncode != 0 and b"local-secret" in rejected.stderr
+    assert local_key.encode() not in rejected.stderr
     git("commit", "-m", "개선: HTML 검사용 자료 추가")
     assert git("log", "-1", "--format=%s").stdout.decode().strip() == "개선: HTML 검사용 자료 추가"
