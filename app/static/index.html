@@ -5,15 +5,16 @@
   <title>광주 졸업식 일정 도우미</title>
   <link rel="stylesheet" href="/static/schedule.css">
   <link rel="stylesheet" href="/static/styles.css">
-  <script src="/static/schedule.js" defer></script><script src="/static/app.js" defer></script>
+  <script src="/static/schedule.js" defer></script><script src="/static/app-status.js" defer></script><script src="/static/app.js" defer></script>
 </head>
 <body><main>
   <header><div class="eyebrow">우리 동네 학교 일정</div><h1>광주 졸업식 일정 도우미</h1>
-  <div class="season-bar"><label>저장된 시즌 <select id="season-select"></select></label><span id="season-range"></span></div></header>
+  <div class="season-bar"><label>저장된 시즌 <select id="season-select"></select></label></div></header>
   <p id="message" role="status" aria-live="polite" hidden></p>
   <div class="input-panels">
     <section class="panel" aria-labelledby="research-title"><h2 id="research-title">일정찾기</h2>
       <p class="hint">광주 학교의 졸업식 날짜와 인원수를 찾아요.</p>
+      <p id="research-summary" class="research-summary" role="status" hidden></p>
       <form id="research-form" class="actions"><button class="primary" type="submit" id="research-submit">이 시즌 다시 조사</button><button id="add-season" type="button">새 시즌 조사</button></form>
       <div id="job" hidden><p id="job-message" role="status"></p><div class="actions" id="job-actions"></div></div>
     </section>
@@ -29,7 +30,8 @@
   </div>
   <section class="results" aria-labelledby="results-title">
     <div class="results-heading"><h2 id="results-title">졸업식 일정표</h2>
-    <div class="actions"><button id="refresh-results">새로 보기</button><button id="open-html">HTML 열기</button><button id="save-html" class="primary">HTML 저장</button></div></div>
+    <div class="actions"><button id="open-html">일정표 열기</button><button id="save-html" class="primary">파일 내려받기</button></div></div>
+    <p id="html-save-message" class="file-message" role="status" hidden></p>
     <div id="results" data-schedule>
       <div class="schedule-tools">
         <label class="schedule-search">학교명 검색<input type="search" data-control="query" placeholder="학교 이름"></label>
@@ -45,7 +47,7 @@
       </div>
     </div>
   </section>
-  <footer><details><summary>기록 관리</summary><div class="actions"><button id="backup">기록 백업 저장</button><button id="registry-sync">학교 목록 새로 가져오기</button></div></details><button id="shutdown">저장하고 프로그램 종료</button></footer>
+  <footer><details><summary>관리</summary><div class="actions"><button id="backup">기록 백업</button><button id="registry-sync">학교 목록 갱신</button></div></details><button id="shutdown">프로그램 종료</button></footer>
   <dialog id="season-dialog"><form id="season-form"><h2>새 시즌 조사</h2>
     <p class="hint">찾을 졸업식의 실제 날짜를 선택해 주세요.<br>시작일과 종료일을 모두 포함해요.</p>
     <label>졸업식 시작 날짜<input id="season-start" name="search_start" type="date" required></label>

@@ -3,9 +3,9 @@ h2{font-size:23px;margin:0 0 16px}.season-bar{display:flex;gap:18px;align-items:
 .input-panels{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:20px}.panel{min-width:0;padding:24px;background:#fff;border:1px solid #dde4d9;border-radius:16px}
 .panel input[type=search],textarea{width:100%;margin:7px 0 12px}textarea{resize:vertical;border:1px solid #8a9d91;border-radius:10px;padding:12px;line-height:1.6}
 .primary{background:#23614a;color:white;border-color:#23614a}.primary:not(:disabled):hover{background:#174d38;border-color:#103d2b}.primary:not(:disabled):active{background:#103d2b;border-color:#092d1e}.primary:disabled{background:#789384;color:#fff;border-color:#789384}.actions{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
-.hint{margin-top:-5px}#conversation{font-size:16px;max-height:280px;overflow:auto}.reply{padding:12px;background:#edf4e9;border-radius:8px;margin:10px 0;white-space:pre-wrap}.user-line{color:#617163;white-space:pre-wrap;padding:8px 0}
+.hint{margin-top:-5px}.research-summary{font-size:16px;margin:0 0 16px;padding:10px 12px;background:#f0f5ed;border-radius:8px}#conversation{font-size:16px;max-height:280px;overflow:auto}.reply{padding:12px;background:#edf4e9;border-radius:8px;margin:10px 0;white-space:pre-wrap}.user-line{color:#617163;white-space:pre-wrap;padding:8px 0}
 #job{margin-top:18px;border-top:1px solid #e3eadf}#job-message{font-size:16px}#message{padding:12px 16px;background:#fff0d7;border-radius:10px}
-.results{margin-top:32px}.results-heading{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}.results-heading h2{margin:0}
+.results{margin-top:32px}.file-message{font-size:16px;padding:10px 12px;background:#fff0d7;border-radius:8px}.results-heading{display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap}.results-heading h2{margin:0}
 footer{display:flex;justify-content:space-between;gap:20px;align-items:start;margin-top:36px;padding:20px 0;color:#586d60;font-size:15px}summary{cursor:pointer;margin-bottom:12px}
 dialog{border:1px solid #8a9d91;border-radius:16px;padding:24px;max-width:95vw}dialog label{display:grid;margin-bottom:12px}dialog::backdrop{background:#1234}
 .sr-only{position:absolute;clip-path:inset(100%);width:1px;height:1px;overflow:hidden}

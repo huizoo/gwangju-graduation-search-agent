@@ -2,7 +2,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   const state = {token: "", season: null, seasons: [], rows: [], conversation: null,
-    jobs: [], jobSignature: "", activeJobId: null, pendingTime: new Set(), timeErrors: new Map(), stopped: false};
+    jobs: [], jobSignature: null, contentRevision: null, researchSummary: null, recordPending: false, activeJobId: null, pendingTime: new Set(), timeErrors: new Map(), stopped: false};
   function message(text) { $("message").textContent = text; $("message").hidden = !text; }
   async function api(path, {method = "GET", body} = {}) {
     const headers = {};
@@ -42,7 +42,7 @@
       if (!row) return;
       const key = timeKey(row), pending = state.pendingTime.has(key), job = timeJob(row);
       const signature = JSON.stringify([row.start_time, row.status, row.date, key, busy, pending,
-        state.timeErrors.get(key), job?.id, job?.revision, job?.status, job?.outcome, job?.counts?.failed]);
+        state.timeErrors.get(key), job?.id, job?.revision, job?.status, job?.outcome, job?.counts?.failed, job?.feedback]);
       // 변하지 않은 버튼을 다시 만들지 않아 폴링 중 키보드 포커스를 보존한다.
       if (cell.timeSignature === signature) return;
       cell.timeSignature = signature; cell.replaceChildren();
@@ -56,8 +56,7 @@
       const labels = {queued:"찾기 준비 중…", running:"찾는 중…", pausing:"잠시 멈추는 중…",
         cancelling:"취소하는 중…", paused:"잠시 멈췄어요.", cancelled:"취소했어요.", failed:"찾기를 마치지 못했어요."};
       let text = pending ? "요청 중…" : (state.timeErrors.get(key) || labels[job?.status]);
-      if (!state.timeErrors.has(key) && job?.status === "completed") text = job.outcome === "error" || job.counts?.failed ?
-        "찾기를 마치지 못했어요." : "시간을 확인하지 못했어요.";
+      if (!state.timeErrors.has(key) && ["completed", "failed"].includes(job?.status)) text = window.scheduleTimeFeedback(job);
       if (text) {
         const notice = document.createElement("span"); notice.className = "time-notice";
         notice.setAttribute("role", "status"); notice.setAttribute("aria-live", "polite");
@@ -89,11 +88,19 @@
     $("add-season").disabled = busy;
     $("season-submit").disabled = busy;
   }
+  function htmlSaveStatus(saved) {
+    $("html-save-message").textContent = saved?.status === "failed" ? saved.message || "일정표 파일을 저장하지 못했어요." : "";
+    $("html-save-message").hidden = saved?.status !== "failed";
+  }
   async function results() {
     const season = state.season;
     const result = await api(`/api/results?season_id=${season}`);
     if (season !== state.season) return;
     state.rows = result.rows;
+    htmlSaveStatus(result.html_save);
+    state.researchSummary = result.research_summary || null;
+    $("research-summary").textContent = state.researchSummary?.message || "";
+    $("research-summary").hidden = !state.researchSummary?.message;
     state.activeJobId = result.active_job_id || null;
     const labels = ["날짜", "학교명", "시간", "졸업인원수", "장소"];
     const rows = result.rows.map(row => {
@@ -127,15 +134,18 @@
     renderTimeStates(); await jobs(); await results(); return job;
   }
   async function jobs() {
-    const [data, status] = await Promise.all([api("/api/jobs?limit=100"), api("/api/status")]);
+    const season = state.season;
+    const [data, status] = await Promise.all([api("/api/jobs?limit=100"), api(`/api/status?season_id=${season}`)]);
+    if (season !== state.season) return;
+    htmlSaveStatus(status.html_save);
     // 오래전에 멈춘 작업도 재개될 수 있어 최근 100건 밖의 활성 작업을 따로 확인한다.
     if (status.active_job_id && !data.items.some(job => job.id === status.active_job_id))
       data.items.unshift(await api(`/api/jobs/${status.active_job_id}`));
     state.jobs = data.items;
     state.activeJobId = status.active_job_id;
     const signature = data.items.map(job => `${job.id}:${job.revision}:${job.status}`).join("|");
-    const changed = state.jobSignature && state.jobSignature !== signature;
-    state.jobSignature = signature;
+    const changed = state.jobSignature !== null && (state.jobSignature !== signature || state.contentRevision !== status.content_revision);
+    state.jobSignature = signature; state.contentRevision = status.content_revision;
     renderTimeStates();
     const current = data.items.filter(j => j.season_id === state.season || j.kind === "registry_sync");
     const active = data.items.find(j => ["queued","running","pausing","cancelling"].includes(j.status));
@@ -146,12 +156,16 @@
     const labels = {queued:"조사를 준비하고 있어요.",running:"학교별로 일정을 확인하고 있어요.",pausing:"지금까지 확인한 내용을 저장하고 있어요.",
       paused:"조사를 잠시 멈췄어요.",cancelling:"조사를 마무리하고 있어요.",cancelled:"조사를 취소했어요. 확인한 기록은 남아 있어요.",
       completed:"조사를 마쳤어요. 아래 일정표에서 확인해 주세요.",failed:"조사를 마치지 못했어요. 이 시즌 다시 조사를 눌러 주세요."};
-    $("job-message").textContent = labels[job.status] || "";
+    const dateCount = job.kind === "schedule_scan" && job.scope_snapshot?.purpose !== "time";
+    const timeSearch = job.scope_snapshot?.purpose === "time";
+    const timeLabels = {queued:"시간 조사를 준비하고 있어요.", running:"선택한 학교의 시간을 찾고 있어요.", completed:"시간 조사를 마쳤어요."};
+    $("job-message").textContent = (timeSearch && timeLabels[job.status]) || labels[job.status] || "";
+    $("job-message").hidden = dateCount && Boolean(state.researchSummary?.message);
     const controls = [];
     if (["queued","running"].includes(job.status)) controls.push(button("잠시 멈추기", e => action(e.currentTarget, async () => { await api(`/api/jobs/${job.id}/pause`, {method:"POST"}); await jobs(); })));
     if (job.status === "paused" && !active) {
-      if (job.paused_reason === "job_budget") $("job-message").textContent = "이번 조사에서 확인한 내용을 저장했어요. 필요하면 이 시즌 다시 조사를 눌러 계속 확인해 주세요.";
-      else if (job.paused_reason === "configuration_required") $("job-message").textContent = "조사 조건이 바뀌었어요. 다시 조사해 주세요.";
+      if (job.paused_reason === "job_budget") { $("job-message").hidden = false; $("job-message").textContent = "이번 조사에서 확인한 내용을 저장했어요. 필요하면 이 시즌 다시 조사를 눌러 계속 확인해 주세요."; }
+      else if (job.paused_reason === "configuration_required") { $("job-message").hidden = false; $("job-message").textContent = "조사 조건이 바뀌었어요. 다시 조사해 주세요."; }
       else controls.push(button("이어서 조사", e => action(e.currentTarget, async () => { await api(`/api/jobs/${job.id}/resume`, {method:"POST",body:{expected_revision:job.revision,increase_limits:null}}); await jobs(); })));
     }
     if (["queued","running","paused"].includes(job.status)) controls.push(button("조사 취소", e => action(e.currentTarget, async () => { await api(`/api/jobs/${job.id}/cancel`, {method:"POST"}); await jobs(); })));
@@ -163,25 +177,27 @@
     const popup = download ? null : window.open("about:blank", "_blank");
     try {
       const result = await api("/api/exports/html", {method:"POST",body:{season_id:state.season,include_notes:false,publication_policy_version:"4.0"}});
-      if (!result.url) throw new Error("HTML을 만들지 못했어요. 다시 시도해 주세요.");
+      if (result.status !== "current") throw new Error(result.status === "pending" ?
+        "일정표를 갱신하고 있어요. 잠시 후 다시 시도해 주세요." :
+        "기록은 보관됐지만 일정표 파일을 만들지 못했어요. 다시 시도해 주세요.");
+      if (!result.url) throw new Error("일정표 파일을 만들지 못했어요. 다시 시도해 주세요.");
       if (download) {
         const response = await fetch(result.url);
-        if (!response.ok) throw new Error("HTML을 저장하지 못했어요.");
+        if (!response.ok) throw new Error("파일을 내려받지 못했어요.");
         const url = URL.createObjectURL(await response.blob());
         const a = document.createElement("a"); a.href = url;
         const season = state.seasons.find(s=>s.id===state.season);
         a.download = `graduation-schedule-${season.search_start}_${season.search_end}.html`;
         a.click(); setTimeout(()=>URL.revokeObjectURL(url),1000);
-        message("HTML 파일을 저장했어요. 프로그램 없이 열어볼 수 있어요.");
+        message("파일을 내려받았어요. 프로그램 없이 열어볼 수 있어요.");
       } else if (popup) { popup.opener = null; popup.location.href = result.url; }
       else message("브라우저의 새 창 허용 후 다시 눌러 주세요.");
     } catch(error) { if (popup) popup.close(); throw error; }
   }
   async function seasonChanged() {
-    state.season = $("season-select").value; newRecord(); state.jobSignature = "";
+    state.season = $("season-select").value; newRecord(); state.jobSignature = null;
+    state.researchSummary = null; $("research-summary").hidden = true; htmlSaveStatus(null);
     $("results").dataset.page = "0";
-    const season = state.seasons.find(s=>s.id === state.season);
-    $("season-range").textContent = `찾을 졸업식: ${season.search_start} ~ ${season.search_end}`;
     await api("/api/selected-season", {method:"POST",body:{season_id:state.season}});
     await Promise.all([results(), jobs()]);
   }
@@ -189,8 +205,11 @@
   $("record-form").onsubmit = e => { e.preventDefault(); const submit=e.submitter;
     action(submit, async () => {
       const text = $("record-text").value.trim(); if (!text) return;
-      const result = await api("/api/records/natural", {method:"POST",body:{season_id:state.season,text,
-        conversation_id:state.conversation?.id || null,expected_revision:state.conversation?.revision || null}});
+      state.recordPending = true;
+      let result;
+      try { result = await api("/api/records/natural", {method:"POST",body:{season_id:state.season,text,
+        conversation_id:state.conversation?.id || null,expected_revision:state.conversation?.revision || null}}); }
+      finally { state.recordPending = false; }
       const user = document.createElement("div"); user.className="user-line"; user.textContent=text;
       const reply = document.createElement("div"); reply.className="reply"; reply.textContent = result.status === "research_request" ? "새 조사는 일정찾기에서 시작해 주세요. 이곳에는 직접 확인한 내용을 기록할 수 있어요." : [result.message,...result.questions].join("\n");
       $("conversation").append(user,reply); $("record-text").value="";
@@ -199,7 +218,6 @@
     });
   };
   $("new-record").onclick = newRecord;
-  $("refresh-results").onclick = e => action(e.currentTarget, results);
   $("save-html").onclick = e => action(e.currentTarget, () => exportHtml(true));
   $("open-html").onclick = e => action(e.currentTarget, () => exportHtml(false));
   $("season-select").onchange = () => seasonChanged().catch(e=>message(e.message));
@@ -238,8 +256,14 @@
     });
   };
   $("shutdown").onclick = e => action(e.currentTarget, async () => {
-    await api("/api/app/shutdown",{method:"POST",body:{pause_active_job:true}});state.stopped=true;
-    message("기록을 저장하고 프로그램을 종료했어요. 이 창을 닫아도 됩니다.");
+    if (state.recordPending) throw new Error("기록하는 중이에요. 잠시 후 종료해 주세요.");
+    if ($("record-text").value.trim()) {
+      $("record-text").focus();
+      throw new Error("아직 기록하지 않은 내용이 있어요. 기록하기를 누른 뒤 종료해 주세요.");
+    }
+    const result = await api("/api/app/shutdown",{method:"POST",body:{pause_active_job:true}});
+    state.stopped = true;
+    message(window.scheduleShutdownMessage(result.paused_active_job === true));
   });
   async function init() {
     const data=await api("/api/bootstrap");state.token=data.token;state.seasons=data.seasons;
