@@ -1,7 +1,7 @@
 {
   "checked_at": "2026-10-20T20:10:23.418011+09:00",
   "status": "completed_same_bytes_data_url_browser_execution_with_limitations",
-  "skill": "$HOME/.agents/skills/browser-verification/SKILL.md",
+  "skill": "~/.agents/skills/browser-verification/SKILL.md",
   "files": [
     {
       "path": "output/graduation-schedule-2026.html",
@@ -97,10 +97,10 @@
     "browser_version": "152.0.7977.8",
     "runtime_executables_checked": true,
     "task_id": "3080b95f-e751-4c74-a13b-c0058ea994cc",
-    "initial_url": "file://$HOME/workspace/week15/gwangju-graduation-search-agent/output/graduation-schedule-2026.html",
+    "initial_url": "file://<PROJECT_ROOT>/output/graduation-schedule-2026.html",
     "start_result": "START_FAILED",
     "reason": "현재 Playwright runtime은 allowUnrestrictedFileAccess가 없으면 file: 주소 탐색을 명시적으로 차단한다. helper start 실패와 설치 런타임 코드의 checkUrlAllowed 검사를 확인했다.",
-    "implementation_reference": "$HOME/Library/Application Support/codex-browser-verification/runtime/node_modules/playwright-core/lib/coreBundle.js:64948",
+    "implementation_reference": "~/Library/Application Support/codex-browser-verification/runtime/node_modules/playwright-core/lib/coreBundle.js:64948",
     "permission_changed": false,
     "fallback_browser_used": false,
     "user_browser_used": false,
@@ -289,5 +289,6 @@
     "artifact_external_request_count_past": 0,
     "scope": "각 data URL load/reload와 검색·필터 조작 중 page request/pageerror/console error 이벤트를 포착. data: 본문 탐색은 외부 요청에서 제외."
   },
-  "original_artifacts_unchanged": true
+  "original_artifacts_unchanged": true,
+  "publication_note": "공개 사본에서 개인 로컬 경로만 비식별화했다. 원래 검사 결과와 관찰값은 유지한다."
 }

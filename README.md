@@ -7,7 +7,7 @@
 이 폴더의 **[start.command](start.command)를 더블 클릭**합니다. 터미널에서는 다음과 같이 실행합니다.
 
 ```sh
-cd $HOME/workspace/week15/gwangju-graduation-search-agent
+cd gwangju-graduation-search-agent
 .venv/bin/python -m app
 ```
 
@@ -74,7 +74,7 @@ cd $HOME/workspace/week15/gwangju-graduation-search-agent
 | `.env` | 기존 백엔드 선택·키·PC 연결 정보. Git과 출력에서 제외 |
 | `config/defaults.json` | 비밀이 아닌 기본 설정 |
 | `runtime/` | 사용자 데이터와 분리한 실제 수집·합성 UI 검사 및 실패 기록 |
-| `reference/handoff/` | 보존한 인계 원본 |
+| `reference/handoff/` | 개인 경로를 제거한 인계 배포 사본. 변경 전 원본은 로컬 백업에 보존 |
 
 기존 `LLM_BACKEND`에 따라 Ollama 또는 OpenAI만 초기화합니다. 선택한 백엔드에 문제가 생겨도 다른 백엔드로 바꾸지 않습니다. 기존 설정 병합·사적 정보 전송 금지·작업 재개 시 설정 보호 규칙을 유지합니다. 직접 기록하는 문장은 로컬에서 처리합니다.
 
@@ -94,5 +94,6 @@ cd $HOME/workspace/week15/gwangju-graduation-search-agent
 - [최신 사용성·검증 자료 분리 검사](docs/USABILITY_V4_VALIDATION.md)
 - [파일명 변경·기존 HTML 정리 기록](docs/EXPORT_FILENAME_UPDATE.md)
 - [학교 목록 준비·첫 사용 검사](docs/FIRST_USE_VALIDATION.md)
+- [Git 공개 관리와 한국어 커밋 규칙](docs/GIT_PUBLICATION.md)
 
 공식 자료가 미공개이거나 사이트에 접근하지 못하면 칸이 비어 있을 수 있습니다. 검색 실패를 미공개로 단정하지 않습니다. 자연어 기록은 일반적인 한국어 확인 표현을 지원하며 복잡한 문장은 추가 질문이 필요합니다. 이미지·HWP/OCR과 모든 사이트 형식을 지원하지 않으며, 실제 전화 확인 사실 자체를 인증하지는 않습니다.

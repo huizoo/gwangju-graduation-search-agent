@@ -63,6 +63,7 @@ pnpm-debug.log*
 /logs/
 /backups/
 /exports/
+/output/
 /artifacts/
 /tmp/
 /.tmp/

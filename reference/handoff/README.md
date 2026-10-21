@@ -31,3 +31,7 @@ python checks/check_bundle.py --html ../graduation-agent-plan-integrated.html --
 ```
 
 검사 결과는 checks/validation-results.json에, 배포 파일별 해시는 checks/package-manifest.json에 남깁니다. HTML과 ZIP은 같은 원본으로 생성합니다. 변경 후 검사를 다시 실행하고 결과를 갱신한 뒤 재생성해야 합니다. 계약 검사 통과는 실제 사이트 조사 정확성, Windows 배포 성공 또는 광주 전체 수집 완료를 뜻하지 않습니다.
+
+## Git 배포 사본의 개인정보 정리
+
+개인 로컬 경로를 자리표시자로 바꾼 배포 사본이다. 명세 내용과 취득 당시 원본 해시는 보존한다. 변경 전 80개 파일 원본은 프로젝트의 Git 제외 경로 `runtime/git-publication-cleanup/original-handoff/` 및 Git bundle에 보관했다. `checks/package-manifest.json`은 이 배포 사본의 무결성을 검사한다.

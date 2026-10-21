@@ -5,7 +5,7 @@
 | 파일 | 성격과 우선순위 |
 | --- | --- |
 | `probe-summary.json` | 원본 `graduation_probe/artifacts/live/summary.json`의 변경 없는 복사본. 실제 실행 집계·응답·로컬 모델 출력의 근거다. |
-| `probe-README.md` | 원본 실험 README의 변경 없는 복사본. 당시 도구·실행법·한계를 설명하며 현재 앱 설치 지침이 아니다. |
+| `probe-README.md` | 원본 실험 README에서 개인 경로만 비식별화한 배포 사본. 당시 도구·실행법·한계를 설명하며 현재 앱 설치 지침이 아니다. |
 | `probe-search-request-source.txt` | 원본 `probe.py` 244~272행의 정확한 발췌. Responses 요청 모델 gpt-4.1-mini와 web_search를 확인한다. 전송 인증값이나 키는 포함하지 않는다. |
 | `probe-findings.json` | 기존 3.0 인계안의 사용자 요약 재구성본. 변경하지 않고 보존했다. 당시 제공자 미상 표기는 이후 원본 대조 결과와 구분한다. 원시 집계를 대신하지 않는다. |
 | `manifest.json` | 복사 파일 hash, 원본 경로·hash, 발췌 범위와 자료 종류. 전체 파일 무결성은 상위 패키지 manifest가 담당한다. |

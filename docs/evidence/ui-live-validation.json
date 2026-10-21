@@ -1,7 +1,7 @@
 {
   "checked_at": "2026-10-20T19:48:25.021570+09:00",
   "status": "completed_with_stated_limitations",
-  "skill": "$HOME/.agents/skills/browser-verification/SKILL.md",
+  "skill": "~/.agents/skills/browser-verification/SKILL.md",
   "target": "http://127.0.0.1:8600/",
   "browser": {
     "runtime_package": "@playwright/cli",
@@ -203,5 +203,6 @@
       "bytes": 170958,
       "sha256": "3d0d2b48e24ad878551c6bc7e11f9ef403657ebe82fb8bf616cf19b010de33ff"
     }
-  ]
+  ],
+  "publication_note": "공개 사본에서 개인 로컬 경로만 비식별화했다. 원래 검사 결과와 관찰값은 유지한다."
 }

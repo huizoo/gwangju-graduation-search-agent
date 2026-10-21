@@ -8,7 +8,7 @@ from pathlib import Path
 import subprocess
 
 ROOT = Path(__file__).resolve().parents[1]
-HELPER = "$HOME/.agents/skills/browser-verification/scripts/playwright-session.mjs"
+HELPER = str(Path.home() / ".agents/skills/browser-verification/scripts/playwright-session.mjs")
 CASES = [
     {"key": "past", "path": "output/광주 졸업식 일정표 (2025.12.01~2026.03.15).html",
      "schools": [{"name": "첨단고등학교", "date": "2026-01-21", "count": "355", "district": "광산구",

@@ -22,7 +22,7 @@ Supervisor와 분기 그래프를 구현하지 않고, 실제 자료를 다루�
 Python 3.11 이상, `uv`, `pdftotext`가 필요하다. 이 폴더에는 전용 `.venv`가 준비되어 있다.
 
 ```sh
-cd $HOME/workspace/week15/graduation_probe
+cd $PROBE_ROOT
 uv venv --cache-dir .uv-cache --python python3 .venv
 uv pip install --python .venv/bin/python --cache-dir .uv-cache -r requirements.txt
 ```

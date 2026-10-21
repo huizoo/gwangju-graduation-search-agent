@@ -21,7 +21,7 @@ from app.jobs import BudgetStop
 from app.launcher import bind_server
 import uvicorn
 
-HELPER = "$HOME/.agents/skills/browser-verification/scripts/playwright-session.mjs"
+HELPER = str(Path.home() / ".agents/skills/browser-verification/scripts/playwright-session.mjs")
 
 
 class ControlledRunner:

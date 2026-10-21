@@ -6,7 +6,7 @@
 
 사용자가 요청한 검증은 Supervisor와 자동 분기를 만들기 전에 검색, 원문 읽기, API 조회, 문서 해석을 개별 프로그램으로 실행해 보는 것이었다. 기존 프로젝트 코드를 변경하지 않고 별도 `graduation_probe` 폴더에 검증 코드를 만들었다. 사람이 고른 URL과 사례를 개별 명령으로 실행했으며 자동 계획·분기·재계획은 구현하지 않았다. 실패한 수집을 목업 일정으로 대체하지 않았다.
 
-작업공간의 증거 루트는 `$HOME/workspace/week15/graduation_probe`다. 아래 경로는 이 루트를 기준으로 한다. 이 부록은 실행 기록을 요약한 문서이며 원시 파일 전문을 포함하지 않는다. 휴대용 집계 복사본은 `evidence/probe-summary.json`, 실행 설명은 `evidence/probe-README.md`다. 둘 다 원본과 byte 단위로 대조해 복사했으며 원본 경로와 SHA-256은 `evidence/manifest.json`에 남겼다. 요청 소스의 정확한 발췌는 `evidence/probe-search-request-source.txt`다. 전체 원문·첨부파일·실험 코드는 이 ZIP에 모두 포함되지 않으며 원래 probe 루트에 있다.
+작업공간의 증거 루트는 `<PROBE_ROOT>`다. 아래 경로는 이 루트를 기준으로 한다. 이 부록은 실행 기록을 요약한 문서이며 원시 파일 전문을 포함하지 않는다. 휴대용 집계 복사본은 `evidence/probe-summary.json`, 실행 설명은 `evidence/probe-README.md`다. 취득 당시 둘 다 원본과 byte 단위로 대조해 복사했으며, Git 배포 사본의 README는 개인 경로만 비식별화했다. 취득 원본 경로의 자리표시자와 SHA-256은 `evidence/manifest.json`에 남겼다. 요청 소스의 정확한 발췌는 `evidence/probe-search-request-source.txt`다. 전체 원문·첨부파일·실험 코드는 이 ZIP에 모두 포함되지 않으며 원래 probe 루트에 있다.
 
 기존 3.0 인계안의 `evidence/probe-findings.json`도 변경하지 않고 보존했다. 이 파일은 당시 AI가 사용자 요약으로 재구성한 자료이며 원시 실행 결과가 아니다. 그 안의 `provider_identified=false`와 `raw_artifacts_inspected_here=false`는 당시 작성 환경을 설명한다. 이번 원본 대조에서 확인한 검색 제공자·요청 모델은 원본 집계와 요청 코드에 근거해 아래와 같이 보정한다. 서로 다른 시점과 자료 종류를 하나의 실험 결과로 합산하지 않는다.
 

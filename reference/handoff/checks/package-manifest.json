@@ -10,9 +10,9 @@
     "04_codex_handoff.txt": "f3f363dac8e3e071e91cefbcf628e85bee8dcd5f8a4117ef5102d67ce4e63753",
     "05_sources.md": "5d5919b2dbab73e4d23427f20e56dbb81baae29346630a833024d32e1ade7ff7",
     "06_acceptance.md": "ee4a8c81f9a55935bd12416fde7fed7d2626cacee3c2acbaf492d4652a03d3af",
-    "07_execution_basis.md": "abcb2cc0fca5b6a393b086d5ef49b1247f0802e874d5d5b0e94d1da8e0d1e5d9",
+    "07_execution_basis.md": "7b80638494c91c3c168908a11338425b64f59781f459d7b4c59151f031ad5a2a",
     "08_release_policy.md": "be924bbf98fcdb23d7702fa54d8c65f69690e8bad476f70a988ab1b97b724eb7",
-    "README.md": "fba4d246008be1925a27b2b0d565d4ff0b62218a064ef284431f73ee2515bfac",
+    "README.md": "6cb697a42adc720f8f2d2622859c2536d9c732c87ccc94a83536f97b156d4840",
     "checks/build_html.py": "f1e8727f5330a3c53d0af1c63ea5f826c77e1665fbf72dddf777a844b01e15ac",
     "checks/check_bundle.py": "f16b6cd13fac1ccacd70397cb574dfb7cc179ba3af716e7c26bac114cd310dcd",
     "checks/check_configuration.py": "7a1d536e68244fd754363b786ecd372765e931110b0e14039df105e3a5597079",
@@ -69,11 +69,12 @@
     "contracts/examples/verification.example.json": "33f9afceb574d47da63e16a292cb45f2b175ba785176d8b3dab9cbe53e6a5abe",
     "contracts/openapi.json": "10271e4d699dbaad7f8fc3b96ce7bf1b9174c49bb4749e71ab9daf94b49e777d",
     "contracts/schema.sql": "d7a8430973c2775b576d4814bbca3c2ef10f62f513306b77e12f2d7404a3ab6f",
-    "evidence/README.md": "799b023b8a0d4f08947e31646085cd9dd85660afb0d05bde1a43890ed8ded31c",
-    "evidence/manifest.json": "f43f809b7624991abf624c137427d139faf3744b0048352c7e5905542737af35",
-    "evidence/probe-README.md": "aa70fb6d199f39db1641d53d77b36934b96bfb3dbb3999ce74fdbd600942bacf",
+    "evidence/README.md": "33d4d314d38b0936cd4eddc2aeb64e05503446f0d8f40cc05ff5d321f2cd6659",
+    "evidence/manifest.json": "b89e9132cc7b1a5dda18d9f618611a6252f1a5bb21fa0a0df442d48f1a6bb040",
+    "evidence/probe-README.md": "1c31ba011fca967da800a7187d6937deb7c1ffbda27ce2c47dd03a41f777c2fe",
     "evidence/probe-findings.json": "c53d92cae23297de9498ce6607443f9e6150bf9c10815101436178302ea41ca4",
     "evidence/probe-search-request-source.txt": "3bd119019ec460c5e61bc15f8cd0ab22ea89bc5bf096678444e03ba97e26174a",
     "evidence/probe-summary.json": "2ee8e98dffd4a8909c8351d11050e55fe377b8d77ac4ef10e387a0beeed77372"
-  }
+  },
+  "publication_note": "개인 경로를 제거한 배포 사본 해시이며, 변경 전 원본은 로컬 백업에 보존한다."
 }

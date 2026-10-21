@@ -9,7 +9,7 @@ import subprocess
 
 
 ROOT = Path(__file__).resolve().parents[1]
-HELPER = "$HOME/.agents/skills/browser-verification/scripts/playwright-session.mjs"
+HELPER = str(Path.home() / ".agents/skills/browser-verification/scripts/playwright-session.mjs")
 
 
 def main():

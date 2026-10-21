@@ -22,7 +22,7 @@ from app.exporting import render_export
 from app.launcher import bind_server
 import uvicorn
 
-HELPER = "$HOME/.agents/skills/browser-verification/scripts/playwright-session.mjs"
+HELPER = str(Path.home() / ".agents/skills/browser-verification/scripts/playwright-session.mjs")
 SOURCE = ROOT / "runtime/improvements-20261021/sources-integrated/20261021T023854465442+0000"
 SEASON = "ba3daa8c-f911-4aae-ae89-f454a946d72a"
 SCHOOL = "dccaa9d9-9618-49a6-bd35-bf2eca00e1e2"

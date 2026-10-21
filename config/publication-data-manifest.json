@@ -1,0 +1,285 @@
+{
+  "version": 1,
+  "files": {
+    "assets/registry/childcare-representative-registry.json": {
+      "sha256": "9cb8d1adce07f2928ab62e7252ec706a7764b0d260de87ed5b01d4bcb2aa501d",
+      "purpose": "공개 학교 명부의 식별·주소·출처 검증에 필요한 정제 사본. 기관 연락처와 주소는 공개 기관 정보이며 개인정보 필드는 제거했다."
+    },
+    "assets/registry/childcare-welfare-partial-registry.json": {
+      "sha256": "7b7feffe4deacdafc07afcfcc4ab36ce5283d522756e66e62173a50c46815103",
+      "purpose": "공개 학교 명부의 식별·주소·출처 검증에 필요한 정제 사본. 기관 연락처와 주소는 공개 기관 정보이며 개인정보 필드는 제거했다."
+    },
+    "assets/registry/children-20260921-original.bin": {
+      "sha256": "222095a465bb2f2baad554022f579f2b94f2af413cb48dd40cfab082edbc02c4",
+      "purpose": "공개 학교 명부의 식별·주소·출처 검증에 필요한 정제 사본. 기관 연락처와 주소는 공개 기관 정보이며 개인정보 필드는 제거했다."
+    },
+    "assets/registry/children-file-1.csv": {
+      "sha256": "4e5e24df9b71099cdf908415fa49526dc01b4e8540704f0cb4bfe37b19faf79b",
+      "purpose": "공개 학교 명부의 식별·주소·출처 검증에 필요한 정제 사본. 기관 연락처와 주소는 공개 기관 정보이며 개인정보 필드는 제거했다."
+    },
+    "assets/registry/gen-kindergarten-directory-original.bin": {
+      "sha256": "11595015492dec5de72fc1a33bc1276e96b747e805937214d5b12c9be386b7ee",
+      "purpose": "공개 학교 명부의 식별·주소·출처 검증에 필요한 정제 사본. 기관 연락처와 주소는 공개 기관 정보이며 개인정보 필드는 제거했다."
+    },
+    "assets/registry/gen-kindergarten-directory.html": {
+      "sha256": "64f432f140a2be3689901ef153fa645dd8bf3e40c0786eafc5728e391e9c8b11",
+      "purpose": "공개 학교 명부의 식별·주소·출처 검증에 필요한 정제 사본. 기관 연락처와 주소는 공개 기관 정보이며 개인정보 필드는 제거했다."
+    },
+    "assets/registry/hana-summary.html": {
+      "sha256": "394a9de8af41b51fde536f1fc0b84432f63d9073c6451d0d79dbe556123e37d0",
+      "purpose": "공개 학교 명부의 식별·주소·출처 검증에 필요한 정제 사본. 기관 연락처와 주소는 공개 기관 정보이며 개인정보 필드는 제거했다."
+    },
+    "assets/registry/homepage-authority-provenance.json": {
+      "sha256": "9ac9b2fd7490b88496de5e2c10e3c64e8f3de6558a97a7de693436790113923f",
+      "purpose": "공개 학교 명부의 식별·주소·출처 검증에 필요한 정제 사본. 기관 연락처와 주소는 공개 기관 정보이며 개인정보 필드는 제거했다."
+    },
+    "assets/registry/imports/childcare-representative-registry.json": {
+      "sha256": "701fdbce207e5d5dd135dca4a6b0e1e15e7509b2c812a0ae745f8e83b4bcdd66",
+      "purpose": "공개 학교 명부의 식별·주소·출처 검증에 필요한 정제 사본. 기관 연락처와 주소는 공개 기관 정보이며 개인정보 필드는 제거했다."
+    },
+    "assets/registry/imports/childcare-welfare-partial-registry.json": {
+      "sha256": "d1b71329a22eb8ef8d857dd3598b46995fde7125b3b57006030a5a2b05303384",
+      "purpose": "공개 학교 명부의 식별·주소·출처 검증에 필요한 정제 사본. 기관 연락처와 주소는 공개 기관 정보이며 개인정보 필드는 제거했다."
+    },
+    "assets/registry/imports/kindergarten-edoffice-registry.json": {
+      "sha256": "a56b9e6e600612ec573d3c5ed2d24655f5dd01f845c18cc471895b4594f92902",
+      "purpose": "공개 학교 명부의 식별·주소·출처 검증에 필요한 정제 사본. 기관 연락처와 주소는 공개 기관 정보이며 개인정보 필드는 제거했다."
+    },
+    "assets/registry/imports/universities-registry.json": {
+      "sha256": "cb3a24ca8738494546836a32e6bdc1a8155bc5010bf7d8b79041d149bfeae15c",
+      "purpose": "공개 학교 명부의 식별·주소·출처 검증에 필요한 정제 사본. 기관 연락처와 주소는 공개 기관 정보이며 개인정보 필드는 제거했다."
+    },
+    "assets/registry/kindergarten-edoffice-registry.json": {
+      "sha256": "2369a7778d3a4e3a186278e919d5bad7877e5a6add20cade19e898be3a4146a4",
+      "purpose": "공개 학교 명부의 식별·주소·출처 검증에 필요한 정제 사본. 기관 연락처와 주소는 공개 기관 정보이며 개인정보 필드는 제거했다."
+    },
+    "assets/registry/universities-gwangju.bin": {
+      "sha256": "718157d33c346824cdeface923caf9e73ae7d53fa8ca62b22c5e122d668b6e0c",
+      "purpose": "공개 학교 명부의 식별·주소·출처 검증에 필요한 정제 사본. 기관 연락처와 주소는 공개 기관 정보이며 개인정보 필드는 제거했다."
+    },
+    "assets/registry/universities-registry.json": {
+      "sha256": "df960f0c33322bee3bdf621b47ef224956502fecc4990b5458ef76b5fcd77517",
+      "purpose": "공개 학교 명부의 식별·주소·출처 검증에 필요한 정제 사본. 기관 연락처와 주소는 공개 기관 정보이며 개인정보 필드는 제거했다."
+    },
+    "checks/final-results.json": {
+      "sha256": "d864f89a89f3bbbe2e225e2b921e024e2dcdba6dd175dc9c7cbfe0042628b718",
+      "purpose": "자동 검사의 고정 입력. 합성 자료 또는 필요한 최소 공개 원문이며 불필요한 인명을 제거했다."
+    },
+    "checks/improvements-results.json": {
+      "sha256": "0f343fd058bf5af893c66c061db13db93bd3d69bb8679e02759c386938fec7cb",
+      "purpose": "자동 검사의 고정 입력. 합성 자료 또는 필요한 최소 공개 원문이며 불필요한 인명을 제거했다."
+    },
+    "checks/period-v3-results.json": {
+      "sha256": "a3e7436d34b49d717c2b55e6434ec92b080ff6ade410b7b56ab2748dd00e21e2",
+      "purpose": "자동 검사의 고정 입력. 합성 자료 또는 필요한 최소 공개 원문이며 불필요한 인명을 제거했다."
+    },
+    "checks/research-results.json": {
+      "sha256": "8a58b5237e8594bf0d35c730a2c0242a950c72386eec28d74fa6f65f1539d26e",
+      "purpose": "자동 검사의 고정 입력. 합성 자료 또는 필요한 최소 공개 원문이며 불필요한 인명을 제거했다."
+    },
+    "checks/research-v2-results.json": {
+      "sha256": "4c946928dd0dd56f0832062f3030b2a2bb48b59de83ff7d93b64b73294d22677",
+      "purpose": "자동 검사의 고정 입력. 합성 자료 또는 필요한 최소 공개 원문이며 불필요한 인명을 제거했다."
+    },
+    "checks/usability-v4-results.json": {
+      "sha256": "648a1252359c3b771b992bdfc1a4ee3e6fdd0bad7035986b795522aa95fcbc7a",
+      "purpose": "자동 검사의 고정 입력. 합성 자료 또는 필요한 최소 공개 원문이며 불필요한 인명을 제거했다."
+    },
+    "docs/evidence/browser-validation.json": {
+      "sha256": "cd5866e1408f4c051209b49d113e904c9364f4565a766dcd6cf6345fcce241f0",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/calendar-change-rule.json": {
+      "sha256": "4cdd2b18c59cc37dc598384be1d3f08a632837089c8bfdf804f1b1d7957a6c99",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/improvements-20261020/app-desktop.png": {
+      "sha256": "7150c9937c5a15c9ebed0c6080273ea1bc435e8712c52d8a1d2e79c3e9da2fb1",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/improvements-20261020/app-mobile.png": {
+      "sha256": "fc5052ba09da5286bcc15eabb2441db3c84c0abc638921b52acc2512556fac6e",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/improvements-20261020/browser.json": {
+      "sha256": "23ea5cf59593abe4c7b1521998a38e3cbd7304d145a24f208e9e35bfb9d7c144",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/improvements-20261020/html-fixture-mobile.png": {
+      "sha256": "fecac60758cbe10abaa561aa31647c2c8455340e637f54d1d2a6f43e81ea8f49",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/improvements-20261020/html-source-desktop.png": {
+      "sha256": "8e8f09afb42f34ff3ec6c031515c0007644ef0863b67db1fb11db60c8c9af281",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/improvements-20261020/html-source-mobile.png": {
+      "sha256": "3638580cac62cbce47f5b90e74ab08d2e1613c5da2acd5ba95df9e0660e8b20c",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/improvements-20261020/launcher.json": {
+      "sha256": "e8d3512dfdbe81dc988304234c45af36e2eb5c3aeafb5955506f755917593215",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/improvements-20261020/sources.json": {
+      "sha256": "889dc78c1dfaf94f17498001c2102f067ba362402787e29b91091c1a5e6eefc8",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/live-validation.json": {
+      "sha256": "49b9b7011d7eb41b7b1dd57bf70f8397e2df76c677d5b8a2bb0a7cf0bd898cdb",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/non-school-registry.json": {
+      "sha256": "df257ce5b3c47ef74131f6a7926b4f7a14841b8e854cfaf3ec6c8cb6d8b80b94",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/offline-demo-html.png": {
+      "sha256": "ca9f6b85ee9abb1069e99bada7e51dbdb637d3f32b25b5542758f50d587f732c",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/offline-live-current.png": {
+      "sha256": "8a9e54ea79f699b904b2727becb65bbe24b19898b8b6517721a13081a4e586e6",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/offline-live-past.png": {
+      "sha256": "2d22e928bd359335d854a2c082b8478068daa71a9f90b1a7eff67de307ae889f",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/offline-live-validation.json": {
+      "sha256": "7c6b8a9d2ec48c5e09c899ffac5ba48121d30958823456fcc49a6a23e9a068cb",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/process-lifecycle.json": {
+      "sha256": "2beb56b0b12e57849e8a2ba30aad3a8e52f4ccd31287ca131c1779d45d5b6a98",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/source-audit.json": {
+      "sha256": "0352e58c336fa8bcdebb699c6191503ddec1f6709af492add5709ebaf4123cf6",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/spec-baseline.json": {
+      "sha256": "5ef364d83f3b7ef198133a64d1c325355ccd2c36f59479cc5bf0d3cbaf11f8c7",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/ui-demo-sales.png": {
+      "sha256": "eef13d5c096c5ab5f57e29beb5366d422241e2df5783a0eae9245751b6886220",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/ui-live-calendar-desktop.png": {
+      "sha256": "ac272e249e47dc686501b58cd35df4e2ff38b3137f2a74ee62a580920806baf4",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/ui-live-calendar-mobile.png": {
+      "sha256": "12b8cb4e475439dcf5aa38444bc16f49a326099b77b4455460f1d23fc0d10ad3",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/ui-live-campus-desktop.png": {
+      "sha256": "bf718d7440eabe2fc7089da59f4aba9dc51d349269cfeabe4ac30bf61beb19e9",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/ui-live-detail-desktop.png": {
+      "sha256": "675c7135b4ef7cc4247e4cb101489de0ec306e694087bd8cb94b30d6f17343f7",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/ui-live-detail-mobile.png": {
+      "sha256": "b354d593b2da8254106dae5befc81c1a3d738ed7668b8dde718fbb821ac1da4b",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/ui-live-prepared-desktop.png": {
+      "sha256": "c91561ec983a1100707b54dd3b145b4e249ab7135d44a4d7fc5015771d8be7bc",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/ui-live-registry-preview.png": {
+      "sha256": "3d0d2b48e24ad878551c6bc7e11f9ef403657ebe82fb8bf616cf19b010de33ff",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "docs/evidence/ui-live-validation.json": {
+      "sha256": "1009fa484357535a529c6524e95af7c6c7fd46df6fbfae2fa72b1b786c6386b0",
+      "purpose": "검증 결과 또는 화면 증빙. 공개 학교 정보와 합성 화면을 검토했으며 키·개인 수기·개인 홈 경로를 포함하지 않는다."
+    },
+    "reference/handoff/evidence/manifest.json": {
+      "sha256": "b89e9132cc7b1a5dda18d9f618611a6252f1a5bb21fa0a0df442d48f1a6bb040",
+      "purpose": "인계 명세의 공개 검증 근거. 원본 취득 이력과 공개 사본을 구분하고 개인 작업 경로를 제거했다."
+    },
+    "reference/handoff/evidence/probe-findings.json": {
+      "sha256": "c53d92cae23297de9498ce6607443f9e6150bf9c10815101436178302ea41ca4",
+      "purpose": "인계 명세의 공개 검증 근거. 원본 취득 이력과 공개 사본을 구분하고 개인 작업 경로를 제거했다."
+    },
+    "reference/handoff/evidence/probe-search-request-source.txt": {
+      "sha256": "3bd119019ec460c5e61bc15f8cd0ab22ea89bc5bf096678444e03ba97e26174a",
+      "purpose": "인계 명세의 공개 검증 근거. 원본 취득 이력과 공개 사본을 구분하고 개인 작업 경로를 제거했다."
+    },
+    "reference/handoff/evidence/probe-summary.json": {
+      "sha256": "2ee8e98dffd4a8909c8351d11050e55fe377b8d77ac4ef10e387a0beeed77372",
+      "purpose": "인계 명세의 공개 검증 근거. 원본 취득 이력과 공개 사본을 구분하고 개인 작업 경로를 제거했다."
+    },
+    "tests/fixtures/calendar-change/cbbh-document.json": {
+      "sha256": "8c41eb27e7063fdc4332c3028155489b54c7634f422f76199219373935a90a70",
+      "purpose": "자동 검사의 고정 입력. 합성 자료 또는 필요한 최소 공개 원문이며 불필요한 인명을 제거했다."
+    },
+    "tests/fixtures/calendar-change/cku-document.json": {
+      "sha256": "3ed2bfecd63eaf04b7a496f7b87167b78757f66331de017e74cd9c6be99371d5",
+      "purpose": "자동 검사의 고정 입력. 합성 자료 또는 필요한 최소 공개 원문이며 불필요한 인명을 제거했다."
+    },
+    "tests/fixtures/calendar-change/sogang-document.json": {
+      "sha256": "a65765793f1534dbffa707e8347040c97227ad6efadde297ce3aa90e836ab97b",
+      "purpose": "자동 검사의 고정 입력. 합성 자료 또는 필요한 최소 공개 원문이며 불필요한 인명을 제거했다."
+    }
+  },
+  "historical_files": {
+    "assets/registry/childcare-representative-registry.json": [
+      {
+        "sha256": "bd1cf5d20154ce3c8d1f647256f73329d9f29bf3740d0efdc3ea0f8d0941db09",
+        "purpose": "명부 도입 전 기존 이력의 정제 사본을 현재 공개 사본과 대조했다. 차이는 취득 해시·정제 설명·개인 경로 자리표시자 또는 줄바꿈이며, 추가 개인정보를 포함하지 않는다. 현재 자료의 승인에는 사용하지 않는다."
+      }
+    ],
+    "assets/registry/homepage-authority-provenance.json": [
+      {
+        "sha256": "1e8b71988d76a5cbd0646b54bfc329a672614f96f6f935933e617dfcab6f438a",
+        "purpose": "명부 도입 전 기존 이력의 정제 사본을 현재 공개 사본과 대조했다. 차이는 취득 해시·정제 설명·개인 경로 자리표시자 또는 줄바꿈이며, 추가 개인정보를 포함하지 않는다. 현재 자료의 승인에는 사용하지 않는다."
+      }
+    ],
+    "assets/registry/imports/childcare-representative-registry.json": [
+      {
+        "sha256": "2e414a5e1c2e497e4259a9a386e20063550169d198d3c5819ce1c829a2553932",
+        "purpose": "명부 도입 전 기존 이력의 정제 사본을 현재 공개 사본과 대조했다. 차이는 취득 해시·정제 설명·개인 경로 자리표시자 또는 줄바꿈이며, 추가 개인정보를 포함하지 않는다. 현재 자료의 승인에는 사용하지 않는다."
+      }
+    ],
+    "docs/evidence/calendar-change-rule.json": [
+      {
+        "sha256": "8b84807438468efc359da30c317b18f3ad1e8ba648172f5c2b03d14b9e506512",
+        "purpose": "명부 도입 전 기존 이력의 정제 사본을 현재 공개 사본과 대조했다. 차이는 취득 해시·정제 설명·개인 경로 자리표시자 또는 줄바꿈이며, 추가 개인정보를 포함하지 않는다. 현재 자료의 승인에는 사용하지 않는다."
+      }
+    ],
+    "docs/evidence/non-school-registry.json": [
+      {
+        "sha256": "6558f3481957260bfd3aab9574a53b8113de59e7e4b9cf5f0d01436c97f74741",
+        "purpose": "명부 도입 전 기존 이력의 정제 사본을 현재 공개 사본과 대조했다. 차이는 취득 해시·정제 설명·개인 경로 자리표시자 또는 줄바꿈이며, 추가 개인정보를 포함하지 않는다. 현재 자료의 승인에는 사용하지 않는다."
+      }
+    ],
+    "docs/evidence/offline-live-validation.json": [
+      {
+        "sha256": "f59fbcc16c627f71d4648c36d0aee1720935e30d4b2ab88b6246636047b053b7",
+        "purpose": "명부 도입 전 기존 이력의 정제 사본을 현재 공개 사본과 대조했다. 차이는 취득 해시·정제 설명·개인 경로 자리표시자 또는 줄바꿈이며, 추가 개인정보를 포함하지 않는다. 현재 자료의 승인에는 사용하지 않는다."
+      }
+    ],
+    "docs/evidence/ui-live-validation.json": [
+      {
+        "sha256": "9bcf881943ef287c4f7c224d17c9ef23c24f79df23421462d5880514b2415eda",
+        "purpose": "명부 도입 전 기존 이력의 정제 사본을 현재 공개 사본과 대조했다. 차이는 취득 해시·정제 설명·개인 경로 자리표시자 또는 줄바꿈이며, 추가 개인정보를 포함하지 않는다. 현재 자료의 승인에는 사용하지 않는다."
+      }
+    ],
+    "reference/handoff/evidence/manifest.json": [
+      {
+        "sha256": "5c7cb99128c1a445498793bfc405be251e3b9eabf5179412d5593fae81cc187f",
+        "purpose": "명부 도입 전 기존 이력의 정제 사본을 현재 공개 사본과 대조했다. 차이는 취득 해시·정제 설명·개인 경로 자리표시자 또는 줄바꿈이며, 추가 개인정보를 포함하지 않는다. 현재 자료의 승인에는 사용하지 않는다."
+      }
+    ],
+    "tests/fixtures/calendar-change/cku-document.json": [
+      {
+        "sha256": "69ccafe9da7c32973bac51a320b2325b42a51636871cfd2da9d11ec4b1f5b5a3",
+        "purpose": "명부 도입 전 기존 이력의 정제 사본을 현재 공개 사본과 대조했다. 차이는 취득 해시·정제 설명·개인 경로 자리표시자 또는 줄바꿈이며, 추가 개인정보를 포함하지 않는다. 현재 자료의 승인에는 사용하지 않는다."
+      }
+    ]
+  }
+}
