@@ -256,7 +256,7 @@
     "path": "secrets.langsmith_api_key",
     "type": "string",
     "secret": true,
-    "user_setup": false
+    "user_setup": true
   },
   "OPENAI_FAST_MODEL": {
     "path": "models.openai_fast_model",

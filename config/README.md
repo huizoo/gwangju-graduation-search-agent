@@ -22,6 +22,7 @@ API 키는 실행 중 메모리에서만 결합하고 설정 JSON, 작업 snapsh
 - `NEIS_API_KEY`: https://open.neis.go.kr/portal/guide/apiGuidePage.do 의 인증키 신청 절차로 발급받아 `.env`에만 입력합니다.
 - `SCHOOLINFO_API_KEY`: 학교알리미의 학년별 학생 수 공개 API 인증키를 `.env`에만 입력합니다. 앱은 학교 소재 구에 맞는 필수 `sggCode`와 공식 시도 코드를 전달합니다. 키가 없는 경우 공개 공시 페이지 경로도 시도하며, 전체 학생 수를 졸업 학년 인원으로 대체하지 않습니다.
 - `TAVILY_API_KEY`: https://app.tavily.com 에서 가입·로그인 후 대시보드의 API 키를 `.env`에만 입력합니다.
+- `LANGSMITH_API_KEY`: 선택적 실행 추적을 위한 키 준비란입니다. `.env.example`의 이 항목만 기존 `.env`에 추가하면 됩니다. 현재 추적 연동은 미구현이며, 키만 입력해도 앱의 기존 동작과 외부 전송은 바뀌지 않습니다. 연동·검증이 끝나기 전에는 `LANGSMITH_TRACING=true`를 설정하지 마세요. 프로젝트 이름의 기본값 `graduation-agent`는 `config/defaults.json`에 유지합니다.
 
 OpenAI 키를 입력한 뒤 `LLM_BACKEND=openai`로 바꾸면 OpenAI 경로를 선택합니다. `OPENAI_FAST_MODEL`은 config 기본 모델의 선택적 재정의이며 `OPENAI_QUALITY_MODEL`이 비어 있으면 fast 모델을 재사용합니다. 선택한 백엔드만 초기화·검사하므로 OpenAI 선택에는 Ollama가 필요하지 않습니다. 키만 입력해서는 선택이 바뀌지 않으며 키 누락·장애 시 자동 fallback도 하지 않습니다.
 
