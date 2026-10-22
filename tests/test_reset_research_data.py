@@ -2,11 +2,14 @@
 
 from contextlib import closing
 import hashlib
+import importlib.util
 import json
+import os
 from pathlib import Path
 import sqlite3
 import subprocess
 import sys
+from types import SimpleNamespace
 
 import pytest
 
@@ -137,7 +140,8 @@ def test_failed_backup_leaves_database_and_exports_unchanged(prepared, monkeypat
     assert (directory / "exports/old.html").read_text() == "이전 일정표"
 
 
-def test_failed_artifact_validation_restores_db_and_exports(prepared, monkeypatch):
+@pytest.mark.parametrize("keep_seasons", [False, True])
+def test_failed_artifact_validation_restores_db_and_exports(prepared, monkeypatch, keep_seasons):
     """HTML 이동 후 검증 실패도 DB 삭제와 파일 이동을 함께 되돌린다."""
     directory, service, before = prepared
     real_state = reset_data._artifact_state
@@ -150,7 +154,7 @@ def test_failed_artifact_validation_restores_db_and_exports(prepared, monkeypatc
 
     monkeypatch.setattr(reset_data, "_artifact_state", changed_artifact)
     with pytest.raises(reset_data.ResetError, match="일정표 파일 백업"):
-        reset_data.reset_research_data(directory, confirmed=True)
+        reset_data.reset_research_data(directory, confirmed=True, keep_seasons=keep_seasons)
     with service.store.transaction() as conn:
         assert reset_data._table_state(conn) == before
     assert (directory / "exports/old.html").read_text() == "이전 일정표"
@@ -245,3 +249,96 @@ def test_cli_requires_confirmation_without_loading_live_settings():
     )
     assert result.returncode == 2
     assert "--confirm-reset" in result.stderr
+
+
+def test_reset_can_keep_periods_and_selection_without_retaining_research(prepared):
+    """겹치는 기간도 같은 ID로 보존하고 재시작 결과에 옛 조사와 수기를 남기지 않는다."""
+    directory, service, _ = prepared
+    with service.store.transaction(True) as conn:
+        conn.execute("""INSERT INTO seasons(id,label,academic_year,search_start,search_end,
+                     export_key,timezone,region_profile,revision)
+                     VALUES('00000000-0000-4000-8000-000000000001','추가 기간',NULL,
+                     '2025-12-01','2026-03-26','additional-period','Asia/Seoul','gwangju_5_gu',1)""")
+        before = reset_data._table_state(conn)
+        selected = conn.execute("SELECT value FROM app_meta WHERE key='selected_season_id'").fetchone()[0]
+    result = reset_data.reset_research_data(directory, confirmed=True, keep_seasons=True)
+    assert result["kept_seasons"] is True
+    assert "seasons" not in result["cleared_counts"]
+    assert result["preserved_counts"]["seasons"] == 2
+    with service.store.transaction() as conn:
+        after = reset_data._table_state(conn)
+        assert after["seasons"] == before["seasons"]
+        assert all(after[table] == before[table] for table in reset_data.PRESERVED_TABLES)
+        assert conn.execute("SELECT value FROM app_meta WHERE key='selected_season_id'").fetchone()[0] == selected
+        assert all(after[table]["count"] == 0 for table in reset_data.RESET_TABLES if table != "seasons")
+        reset_data._integrity(conn)
+    with closing(reset_data._connect(Path(result["backup_database"]), readonly=True)) as conn:
+        assert reset_data._table_state(conn) == before
+    reopened = Service(Store(directory / "graduation.sqlite3"))
+    for season in reopened.list_seasons()["items"]:
+        snapshot = reopened.snapshot(season["id"])
+        assert snapshot["events"] == []
+        assert snapshot["request_job_id"] is None
+        assert snapshot["research_summary"]["state"] == "not_started"
+
+
+def reset_cli():
+    """실제 설정 로드를 격리할 수 있도록 초기화 CLI 모듈을 읽는다.
+
+    Returns:
+        초기화 명령 모듈.
+    """
+    spec = importlib.util.spec_from_file_location("reset_cli", ROOT / "scripts/reset_research_data.py")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize("answer", ["", "취소", "초기화 아님", None])
+def test_interactive_cancel_never_loads_settings(answer, monkeypatch, capsys):
+    """취소와 입력 종료는 사용자 DB나 설정에 접근하기 전에 끝난다."""
+    cli = reset_cli()
+    monkeypatch.setattr(sys, "argv", ["reset_research_data.py", "--interactive", "--keep-seasons"])
+
+    def respond(_):
+        if answer is None:
+            raise EOFError
+        return answer
+
+    def unexpected_settings():
+        pytest.fail("취소 중 설정을 읽으면 안 됩니다.")
+
+    monkeypatch.setattr("builtins.input", respond)
+    monkeypatch.setattr(cli, "load_settings", unexpected_settings)
+    assert cli.main() == 0
+    assert "기록을 변경하지 않았습니다" in capsys.readouterr().out
+
+
+def test_interactive_cli_resets_isolated_data_and_reports_backup(prepared, monkeypatch, capsys):
+    """사용자가 확인한 실제 명령 경로가 격리 DB를 초기화하고 백업 위치를 안내한다."""
+    directory, service, _ = prepared
+    cli = reset_cli()
+    monkeypatch.setattr(sys, "argv", ["reset_research_data.py", "--interactive", "--keep-seasons"])
+    monkeypatch.setattr("builtins.input", lambda _: "초기화")
+    monkeypatch.setattr(cli, "load_settings", lambda: SimpleNamespace(data_dir=directory))
+    assert cli.main() == 0
+    output = capsys.readouterr().out
+    assert "모든 시즌" in output and "직접 기록" in output
+    assert "저장된 기간도 유지" in output and "초기화를 완료했습니다" in output
+    assert str(directory / "backups") in output
+    with service.store.transaction() as conn:
+        assert conn.execute("SELECT count(*) FROM events").fetchone()[0] == 0
+        assert conn.execute("SELECT count(*) FROM seasons").fetchone()[0] == 1
+    assert len(list((directory / "backups").glob("research-reset-*/reset-receipt.json"))) == 1
+
+
+@pytest.mark.skipif(sys.platform != "darwin", reason="macOS 더블 클릭 실행파일")
+def test_command_runs_from_another_directory_and_cancel_keeps_data(tmp_path):
+    """실행 위치가 달라도 프로젝트를 찾고 취소 시 운영 설정을 읽지 않는다."""
+    command = ROOT / "reset-research.command"
+    assert os.access(command, os.X_OK)
+    result = subprocess.run([str(command)], cwd=tmp_path, input="취소\n\n",
+                            capture_output=True, text=True, check=False)
+    assert result.returncode == 0
+    assert "저장된 기간도 유지" in result.stdout
+    assert "기록을 변경하지 않았습니다" in result.stdout

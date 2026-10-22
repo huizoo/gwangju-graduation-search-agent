@@ -130,12 +130,15 @@ def _backup(source: Path, destination: Path) -> dict:
     return before
 
 
-def reset_research_data(data_dir: Path, *, confirmed: bool = False) -> dict:
-    """앱이 종료된 저장소의 명부만 남기고 조사 기록을 초기화한다.
+def reset_research_data(
+    data_dir: Path, *, confirmed: bool = False, keep_seasons: bool = False,
+) -> dict:
+    """앱이 종료된 저장소에서 명부와 선택한 기간 보존 조건을 지키며 초기화한다.
 
     Args:
         data_dir: graduation.sqlite3와 instance.lock이 있는 모드별 데이터 경로.
         confirmed: 시즌·수기·조사 기록 초기화를 명시적으로 승인했는지 여부.
+        keep_seasons: 저장된 기간과 현재 선택을 유지하고 조사 결과만 비울지 여부.
     Returns:
         백업 위치와 보존·초기화 행 수를 담은 비밀 없는 결과.
     Raises:
@@ -144,6 +147,8 @@ def reset_research_data(data_dir: Path, *, confirmed: bool = False) -> dict:
     """
     if not confirmed:
         raise ResetError("초기화에는 --confirm-reset 확인 옵션이 필요합니다.")
+    reset_tables = tuple(table for table in RESET_TABLES if not (keep_seasons and table == "seasons"))
+    preserved_tables = PRESERVED_TABLES + (("seasons",) if keep_seasons else ())
     directory = Path(data_dir)
     database = directory / "graduation.sqlite3"
     if directory.is_symlink() or database.is_symlink() or not database.is_file():
@@ -179,18 +184,19 @@ def reset_research_data(data_dir: Path, *, confirmed: bool = False) -> dict:
                 conn.execute("BEGIN IMMEDIATE")
                 if _table_state(conn) != backed_up:
                     raise ResetError("백업 이후 DB가 변경되어 초기화를 중단합니다.")
-                for table in RESET_TABLES:
+                for table in reset_tables:
                     conn.execute(f'DELETE FROM "{table}"')
-                conn.execute(
-                    "DELETE FROM app_meta WHERE key IN ('selected_season_id','development_archive_reassess')"
-                )
+                metadata_to_clear = ["development_archive_reassess"]
+                if not keep_seasons:
+                    metadata_to_clear.append("selected_season_id")
+                conn.executemany("DELETE FROM app_meta WHERE key=?", [(key,) for key in metadata_to_clear])
                 conn.execute(
                     "UPDATE app_meta SET value=CAST(value AS INTEGER)+1 WHERE key='content_revision'"
                 )
                 after = _table_state(conn)
-                if any(after[table] != backed_up[table] for table in PRESERVED_TABLES):
-                    raise ResetError("학교 목록 보존 검사에 실패했습니다.")
-                if any(after[table]["count"] for table in RESET_TABLES):
+                if any(after[table] != backed_up[table] for table in preserved_tables):
+                    raise ResetError("학교 목록 보존 또는 저장된 기간 보존 검사에 실패했습니다.")
+                if any(after[table]["count"] for table in reset_tables):
                     raise ResetError("일부 조사 기록이 남아 초기화를 중단합니다.")
                 _integrity(conn)
                 if artifact_state is not None:
@@ -202,8 +208,9 @@ def reset_research_data(data_dir: Path, *, confirmed: bool = False) -> dict:
                     "status": "completed",
                     "backup_directory": str(backup_dir.resolve()),
                     "backup_database": str(saved_db.resolve()),
-                    "preserved_counts": {table: after[table]["count"] for table in PRESERVED_TABLES},
-                    "cleared_counts": {table: backed_up[table]["count"] for table in RESET_TABLES},
+                    "kept_seasons": keep_seasons,
+                    "preserved_counts": {table: after[table]["count"] for table in preserved_tables},
+                    "cleared_counts": {table: backed_up[table]["count"] for table in reset_tables},
                     "export_files_archived": len(artifact_state or {}),
                 }
                 receipt = {**result, "before_tables": backed_up, "after_tables": after,
