@@ -84,6 +84,33 @@ class Meter:
         self.item_id, self.segment_id = item_id, segment_id
         self.started = time.monotonic()
 
+    async def check_active(self) -> float:
+        """재시도 대기 중에도 취소·일시정지와 남은 시간 한도를 검사한다.
+
+        Returns:
+            기관·구간·전체 작업에 남은 시간의 최솟값(초).
+        Raises:
+            BudgetStop: 사용자 중단 또는 시간 예산이 소진된 경우.
+        """
+        with self.manager.store.transaction() as conn:
+            job = self.manager._row(conn, self.job_id)
+            if job["status"] != "running":
+                raise BudgetStop("user_cancel" if job["status"] in {"cancelling", "cancelled"} else "user_pause")
+            item = conn.execute("SELECT * FROM job_items WHERE id=?", (self.item_id,)).fetchone()
+            segment = conn.execute("SELECT * FROM job_segments WHERE id=?", (self.segment_id,)).fetchone()
+            limits = json.loads(job["limits_json"])
+            own_active = sum(json.loads(row[0]).get("active_seconds", 0) for row in conn.execute(
+                "SELECT reserved_json FROM call_reservations WHERE job_item_id=? AND status='reserved'", (self.item_id,)))
+            elapsed = time.monotonic() - self.started
+            remaining, reason = min((
+                (limits["item_timeout_seconds"] - json.loads(item["usage_json"])["active_seconds"] + own_active - elapsed, "item_timeout"),
+                (limits["job_max_active_seconds"] - json.loads(job["usage_json"])["active_seconds"] + own_active - elapsed, "job_budget"),
+                (limits["segment_timeout_seconds"] - (datetime.now(timezone.utc) - datetime.fromisoformat(segment["started_at"])).total_seconds(), "segment_budget"),
+            ), key=lambda pair: pair[0])
+            if remaining <= 0:
+                raise BudgetStop(reason)
+            return remaining
+
     async def reserve(self, kind: str, amount: int = 1) -> str:
         """한도를 대조하고 호출 전에 보수적인 사용량을 기록한다.
 

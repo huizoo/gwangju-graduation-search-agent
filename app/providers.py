@@ -22,6 +22,7 @@ from bs4 import BeautifulSoup
 from jsonschema.exceptions import ValidationError
 
 from .http_compat import CompatibilityError, is_legacy_p3p_error, read_legacy_p3p
+from .retry import RETRYABLE_STATUS_CODES, is_tls_error, is_transient_error, wait_for_retry
 
 
 _MODEL_SEMAPHORES = weakref.WeakKeyDictionary()
@@ -44,11 +45,13 @@ class ProviderError(Exception):
         code: 서버가 정의한 오류 분류.
         message: 사용자에게 표시할 안전한 설명.
         provider: 오류가 발생한 자료원 이름.
+        retryable: 전송 계층이 일시 연결 오류로 확인했는지 여부.
     """
 
-    def __init__(self, code: str, message: str, provider: str = ""):
+    def __init__(self, code: str, message: str, provider: str = "", *, retryable: bool = False):
         super().__init__(message)
         self.code, self.message, self.provider = code, message, provider
+        self.retryable = retryable
 
     def as_dict(self) -> dict:
         """비밀이 없는 오류 레코드를 반환한다."""
@@ -178,54 +181,66 @@ class HttpGateway:
             compatibility_used = False
             retry_count = self.execution["http_max_retries"] if retries is None else retries
             for attempt in range(retry_count + 1):
-                reservation_id = await reserve(self.meter, "http_requests")
+                transport_error = None
                 async with lock:
                     delay = self.execution["per_host_min_interval_ms"] / 1000 - (time.monotonic() - self._last.get(host, 0))
                     if delay > 0:
                         await asyncio.sleep(delay)
+                    reservation_id = await reserve(self.meter, "http_requests")
                     self._last[host] = time.monotonic()
                     try:
-                        async with self.client.stream(method, target, **request_kwargs) as streamed:
-                            limit = self.execution["document_max_bytes"]
-                            if int(streamed.headers.get("content-length", "0")) > limit:
-                                raise ProviderError("document_partial", "문서 크기 제한을 초과했습니다.", "reader")
-                            chunks, length = [], 0
-                            async for chunk in streamed.aiter_bytes():
-                                length += len(chunk)
-                                if length > limit:
+                        try:
+                            async with self.client.stream(method, target, **request_kwargs) as streamed:
+                                limit = self.execution["document_max_bytes"]
+                                if int(streamed.headers.get("content-length", "0")) > limit:
                                     raise ProviderError("document_partial", "문서 크기 제한을 초과했습니다.", "reader")
-                                chunks.append(chunk)
-                            response = httpx.Response(
-                                streamed.status_code, headers=streamed.headers,
-                                content=b"".join(chunks), request=httpx.Request(method, current),
-                            )
+                                chunks, length = [], 0
+                                async for chunk in streamed.aiter_bytes():
+                                    length += len(chunk)
+                                    if length > limit:
+                                        raise ProviderError("document_partial", "문서 크기 제한을 초과했습니다.", "reader")
+                                    chunks.append(chunk)
+                                response = httpx.Response(
+                                    streamed.status_code, headers=streamed.headers,
+                                    content=b"".join(chunks), request=httpx.Request(method, current),
+                                )
+                        finally:
+                            # 요청을 보낸 뒤 응답이 없어도 호출 예약은 환불하지 않는다.
                             await settle(self.meter, reservation_id)
                     except (httpx.HTTPError, OSError, ValueError) as error:
                         if (public and method.upper() == "GET" and not kwargs
                                 and not compatibility_used and is_legacy_p3p_error(error)):
                             # 다른 프로토콜 오류나 API에는 관대한 파서를 적용하지 않는다.
                             compatibility_used = True
-                            await settle(self.meter, reservation_id)
-                            reservation_id = await reserve(self.meter, "http_requests")
                             delay = self.execution["per_host_min_interval_ms"] / 1000 - (time.monotonic() - self._last[host])
                             if delay > 0:
                                 await asyncio.sleep(delay)
+                            reservation_id = await reserve(self.meter, "http_requests")
                             self._last[host] = time.monotonic()
                             try:
                                 response = await read_legacy_p3p(
                                     current, addresses[0], self.execution["http_timeout_seconds"],
                                     self.execution["document_max_bytes"],
                                 )
-                                await settle(self.meter, reservation_id)
                             except (httpx.HTTPError, OSError, ValueError) as compat_error:
                                 code = compat_error.code if isinstance(compat_error, CompatibilityError) else "access_failed"
                                 raise ProviderError(code, "공개 자료의 응답 형식을 읽지 못했습니다.", "http") from None
+                            finally:
+                                await settle(self.meter, reservation_id)
                             break
-                        if attempt < retry_count:
-                            continue
-                        code = "tls_error" if "CERTIFICATE_VERIFY" in str(error) else "access_failed"
-                        raise ProviderError(code, "자료원 연결에 실패했습니다. 네트워크·인증서 상태를 확인하세요.", "http") from None
-                if response.status_code not in {429, 500, 502, 503, 504} or attempt == retry_count:
+                        code = "tls_error" if is_tls_error(error) else "access_failed"
+                        transport_error = ProviderError(
+                            code, "자료원 연결에 실패했습니다. 네트워크·인증서 상태를 확인하세요.", "http",
+                            retryable=is_transient_error(error),
+                        )
+                if transport_error is not None:
+                    if (attempt < retry_count and transport_error.retryable
+                            and await wait_for_retry(attempt, meter=self.meter)):
+                        continue
+                    raise transport_error from None
+                if response.status_code not in RETRYABLE_STATUS_CODES or attempt == retry_count:
+                    break
+                if not await wait_for_retry(attempt, response=response, meter=self.meter):
                     break
             if response.status_code in {301, 302, 303, 307, 308}:
                 if not public:
@@ -628,6 +643,7 @@ class ModelProvider:
         self.settings = settings
         self.gateway = gateway or HttpGateway(settings, meter)
         self.backend = settings.data["app"]["llm_backend"]
+        self.last_usage = None
 
     def _endpoint(self) -> str:
         """백엔드 선택과 외부 전송 허용값을 확인한 호출 주소를 반환한다."""
@@ -1076,6 +1092,7 @@ class ModelProvider:
             ProviderError: 연결·전송·응답 검사 실패.
         """
         from jsonschema import Draft202012Validator, FormatChecker
+        self.last_usage = None
         endpoint = self._endpoint()
         execution = self.settings.data["execution"]
         headers = {}
@@ -1094,6 +1111,7 @@ class ModelProvider:
         response = None
         async with semaphore:
             for attempt in range(execution["llm_max_retries"] + 1):
+                self.last_usage = None
                 call_reservation = await reserve(self.gateway.meter, "llm_calls")
                 try:
                     token_reservation = await reserve(self.gateway.meter, "tokens", execution["llm_max_input_tokens"] + execution["llm_max_output_tokens"])
@@ -1104,23 +1122,34 @@ class ModelProvider:
                 try:
                     response = await self.gateway.request("POST", endpoint, json=payload, headers=headers,
                                                           timeout=execution["llm_timeout_seconds"], retries=0)
-                except ProviderError:
-                    if attempt < execution["llm_max_retries"]:
+                except BaseException as error:
+                    # 응답 유실·중단은 실제 토큰 사용량을 알 수 없으므로 예약량을 보존한다.
+                    await settle(self.gateway.meter, call_reservation)
+                    await settle(self.gateway.meter, token_reservation)
+                    if (isinstance(error, ProviderError) and error.retryable
+                            and attempt < execution["llm_max_retries"]
+                            and await wait_for_retry(attempt, meter=self.gateway.meter)):
                         continue
                     raise
                 await settle(self.gateway.meter, call_reservation)
                 try:
                     usage_body = response.json()
                     if self.backend == "ollama":
-                        actual_tokens = usage_body["prompt_eval_count"] + usage_body["eval_count"]
+                        input_tokens, output_tokens = usage_body["prompt_eval_count"], usage_body["eval_count"]
                     else:
-                        actual_tokens = usage_body["usage"]["input_tokens"] + usage_body["usage"]["output_tokens"]
-                    if type(actual_tokens) is not int or actual_tokens < 0:
-                        actual_tokens = None
+                        input_tokens, output_tokens = usage_body["usage"]["input_tokens"], usage_body["usage"]["output_tokens"]
+                    if any(type(value) is not int or value < 0 for value in (input_tokens, output_tokens)):
+                        raise ValueError
+                    actual_tokens = input_tokens + output_tokens
+                    self.last_usage = {
+                        "input_tokens": input_tokens, "output_tokens": output_tokens, "total_tokens": actual_tokens,
+                    }
                 except (ValueError, KeyError, TypeError):
                     actual_tokens = None
                 await settle(self.gateway.meter, token_reservation, actual_tokens)
-                if response.status_code not in {429, 500, 502, 503, 504} or attempt == execution["llm_max_retries"]:
+                if response.status_code not in RETRYABLE_STATUS_CODES or attempt == execution["llm_max_retries"]:
+                    break
+                if not await wait_for_retry(attempt, response=response, meter=self.gateway.meter):
                     break
         try:
             if not response.is_success:
