@@ -489,8 +489,8 @@ class ResearchRunner:
                         stop_reason = "decision_limit"
                         break
                     reservation_id = await reserve(self.meter, "replans")
-                    await settle(self.meter, reservation_id)
                     decision_count += 1
+                    decision_charge = None
                     if self.model is None:
                         self.model = ModelProvider(self.settings, self.meter, self.gateway)
                     try:
@@ -526,11 +526,17 @@ class ResearchRunner:
                         # 사용자의 멈춤·예산 예외는 일반 계약 오류로 삼키지 않는다.
                         from app.agent.jobs import BudgetStop
                         if isinstance(error, BudgetStop):
+                            # 요청 전 한도 거절은 모델 판단을 수행한 것으로 세지 않는다.
+                            # 전송 여부가 불명확한 어댑터는 보수적으로 비용을 유지한다.
+                            if getattr(self.model, "last_request_sent", None) is False:
+                                decision_charge = 0
                             raise
                         add_error("model", "parse_failed", "Agent 행동이 허용 계약과 맞지 않습니다.")
                         stop_reason = "invalid_decision"
                         record("decision_failed", reason="invalid_decision")
                         break
+                    finally:
+                        await settle(self.meter, reservation_id, decision_charge)
                     action = decision["action"]
                     diagnostics = getattr(self.model, "last_diagnostics", None)
                     if diagnostics:

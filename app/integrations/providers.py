@@ -782,6 +782,7 @@ class ModelProvider:
             ProviderError: 공개 입력 한도 또는 모델 계약을 충족하지 못한 경우.
         """
         from app.core.domain import ApiError, SCHEMA, VALIDATORS, validate
+        self.last_request_sent = False
         self.last_diagnostics = None
         self.last_failure = None
         self.last_finish_reason = None
@@ -1217,6 +1218,7 @@ class ModelProvider:
             ProviderError: 연결·전송·응답 검사 실패.
         """
         from jsonschema import Draft202012Validator, FormatChecker
+        self.last_request_sent = False
         self.last_usage = None
         self.last_failure = None
         self.last_finish_reason = None
@@ -1247,6 +1249,8 @@ class ModelProvider:
                     await settle(self.gateway.meter, call_reservation, 0)
                     raise
                 try:
+                    # 재시도 중 한도가 소진돼도 앞서 전송한 판단 비용은 유지한다.
+                    self.last_request_sent = True
                     response = await self.gateway.request("POST", endpoint, json=payload, headers=headers,
                                                           timeout=execution["llm_timeout_seconds"], retries=0)
                 except BaseException as error:

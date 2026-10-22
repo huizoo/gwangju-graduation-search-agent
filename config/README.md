@@ -17,6 +17,8 @@ API 키는 실행 중 메모리에서만 결합하고 설정 JSON, 작업 snapsh
 
 ## 입력할 곳
 
+실행 설정의 `segment_max_tokens`와 `segment_timeout_seconds`는 내부 구간 경계입니다. 구간만 소진되면 고정한 조건으로 자동으로 이어갑니다. `item_max_*`·`item_timeout_seconds`와 `job_max_*`의 누적 한도는 유지하며, 전체 예산 소진·사용자 중지·취소·서버 종료는 자동으로 넘어가지 않습니다. 한 번의 요청 예약량보다 구간 한도가 작은 설정은 자동 반복하지 않고 멈춥니다. 현재 실행 중인 서버에는 코드 변경이 즉시 적용되지 않습니다.
+
 - `LLM_BACKEND`: `ollama` 또는 `openai`를 선택합니다. 초기값은 `ollama`입니다.
 - `OLLAMA_BASE_URL`: 기본 주소 `http://127.0.0.1:11434`는 `config/defaults.json`에 있습니다. 주소를 변경한 PC만 `.env`에 추가합니다. 기존 `.env`의 재정의도 계속 적용됩니다.
 - `OLLAMA_TEXT_MODEL`: 기본 모델 `qwen3:8b`는 `config/defaults.json`에 있습니다. 다른 모델을 쓸 때만 `.env`에 추가하고 `ollama list`로 설치된 이름과 태그를 확인합니다. 모델 설치 여부와 호출 성공은 일정 추출 정확성의 증거가 아닙니다.

@@ -188,7 +188,8 @@ async def test_worker_persists_budget_details_and_resume_retains_history(tmp_pat
             return {"documents": [], "candidates": [], "errors": []}
 
     runtime.jobs.runner_factory = LimitedRunner
-    await runtime.jobs.run(job["id"])
+    # 자동 구간 연결과 별도로 한 구간 종료 직후의 영속 진단을 검사한다.
+    await runtime.jobs._execute_job(job["id"])
     with runtime.store.transaction() as conn:
         history = json.loads(conn.execute("SELECT history_json FROM job_items WHERE job_id=?", (job["id"],)).fetchone()[0])
     assert len(history) == 1 and history[0]["stage"] == "budget_stop"
