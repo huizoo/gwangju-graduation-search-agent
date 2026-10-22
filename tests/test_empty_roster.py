@@ -8,7 +8,7 @@ import pytest
 from app.web.api import create_app
 from app.core.domain import ApiError, validate
 from app.agent.job_feedback import season_research_summary
-from test_jobs_api import institution_payload, job_payload, settings_for
+from test_jobs_api import seed_season, institution_payload, job_payload, settings_for
 
 
 @pytest.fixture
@@ -19,7 +19,7 @@ def runtime(tmp_path):
 
 def _schedule_request(runtime):
     """첫 사용 화면과 같은 전체 학교 조사 요청을 만든다."""
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     return {**job_payload(season["id"]), "purpose": "date_count", "target_event_id": None}
 
 
@@ -68,7 +68,7 @@ def test_registry_sync_remains_available_before_any_school_is_loaded(runtime):
 def test_empty_filter_does_not_claim_school_roster_is_missing(runtime):
     """호환용 선택 조건이 0개인 경우에는 명부를 다시 불러오라고 안내하지 않는다."""
     runtime.service.create_institution(institution_payload())
-    season_id = runtime.service.list_seasons()["items"][0]["id"]
+    season_id = seed_season(runtime)["id"]
     payload = {**job_payload(season_id), "selection": {
         "scope": "filter", "types": [], "districts": [], "query": "없는이름"}}
     with pytest.raises(ApiError) as error:

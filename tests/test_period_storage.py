@@ -15,7 +15,7 @@ from app.agent.jobs import JobManager, Meter
 from app.records.migrations import EXTENSION_SQL
 from app.records.storage import Service, Store
 from test_grounded_claims import grounded_context, candidate, NORMAL, _save
-from test_jobs_api import settings_for, institution_payload, job_payload, manual_event
+from test_jobs_api import seed_season, settings_for, institution_payload, job_payload, manual_event
 from test_research_records import _document
 from test_storage import operation
 from test_neis_recheck import neis_context, collect_and_save, row_for
@@ -149,7 +149,7 @@ def _time_job(tmp_path):
     """
     runtime = create_app(settings_for(tmp_path)).state.runtime
     school = runtime.service.create_institution(institution_payload("기간검사학교"))
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     event = runtime.service.create_event(manual_event(school["id"], season["id"]))
     job = runtime.jobs.create({**job_payload(season["id"], [school["id"]]),
                                "purpose": "time", "target_event_id": event["id"]}, str(uuid4()))

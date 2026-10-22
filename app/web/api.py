@@ -27,6 +27,7 @@ from app.core.domain import ApiError, SCHEMA, model_for, validate
 from app.core.paths import STATIC_DIR
 from app.agent.jobs import JobManager, dump, now
 from app.records.storage import Service, Store
+from app.validation.scope import eligible_school
 
 CONTRACT = json.loads((Path(__file__).parent / "openapi.contract.json").read_text())
 
@@ -100,8 +101,6 @@ class Application:
         self.export_task = None
         self.export_failures = {}
         self.export_worker_failed = False
-        if not self.service.list_seasons()["items"]:
-            self.service.create_season({**settings.data["season"], "timezone": "Asia/Seoul"})
 
     def page(self, value: dict | list, request: Request, query: dict) -> dict:
         """동일 필터·정렬·내용 snapshot에만 유효한 서명 cursor를 만든다."""
@@ -139,7 +138,15 @@ class Application:
         return result
 
     def status(self, season_id: str | None = None) -> dict:
-        """설정 여부와 실제 연결 확인 여부를 혼동하지 않고 제공한다."""
+        """시즌 생성 없이 명부 준비 상태와 설정·실제 연결 상태를 제공한다.
+
+        Args:
+            season_id: 선택한 경우 해당 기간의 폐교 제외 조건도 적용할 시즌.
+        Returns:
+            전체 조사와 같은 학교 범위의 대상 수 및 기능별 준비 상태.
+        Raises:
+            ApiError: 지정한 시즌이 저장소에 없을 때.
+        """
         summary = self.settings.connection_summary()
         capabilities = []
         entries = [
@@ -155,9 +162,13 @@ class Application:
                 "message": f"설정 필요: {', '.join(missing)}" if missing else ("사용 가능" if local else "호출 시 연결 확인"),
             })
         active = next((j["id"] for j in self.jobs.list() if j["status"] in {"queued", "running", "pausing", "cancelling"}), None)
+        with self.store.transaction() as conn:
+            season = self.service._season(conn, season_id) if season_id else None
+            target_count = sum(eligible_school(item, season) for item in self.service.list_institutions()["items"])
         return {"app_mode": self.settings.data["app"]["mode"], "app_version": __version__,
                 "schema_version": "4.0", "capabilities": capabilities,
                 "content_revision": self.store.revision(), "active_job_id": active,
+                "eligible_institution_count": target_count,
                 "html_save": self.html_save_status(season_id) if season_id else None}
 
     def export_result(self, season_id: str) -> dict:
@@ -497,13 +508,13 @@ def create_app(settings=None, runner_factory=None) -> FastAPI:
 
     @app.get("/api/bootstrap", include_in_schema=False)
     async def bootstrap():
-        """같은 출처 화면에 실행별 토큰과 비밀 없는 초기값을 제공한다."""
+        """시즌이 없으면 선택값을 비우고 실행별 토큰과 명부 준비 상태를 제공한다."""
         with state.store.transaction() as conn:
             row = conn.execute("SELECT value FROM app_meta WHERE key='selected_season_id'").fetchone()
         seasons = state.service.list_seasons()
         return {"token": state.token, "seasons": seasons["items"],
                 "selected_season_id": row[0] if row and row[0] in {s["id"] for s in seasons["items"]}
-                else seasons["items"][0]["id"],
+                else seasons["items"][0]["id"] if seasons["items"] else None,
                 "settings": state.settings.connection_summary(), "status": state.status(),
                 "poll_interval_ms": state.settings.data["app"]["poll_interval_ms"]}
 

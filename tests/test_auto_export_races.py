@@ -9,7 +9,7 @@ import pytest
 
 from app.web.api import create_app
 from app.web.exporting import current_export, schedule_filename
-from tests.test_jobs_api import institution_payload, settings_for
+from tests.test_jobs_api import seed_season, institution_payload, settings_for
 
 
 async def until(predicate, timeout=2):
@@ -34,7 +34,7 @@ def latest_path(runtime, season):
 async def test_sqlite_write_lock_preserves_last_file_and_worker_retries(tmp_path, monkeypatch):
     """실제 DB 쓰기 잠금 실패 후 같은 worker가 최신 파일을 다시 저장한다."""
     runtime = create_app(settings_for(tmp_path)).state.runtime
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     runtime.service.create_institution(institution_payload("잠금 전 학교"))
     assert runtime._refresh_exports()
     path = latest_path(runtime, season)
@@ -81,7 +81,7 @@ async def test_explicit_export_wait_does_not_block_health_or_event_loop(tmp_path
     """다른 스레드의 저장 잠금을 기다리는 중에도 같은 앱의 조회가 처리된다."""
     app = create_app(settings_for(tmp_path))
     runtime = app.state.runtime
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     held, release, attempted = Event(), Event(), Event()
     released_by_async = []
 
@@ -126,7 +126,7 @@ async def test_automatic_and_manual_exports_keep_newest_revision_after_concurren
 
     app = create_app(settings_for(tmp_path))
     runtime = app.state.runtime
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     runtime.service.create_institution(institution_payload("보존할 이전 학교"))
     assert runtime._refresh_exports()
     with runtime.store.transaction() as conn:

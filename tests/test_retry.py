@@ -54,6 +54,7 @@ def runtime_job(tmp_path):
     """임시 DB의 실제 JobManager와 대기 중인 학교 작업을 준비한다."""
     from app.web.api import create_app
     from app.core.config import load_settings
+    from test_jobs_api import seed_season
 
     config = load_settings(process_values={
         "APP_MODE": "demo", "LLM_BACKEND": "fake", "APP_DATA_DIR": str(tmp_path), "AUTO_OPEN_BROWSER": "false",
@@ -63,7 +64,7 @@ def runtime_job(tmp_path):
         "name": "검사학교", "type": "high", "district": "북구", "address": "광주광역시 북구 검사로 1",
         "campus_label": None, "phone": "062-000-0000", "homepage_url": None,
     })
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     job = runtime.jobs.create({
         "kind": "schedule_scan", "season_id": season["id"], "mode": "recheck",
         "selection": {"scope": "ids", "institution_ids": [school["id"]]}, "limits": None,

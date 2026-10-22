@@ -16,6 +16,7 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from app.integrations.providers import ProviderError
+from app.records.reset_data import reset_research_data
 from checks.browser.periods import ControlledRunner, HELPER, LocalApp
 
 
@@ -65,7 +66,28 @@ def main():
     """하나의 전용 lease와 신규 DB에서 첫 사용 흐름을 확인하고 정확히 종료한다."""
     out = ROOT / "runtime/verification/browser/first_use" / datetime.now().strftime("browser-%Y%m%d-%H%M%S")
     out.mkdir(parents=True)
-    local = LocalApp(out)
+    requests = []
+
+    def new_local_app():
+        """재시작마다 같은 격리 DB를 열고 API 경로·상태만 기록한다.
+
+        Returns:
+            사용자 서버와 무관한 검사 소유 앱.
+        """
+        instance = LocalApp(out)
+
+        @instance.app.middleware("http")
+        async def capture_request(request, call_next):
+            """토큰이나 기록 본문 없이 잘못된 빈 시즌 요청을 검출한다."""
+            response = await call_next(request)
+            if request.url.path.startswith("/api/"):
+                requests.append({"method": request.method, "path": request.url.path,
+                    "query": request.url.query, "status": response.status_code})
+            return response
+
+        return instance
+
+    local = new_local_app()
     registry = SyntheticRegistry()
     ControlledRunner.release.clear()
     ControlledRunner.calls.clear()
@@ -125,6 +147,15 @@ def main():
             loadText:document.querySelector('#load-roster').textContent,
             researchDisabled:document.querySelector('#research-submit').disabled,
             newDisabled:document.querySelector('#add-season').disabled,
+            newText:document.querySelector('#add-season').textContent,
+            seasons:document.querySelector('#season-select').options.length,
+            seasonBarHidden:document.querySelector('.season-bar').hidden,
+            seasonGuideHidden:document.querySelector('#season-guide').hidden,
+            seasonGuideText:document.querySelector('#season-guide').textContent,
+            resultsHidden:document.querySelector('#results').hidden,
+            recordDisabled:document.querySelector('#record-text').disabled,
+            openDisabled:document.querySelector('#open-html').disabled,
+            saveDisabled:document.querySelector('#save-html').disabled,
             summaryHidden:document.querySelector('#research-summary').hidden,
             message:document.querySelector('#message').textContent,
             jobText:document.querySelector('#job-message').textContent,
@@ -136,11 +167,17 @@ def main():
             # helper의 시작 검사가 전용 runtime 버전·캐시·전체 Chromium 실행 파일을 고정한다.
             lease = json.loads(invoke(["start", "--url", local.url, "--deadline", "420"]).stdout)["lease"]
             invoke(["run", "--lease", lease, "--", "resize", "1440", "1000"])
-            assert wait("document.querySelector('#season-select')?.options.length===1 && !document.querySelector('#roster-guide').hidden")
+            assert wait("document.querySelector('#season-select')?.options.length===0 && !document.querySelector('#roster-guide').hidden")
             initial = screen()
             check("empty_roster_guidance_and_disabled_research", initial["guide"] and initial["researchDisabled"]
                 and initial["newDisabled"] and not initial["loadDisabled"] and initial["summaryHidden"]
                 and initial["rows"] == 0 and "학교 목록이 없어요" in initial["guideText"], initial)
+            check("empty_season_has_no_selector_results_or_record_export_actions",
+                initial["seasons"] == 0 and initial["seasonBarHidden"] and initial["resultsHidden"]
+                and initial["recordDisabled"] and initial["openDisabled"] and initial["saveDisabled"], initial)
+            bootstrap = evaluate("async()=>{const data=await (await fetch('/api/bootstrap')).json();return {seasons:data.seasons,selected:data.selected_season_id,roster:data.status.eligible_institution_count};}")
+            check("fresh_bootstrap_preserves_empty_seasons",
+                bootstrap == {"seasons": [], "selected": None, "roster": 0}, bootstrap)
             screenshot("01-empty-roster.png")
             run("async(page)=>{await page.locator('#load-roster').click();}")
             check("registry_request_accepted", wait("document.querySelector('#load-roster').disabled"), screen())
@@ -158,21 +195,22 @@ def main():
                 and not failed["loadDisabled"] and failed["researchDisabled"] and failed["newDisabled"], failed)
             registry.fail = False
             run("async(page)=>{await page.locator('#load-roster').click();}")
-            assert wait("document.querySelector('#roster-guide').hidden && !document.querySelector('#add-season').disabled && document.querySelectorAll('#results tbody tr').length===2")
+            assert wait("document.querySelector('#roster-guide').hidden && !document.querySelector('#add-season').disabled")
             ready = screen()
-            check("successful_registry_enables_season_flow", not ready["guide"] and not ready["researchDisabled"]
-                and not ready["newDisabled"] and ready["rows"] == 2 and "학교 목록을 불러왔어요" in ready["jobText"], ready)
+            check("successful_registry_enables_period_selection_without_creating_season",
+                not ready["guide"] and ready["researchDisabled"] and not ready["newDisabled"]
+                and ready["seasons"] == 0 and ready["rows"] == 0 and ready["resultsHidden"]
+                and not ready["seasonGuideHidden"] and "조사할 기간을 선택해 주세요" in ready["seasonGuideText"]
+                and ready["newText"] == "조사 기간 선택" and "학교 목록을 불러왔어요" in ready["jobText"], ready)
             with local.runtime.store.transaction() as conn:
                 registry_saved = {"snapshots": conn.execute("SELECT count(*) FROM registry_snapshots").fetchone()[0],
                     "previews": conn.execute("SELECT count(*) FROM import_previews WHERE status='committed'").fetchone()[0],
                     "jobs": conn.execute("SELECT count(*) FROM jobs WHERE kind='registry_sync'").fetchone()[0]}
             check("registry_used_real_job_preview_and_commit", registry_saved == {"snapshots": 2, "previews": 2, "jobs": 2},
                 {"saved": registry_saved, "synthetic_source_calls": registry.calls})
-            run("async(page)=>{await page.locator('[data-control=\"query\"]').fill('검색결과가없는합성학교');}")
-            no_matches = evaluate("()=>({empty:!document.querySelector('[data-control=\"empty\"]').hidden,researchDisabled:document.querySelector('#research-submit').disabled,newDisabled:document.querySelector('#add-season').disabled,guideHidden:document.querySelector('#roster-guide').hidden})")
-            check("empty_display_filter_does_not_disable_school_research",
-                no_matches == {"empty": True, "researchDisabled": False, "newDisabled": False, "guideHidden": True}, no_matches)
-            run("async(page)=>{await page.locator('[data-control=\"reset\"]').click();}")
+            check("no_season_scoped_request_before_period_selection",
+                not any(item["path"] in {"/api/results", "/api/selected-season"} for item in requests), requests.copy())
+            screenshot("02-roster-ready-no-season.png")
             run("""async(page)=>{await page.locator('#add-season').click();
                 await page.locator('#season-start').fill('2025-12-01');
                 await page.locator('#season-end').fill('2026-03-31');
@@ -190,17 +228,22 @@ def main():
             check("actual_runner_receives_same_period", len(ControlledRunner.calls) == 2 and all(
                 call["season"]["id"] == job["season_id"] and call["season"]["search_start"] == "2025-12-01"
                 and call["season"]["search_end"] == "2026-03-31" for call in ControlledRunner.calls), ControlledRunner.calls)
+            run("async(page)=>{await page.locator('[data-control=\"query\"]').fill('검색결과가없는합성학교');}")
+            no_matches = evaluate("()=>({empty:!document.querySelector('[data-control=\"empty\"]').hidden,researchDisabled:document.querySelector('#research-submit').disabled,newDisabled:document.querySelector('#add-season').disabled,guideHidden:document.querySelector('#roster-guide').hidden})")
+            check("empty_display_filter_does_not_disable_school_research",
+                no_matches == {"empty": True, "researchDisabled": False, "newDisabled": False, "guideHidden": True}, no_matches)
+            run("async(page)=>{await page.locator('[data-control=\"reset\"]').click();}")
             invoke(["run", "--lease", lease, "--", "reload"])
             assert wait("document.querySelector('#season-select').value===" + json.dumps(job["season_id"]) +
                 " && !document.querySelector('#research-submit').disabled")
             preserved = evaluate("()=>({id:document.querySelector('#season-select').value,seasons:document.querySelector('#season-select').options.length,guideHidden:document.querySelector('#roster-guide').hidden,rows:document.querySelectorAll('#results tbody tr').length})")
             check("reload_keeps_roster_selected_season_and_results", preserved ==
-                {"id": job["season_id"], "seasons": 2, "guideHidden": True, "rows": 2}, preserved)
-            screenshot("02-roster-and-season-ready.png")
+                {"id": job["season_id"], "seasons": 1, "guideHidden": True, "rows": 2}, preserved)
+            screenshot("03-roster-and-season-ready.png")
             invoke(["run", "--lease", lease, "--", "resize", "390", "844"])
             narrow = evaluate("()=>({width:innerWidth,body:document.body.scrollWidth,guideHidden:document.querySelector('#roster-guide').hidden})")
             check("narrow_screen_has_no_page_overflow", narrow["body"] <= narrow["width"], narrow)
-            screenshot("03-narrow-screen.png")
+            screenshot("04-narrow-screen.png")
             expected = "광주 졸업식 일정표 (2025.12.01~2026.03.31).html"
             downloaded = out / expected
             run("async(page)=>{const pending=page.waitForEvent('download');await page.locator('#save-html').click();"
@@ -212,6 +255,42 @@ def main():
             check("download_matches_automatically_saved_html", downloaded.read_bytes() == latest.read_bytes(),
                 {"download_sha256": hashlib.sha256(downloaded.read_bytes()).hexdigest(),
                  "automatic_sha256": hashlib.sha256(latest.read_bytes()).hexdigest()})
+            local.stop()
+            local = new_local_app()
+            local.start()
+            invoke(["run", "--lease", lease, "--", "goto", local.url])
+            assert wait("document.querySelector('#season-select').value===" + json.dumps(job["season_id"]) +
+                " && document.querySelectorAll('#results tbody tr').length===2")
+            restarted = screen()
+            check("restart_keeps_only_user_created_season",
+                restarted["seasons"] == 1 and not restarted["seasonBarHidden"]
+                and not restarted["resultsHidden"] and not restarted["recordDisabled"]
+                and not restarted["openDisabled"] and not restarted["saveDisabled"], restarted)
+            local.stop()
+            reset = reset_research_data(local.runtime.data_dir, confirmed=True)
+            check("default_reset_clears_seasons_and_preserves_roster",
+                not reset["kept_seasons"] and reset["cleared_counts"]["seasons"] == 1
+                and reset["preserved_counts"]["institutions"] == 2, reset)
+            local = new_local_app()
+            local.start()
+            invoke(["run", "--lease", lease, "--", "goto", local.url])
+            assert wait("document.querySelector('#season-select').options.length===0 && !document.querySelector('#add-season').disabled")
+            after_reset = screen()
+            check("reset_restart_returns_to_period_selection_without_default_season",
+                after_reset["seasons"] == 0 and after_reset["seasonBarHidden"] and not after_reset["guide"]
+                and not after_reset["seasonGuideHidden"] and after_reset["resultsHidden"]
+                and after_reset["researchDisabled"] and not after_reset["newDisabled"]
+                and after_reset["recordDisabled"] and after_reset["openDisabled"] and after_reset["saveDisabled"]
+                and "조사할 기간을 선택해 주세요" in after_reset["seasonGuideText"], after_reset)
+            invoke(["run", "--lease", lease, "--", "reload"])
+            assert wait("document.querySelector('#season-select').options.length===0 && !document.querySelector('#add-season').disabled")
+            empty_bootstrap = evaluate("async()=>{const data=await (await fetch('/api/bootstrap')).json();return {seasons:data.seasons,selected:data.selected_season_id,roster:data.status.eligible_institution_count};}")
+            check("reset_refresh_keeps_empty_selection_and_existing_roster",
+                empty_bootstrap == {"seasons": [], "selected": None, "roster": 2}, empty_bootstrap)
+            screenshot("05-reset-period-selection.png")
+            check("all_browser_api_requests_have_valid_season_context",
+                all(item["status"] < 400 and "season_id=null" not in item["query"]
+                    and "season_id=undefined" not in item["query"] for item in requests), requests.copy())
             local.stop()
             # 도구가 file: 접근을 금지하므로 파일 열기 성공을 주장하지 않고 동일 바이트만 확인한다.
             invoke(["run", "--lease", lease, "--", "goto",

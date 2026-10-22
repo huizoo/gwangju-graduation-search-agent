@@ -140,6 +140,10 @@ def run():
     }
     try:
         app.start()
+        initial = app.get("/api/bootstrap")
+        assert initial["seasons"] == [] and initial["selected_season_id"] is None
+        assert initial["status"]["eligible_institution_count"] == 0
+        evidence["checks"]["fresh_start_has_no_automatically_created_season"] = True
         original_instance = app.get("/api/instance")
         duplicate = subprocess.run(
             [str(ROOT / "start.command")], cwd=ROOT, env=app.env,
@@ -159,6 +163,10 @@ def run():
             "address": "광주광역시 북구 합성검증로 1", "campus_label": None,
             "phone": None, "homepage_url": None,
         })
+        roster_only = app.get("/api/bootstrap")
+        assert roster_only["seasons"] == [] and roster_only["selected_season_id"] is None
+        assert roster_only["status"]["eligible_institution_count"] == 1
+        evidence["checks"]["school_roster_does_not_implicitly_create_season"] = True
         season = app.write("/api/seasons", {"search_start": "2026-12-01", "search_end": "2027-03-31"})
         assert app.write("/api/seasons", {
             "search_start": season["search_start"], "search_end": season["search_end"],

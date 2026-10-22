@@ -298,7 +298,7 @@ def reset_cli():
 def test_interactive_cancel_never_loads_settings(answer, monkeypatch, capsys):
     """취소와 입력 종료는 사용자 DB나 설정에 접근하기 전에 끝난다."""
     cli = reset_cli()
-    monkeypatch.setattr(sys, "argv", ["reset_research_data.py", "--interactive", "--keep-seasons"])
+    monkeypatch.setattr(sys, "argv", ["reset_research_data.py", "--interactive"])
 
     def respond(_):
         if answer is None:
@@ -314,21 +314,33 @@ def test_interactive_cancel_never_loads_settings(answer, monkeypatch, capsys):
     assert "기록을 변경하지 않았습니다" in capsys.readouterr().out
 
 
-def test_interactive_cli_resets_isolated_data_and_reports_backup(prepared, monkeypatch, capsys):
-    """사용자가 확인한 실제 명령 경로가 격리 DB를 초기화하고 백업 위치를 안내한다."""
+@pytest.mark.parametrize("keep_seasons", [False, True])
+def test_interactive_cli_resets_isolated_data_and_reports_backup(prepared, monkeypatch, capsys, keep_seasons):
+    """기본 실행은 시즌도 지우고 명시적 보존 옵션에서만 기간과 선택을 유지한다."""
     directory, service, _ = prepared
     cli = reset_cli()
-    monkeypatch.setattr(sys, "argv", ["reset_research_data.py", "--interactive", "--keep-seasons"])
+    arguments = ["reset_research_data.py", "--interactive"]
+    if keep_seasons:
+        arguments.append("--keep-seasons")
+    monkeypatch.setattr(sys, "argv", arguments)
     monkeypatch.setattr("builtins.input", lambda _: "초기화")
     monkeypatch.setattr(cli, "load_settings", lambda: SimpleNamespace(data_dir=directory))
     assert cli.main() == 0
     output = capsys.readouterr().out
     assert "모든 시즌" in output and "직접 기록" in output
-    assert "저장된 기간도 유지" in output and "초기화를 완료했습니다" in output
+    assert "초기화를 완료했습니다" in output
+    if keep_seasons:
+        assert "저장된 기간과 현재 선택은 유지" in output
+        assert "저장된 시즌을 골라 다시 조사" in output
+    else:
+        assert "저장된 시즌·기간과 현재 선택도 지웁니다" in output
+        assert "기간을 선택해 새 시즌 조사를 시작" in output
     assert str(directory / "backups") in output
     with service.store.transaction() as conn:
         assert conn.execute("SELECT count(*) FROM events").fetchone()[0] == 0
-        assert conn.execute("SELECT count(*) FROM seasons").fetchone()[0] == 1
+        assert conn.execute("SELECT count(*) FROM seasons").fetchone()[0] == int(keep_seasons)
+        selected = conn.execute("SELECT value FROM app_meta WHERE key='selected_season_id'").fetchone()
+        assert bool(selected) is keep_seasons
     assert len(list((directory / "backups").glob("research-reset-*/reset-receipt.json"))) == 1
 
 
@@ -340,5 +352,5 @@ def test_command_runs_from_another_directory_and_cancel_keeps_data(tmp_path):
     result = subprocess.run([str(command)], cwd=tmp_path, input="취소\n\n",
                             capture_output=True, text=True, check=False)
     assert result.returncode == 0
-    assert "저장된 기간도 유지" in result.stdout
+    assert "저장된 시즌·기간과 현재 선택도 지웁니다" in result.stdout
     assert "기록을 변경하지 않았습니다" in result.stdout

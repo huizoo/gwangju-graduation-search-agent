@@ -10,7 +10,7 @@ if [[ ! -x ".venv/bin/python" ]]; then
   exit 1
 fi
 RESET_EXIT_CODE=0
-if .venv/bin/python scripts/reset_research_data.py --interactive --keep-seasons; then
+if .venv/bin/python scripts/reset_research_data.py --interactive; then
   RESET_EXIT_CODE=0
 else
   RESET_EXIT_CODE=$?

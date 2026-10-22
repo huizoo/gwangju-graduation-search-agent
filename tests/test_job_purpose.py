@@ -8,7 +8,7 @@ import pytest
 
 from app.web.api import create_app
 from app.core.domain import ApiError
-from test_jobs_api import settings_for, institution_payload, job_payload, manual_event
+from test_jobs_api import seed_season, settings_for, institution_payload, job_payload, manual_event
 
 
 @pytest.mark.parametrize("mode", ["recheck", "initial", "missing_only"])
@@ -18,7 +18,7 @@ def test_default_request_freezes_all_target_schools_independent_of_display(tmp_p
     schools = [runtime.service.create_institution({**institution_payload(f"학교{i}"), "type": kind,
                                            "district": "동구" if i % 2 else "북구"})
                for i, kind in enumerate(("elementary", "middle", "high", "university", "junior_college", "kindergarten"))]
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     runtime.service.create_event(manual_event(schools[0]["id"], season["id"]))
     payload = {**job_payload(season["id"]), "mode": mode, "purpose": "date_count", "target_event_id": None}
     wrong = {**payload, "selection": {"scope": "filter", "types": [], "districts": ["북구"], "query": ""}}
@@ -49,7 +49,7 @@ def test_time_job_passes_exact_event_and_keeps_manual_values(tmp_path, days):
     runtime = app.state.runtime
     school = runtime.service.create_institution(institution_payload("시간학교"))
     other = runtime.service.create_institution(institution_payload("다른학교"))
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     body = manual_event(school["id"], season["id"])
     if days:
         next(op["value"] for op in body["operations"] if op["field"] == "event_date")["dates"] = days
@@ -76,7 +76,7 @@ def test_time_job_requires_current_allowed_date(tmp_path):
     """날짜가 보류된 행사에 시간 조사를 연결해 과거 시각을 되살리지 않는다."""
     runtime = create_app(settings_for(tmp_path)).state.runtime
     school = runtime.service.create_institution(institution_payload("날짜없는학교"))
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     body = manual_event(school["id"], season["id"])
     body["operations"] = [op for op in body["operations"] if op["field"] == "ceremony_status"]
     event = runtime.service.create_event(body)
