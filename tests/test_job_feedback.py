@@ -73,6 +73,26 @@ def test_no_data_success_and_old_attempt_failure_are_distinguished(context):
     assert time_feedback(context[0], retried) == "not_found"
 
 
+def test_repeated_action_is_incomplete_and_does_not_hide_verified_or_later_success(context):
+    """반복 제안 종료를 미발견과 구분하고 현재 검증값과 재실행 성공을 우선한다."""
+    repeated = {"errors": [], "stop_reason": "repeated_action"}
+    job = _job(context, history=[repeated])
+    assert time_feedback(context[0], job) == "incomplete"
+    verified = _job(context, outcome="verified", history=[repeated])
+    assert time_feedback(context[0], verified) is None
+    retried = _job(context, history=[repeated, {"errors": [], "stop_reason": "agent_stop"}])
+    assert time_feedback(context[0], retried) == "not_found"
+
+
+@pytest.mark.parametrize("reason", ["repeated_action", "decision_limit", "document_limit"])
+def test_incomplete_history_prevents_full_research_completion(context, reason):
+    """reason_codes가 비어 있어도 마지막 조사 이력의 중단 이유를 반영한다."""
+    conn, season, schools = context
+    _job(context, purpose="date_count", scope="all", targets=schools,
+         history=[{"errors": [], "stop_reason": reason}])
+    assert season_research_summary(conn, season, schools)["state"] == "partial"
+
+
 @pytest.mark.parametrize("status", ["queued", "running", "pausing", "paused", "cancelling", "cancelled"])
 def test_job_control_states_stay_with_existing_status(context, status):
     job = _job(context, status=status, reasons=["provider_error"])

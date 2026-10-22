@@ -32,6 +32,41 @@ def _url_key(url: str) -> str:
     return urlunsplit((parsed.scheme.lower(), parsed.netloc.lower(), parsed.path or "/", parsed.query, ""))
 
 
+def _query_key(query: str) -> str:
+    """공백과 대소문자만 다른 검색을 같은 실제 요청으로 비교한다.
+
+    Args:
+        query: 모델이 제안하거나 이미 실행한 공개 검색어.
+    Returns:
+        중복 검사와 다음 선택지 안내에 함께 사용할 문자열.
+    """
+    return re.sub(r"\s+", " ", query.strip()).casefold()
+
+
+def _repair_instruction(failure: dict, season: dict) -> str:
+    """실패 단계에 맞는 수정 지시를 만들고 사실을 임의 보충하지 못하게 한다.
+
+    Args:
+        failure: 원문을 제외한 모델 응답의 내부 실패 진단.
+        season: 실제 행사일의 고정 조사 기간.
+    Returns:
+        기존 예산 안에서 한 번만 사용할 짧은 수정 지시.
+    """
+    kind, path, rule = (failure.get(key, "") for key in ("kind", "path", "validator"))
+    if kind == "json_syntax":
+        if failure.get("output_truncated") is True:
+            return "응답이 출력 한도에서 잘렸습니다. 이유와 중복 후보를 줄여 완결된 JSON을 제출하세요. 원문에서 확인한 사실만 보존하고 새 값을 만들지 마세요."
+        return "JSON 문법을 바로잡아 완결된 객체 하나만 제출하세요. 설명문이나 코드 울타리를 붙이지 말고 사실을 추가하지 마세요."
+    if kind == "schema" and ".dates." in path and rule in {"pattern", "format"}:
+        return (f"dates는 원문의 실제 행사일을 YYYY-MM-DD로 적습니다. 조사 기간은 {season['search_start']}~{season['search_end']}입니다. "
+                "원문의 모든 행사일이 기간 밖이면 그 후보를 제외하고 다른 공식 경로를 선택하세요. 기간에 맞추려고 원문 날짜를 바꾸지 마세요.")
+    if kind == "evidence_mapping":
+        return "제공된 evidence_block_id와 그 구간의 실제 인용만 사용하세요. 연결할 근거가 없는 후보는 제외하고 새 사실을 만들지 마세요."
+    if rule == "required":
+        return "진단 경로의 필수 항목을 응답 계약대로 포함하세요. 값이 불명확하면 계약에서 허용한 null 또는 빈 배열을 사용하고 사실을 만들어 채우지 마세요."
+    return "진단 경로와 검사 규칙에 맞게 응답을 한 번 수정하세요. 근거 없는 후보는 제외하고 날짜·시간·인용을 임의로 보충하지 마세요."
+
+
 def _failure(document: dict) -> str:
     """미발견과 취득 실패를 구분해 다음 행동의 관찰로 전달한다.
 
@@ -134,8 +169,11 @@ class ResearchRunner:
         coverage, reviews = {}, []
         known_urls = {item.get("display_url") or item.get("source_key") for item in institution.get("known_documents", [])}
         available_links = set()
+        search_links = set()
         stop_reason = "not_started"
         decision_count = 0
+        format_repair_used, recovery_used = False, False
+        repeated_requests, decision_feedback = set(), None
         route_queue = []
         university = institution.get("type") in {"university", "college", "junior_college"}
         expected_fields = ["start_time"] if purpose == "time" else ["event_date", "graduation_count"]
@@ -359,14 +397,34 @@ class ResearchRunner:
             await checkpoint("document_read")
             return outcome
 
+        def action_options():
+            """방문하지 않은 공식 경로와 남은 검색 예산만 선택지로 제공한다."""
+            links = {}
+            if len(seen_urls) < limits["item_max_document_fetches"]:
+                for url in sorted(available_links):
+                    key = _url_key(url)
+                    if key not in seen_urls and official_channel(institution, url):
+                        links.setdefault(key, url)
+            # 검색에서 발견한 본문을 메뉴보다 먼저 검토하되 URL에서 행사 사실을 추론하지 않는다.
+            eligible = sorted(links.values(), key=lambda url: (
+                _url_key(url) not in search_links,
+                not bool(re.search(r"calendar|schedule|haksa|notice|board|bbs", url, re.I)), url))
+            return {"fetch_urls": eligible[:8],
+                    "search_allowed": bool(self.settings.secrets.get("tavily_api_key"))
+                        and len(queries) < limits["item_max_search_calls"],
+                    "blocked_queries": [_query_key(query) for query in queries]}
+
         def make_context(missing, conflicts):
             """사적 수기 내용 없이 공개 근거와 앞선 관찰을 모델에 전달한다."""
+            options = action_options()
             return {"purpose": purpose, "expected_fields": expected_fields,
                     "institution_type": institution.get("type"), "representative_ceremony_only": university,
                     "target_event": target_event, "documents": documents, "candidate_reviews": reviews,
                     "missing_fields": missing, "conflicts": conflicts, "observations": observations,
-                    "prior_actions": actions, "available_links": sorted(available_links),
-                    "available_tools": ["search_web", "fetch_document"] if self.settings.secrets.get("tavily_api_key") else ["fetch_document"],
+                    "prior_actions": actions, "available_links": options["fetch_urls"],
+                    "action_options": options, "decision_feedback": decision_feedback,
+                    "available_tools": (["search_web"] if options["search_allowed"] else [])
+                        + (["fetch_document"] if options["fetch_urls"] else []),
                     "reusable_routes": routes or [],
                     "existing_evidence": existing_evidence,
                     "limits_remaining": {"decisions": max(0, limits["item_max_replans"] - decision_count),
@@ -449,15 +507,20 @@ class ResearchRunner:
                         if diagnostics:
                             record("model_proposal", **diagnostics)
                         add_error(error.provider, error.code, error.message)
-                        if error.code == "parse_failed" and decision_count < limits["item_max_replans"]:
+                        failure = getattr(error, "diagnostic", None) or getattr(self.model, "last_failure", None) or {}
+                        record("decision_failed", reason=error.code, diagnostic=failure)
+                        if (error.code == "parse_failed" and not format_repair_used
+                                and decision_count < limits["item_max_replans"]):
+                            # 전송 재시도와 별개다. 구체적 형식 수정도 기존 판단·호출 예산을 사용한다.
+                            format_repair_used = True
+                            decision_feedback = {"kind": "invalid_contract", "details": failure,
+                                "instruction": _repair_instruction(failure, season)}
                             observations.append({"tool": "agent_decision", "status": "rejected",
                                 "outcome": "invalid_contract", "reason_codes": ["parse_failed"],
-                                "instruction": "search_web은 query만, fetch_document는 url만 사용하며 stop은 query와 url 모두 null입니다."})
-                            record("decision_failed", reason=error.code)
+                                **decision_feedback})
                             await checkpoint("decision_rejected")
                             continue
                         stop_reason = "model_unavailable"
-                        record("decision_failed", reason=error.code)
                         break
                     except Exception as error:
                         # 사용자의 멈춤·예산 예외는 일반 계약 오류로 삼키지 않는다.
@@ -477,7 +540,12 @@ class ResearchRunner:
                     add_counts(decision.get("counts", []))
                     assess()
                     await collect_student_years()
+                    missing, conflicts = assess()
                     await checkpoint("agent_decision")
+                    if not missing and not conflicts:
+                        # 마지막 판단의 정상 후보도 먼저 채택하고 불필요한 후속 도구를 실행하지 않는다.
+                        stop_reason = "evidence_sufficient"
+                        break
                     violation = None
                     if (university and "event_date" in missing and action["objective"] == "graduation_count"
                             and action["kind"] != "stop"):
@@ -485,8 +553,7 @@ class ResearchRunner:
                     elif purpose == "date_count" and (action["objective"] == "start_time" or
                             (action["kind"] == "search_web" and re.search(r"시간|시각|몇\s*시|시작\s*시|start\s*time|ceremony\s*time", action.get("query") or "", re.I))):
                         violation = "purpose_mismatch"
-                    elif action["kind"] == "search_web" and (re.sub(r"\s+", " ", action["query"].strip()).casefold() in
-                            {re.sub(r"\s+", " ", query.strip()).casefold() for query in queries}):
+                    elif action["kind"] == "search_web" and _query_key(action["query"]) in {_query_key(query) for query in queries}:
                         violation = "duplicate_request"
                     elif action["kind"] == "search_web" and len(queries) >= limits["item_max_search_calls"]:
                         violation = "search_limit"
@@ -498,7 +565,31 @@ class ResearchRunner:
                     if violation:
                         observations.append({"action": action, "status": "rejected", "outcome": violation})
                         record("action_rejected", action=action, reason=violation)
+                        if violation == "duplicate_request":
+                            key = (action["kind"], _query_key(action["query"]) if action["kind"] == "search_web"
+                                   else _url_key(action["url"]))
+                            if key in repeated_requests:
+                                options = action_options()
+                                if options["fetch_urls"] and not recovery_used:
+                                    # 한 번만 남은 공식 원문으로 복구한다. 같은 읽기·시간·호출 한도를 통과한다.
+                                    recovery_used = True
+                                    fallback = {"kind": "fetch_document", "objective": action["objective"],
+                                                "url": options["fetch_urls"][0], "query": None}
+                                    actions.append(fallback)
+                                    record("recovery_action", action=fallback, reason="duplicate_request")
+                                    await read(fallback["url"])
+                                    repeated_requests.clear()
+                                    decision_feedback = None
+                                    continue
+                                stop_reason = "repeated_action"
+                                break
+                            repeated_requests.add(key)
+                            decision_feedback = {"kind": "duplicate_request", "details": {"action": action["kind"]},
+                                "instruction": "방금 거절한 검색어나 URL은 이미 실행했습니다. 미방문 공식 URL 또는 다른 검색어를 선택하세요. 시간 조사라면 target_event.event_date의 실제 행사일을 검색에 참고하고 학년도를 행사 연도로 바꾸지 마세요."}
+                        await checkpoint("action_rejected")
                         continue
+                    repeated_requests.clear()
+                    decision_feedback = None
                     if action["kind"] == "stop":
                         stop_reason = "agent_stop"
                         break
@@ -514,6 +605,7 @@ class ResearchRunner:
                     result = await tools.call("search_public_web", {"query": action["query"], "include_domains": domains[:10], "max_results": 5})
                     usable = [item for item in result["results"] if official_channel(institution, item["url"])]
                     available_links.update(item["url"] for item in usable)
+                    search_links.update(_url_key(item["url"]) for item in usable)
                     observation = {"tool": "search_public_web", "query": action["query"], "status": result["status"],
                                    "reason_codes": result["reason_codes"], "results": usable}
                     observations.append(observation)

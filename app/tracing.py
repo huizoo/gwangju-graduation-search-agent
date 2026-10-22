@@ -19,7 +19,7 @@ NAMES = {"job": "research_job", "school": "school_research", "model": "agent_dec
 CODES = set(SCHEMA["$defs"]["ReasonCode"]["enum"]) | {
     "internal_error", "structured_evidence_sufficient", "verified_route_sufficient", "evidence_sufficient",
     "decision_limit", "model_unavailable", "invalid_decision", "agent_stop", "document_limit",
-    "unverified_source", "search_limit", "duplicate_request", "purpose_mismatch",
+    "unverified_source", "search_limit", "duplicate_request", "purpose_mismatch", "repeated_action",
 }
 STATES = {"ok", "no_data", "not_found", "unsupported", "failed", "partial", "completed",
           "running", "paused", "cancelled", "error", "verified", "needs_review", "blocked",

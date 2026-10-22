@@ -14,7 +14,7 @@ _SERVICE_FAILURES = {
 }
 _INCOMPLETE = {
     "item_budget", "item_timeout", "segment_budget", "job_budget", "interrupted",
-    "document_limit", "search_limit", "decision_limit", "coverage_incomplete",
+    "document_limit", "search_limit", "decision_limit", "coverage_incomplete", "repeated_action",
 }
 
 
@@ -149,7 +149,7 @@ def season_research_summary(conn, season_id, eligible_ids):
         return {"state": "cancelled", "message": "전체 조사를 취소했어요. 저장한 정보는 그대로 남아 있어요."}
     if status == "failed" or all(item["status"] == "failed" for item in items):
         return {"state": "failed", "message": "전체 조사를 마치지 못했어요. 다시 조사해 주세요."}
-    if any(item["status"] != "done" or _item_feedback(item) in {"source_unavailable", "service_error"}
+    if any(item["status"] != "done" or _item_feedback(item) in {"source_unavailable", "service_error", "incomplete"}
            or set(_read_json(item["reason_codes_json"], [])) & _INCOMPLETE for item in items):
         return {"state": "partial", "message": "일부 학교의 조사를 마치지 못했어요. 빈칸은 아직 미확인이에요."}
     return {"state": "completed", "message": "전체 학교 조사를 마쳤어요. 모든 일정이 확인된 것은 아니에요."}
