@@ -283,7 +283,10 @@ def test_calendar_excerpt_preserves_the_actual_row_and_nearest_month_header(monk
         day = Draft202012Validator(schema["properties"]["candidates"]["items"]["properties"]["dates"]["items"],
                                    format_checker=FormatChecker())
         assert day.is_valid("2027-02-19") and day.is_valid("2026-12-07")
-        assert not day.is_valid("2026-02-19") and not day.is_valid("2027-02-30")
+        # 원문 날짜의 형식과 시즌 적합성을 분리해 과거 후보가 다음 탐색까지 막지 않게 한다.
+        from app.periods import within_period
+        assert day.is_valid("2026-02-19") and not within_period("2026-02-19", season)
+        assert not day.is_valid("2027-02-30")
         return decision()
 
     monkeypatch.setattr(ModelProvider, "_structured", structured)

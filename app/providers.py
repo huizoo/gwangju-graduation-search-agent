@@ -26,6 +26,78 @@ from .retry import RETRYABLE_STATUS_CODES, is_tls_error, is_transient_error, wai
 
 
 _MODEL_SEMAPHORES = weakref.WeakKeyDictionary()
+_DIAGNOSTIC_FIELDS = frozenset({
+    "action", "kind", "objective", "query", "url", "reason", "candidates", "counts",
+    "evidence_block_id", "event_title", "event_type", "academic_year", "ceremony_status",
+    "dates", "start_time", "campus_label", "date_quote", "time_quote", "document_id",
+    "segment_id", "candidate", "event_key_hint", "audience", "season_alignment", "event_date",
+    "precision", "date", "month", "time_role", "venue", "context_evidence", "date_evidence",
+    "time_evidence", "venue_evidence", "quote", "bbox", "is_change_notice", "supersedes_text",
+    "value", "source", "grade", "reference_date", "evidence", "source_academic_year",
+})
+_DIAGNOSTIC_VALIDATORS = frozenset({
+    "type", "required", "additionalProperties", "enum", "const", "format", "pattern",
+    "minLength", "maxLength", "minimum", "maximum", "minItems", "maxItems", "uniqueItems",
+    "oneOf", "anyOf", "allOf", "not", "dependency",
+})
+_FINISH_REASONS = frozenset({"stop", "length", "max_output_tokens", "content_filter", "completed", "incomplete"})
+
+
+def _contract_diagnostic(error: ValidationError) -> dict:
+    """응답 원문 없이 허용된 계약 경로와 위반 규칙만 추린다.
+
+    Args:
+        error: 서버 JSON 계약 검사에서 발생한 오류.
+    Returns:
+        생성값과 예외 문장이 없는 필드 경로·검사 규칙.
+    """
+    # oneOf의 모든 분기 오류 대신 실제로 제안한 행동의 분기 오류를 사용한다.
+    if error.validator == "oneOf" and isinstance(error.instance, dict):
+        matching = [branch for branch in error.context
+                    if len(branch.schema_path) > 0
+                    and error.schema["oneOf"][branch.schema_path[0]].get("properties", {}).get("kind", {}).get("const")
+                    == error.instance.get("kind")]
+        if matching:
+            error = matching[0]
+    parts = [str(part) if isinstance(part, int) else part if part in _DIAGNOSTIC_FIELDS else "?"
+             for part in error.absolute_path]
+    if error.validator == "required" and isinstance(error.instance, dict):
+        missing = [key for key in error.validator_value if key not in error.instance and key in _DIAGNOSTIC_FIELDS]
+        if missing:
+            parts.append(missing[0])
+    diagnostic = {"path": ".".join(parts) or "$"}
+    if error.validator in _DIAGNOSTIC_VALIDATORS:
+        diagnostic["validator"] = error.validator
+    return diagnostic
+
+
+def _decision_feedback(value: dict | None) -> dict | None:
+    """수정 요청에서 정적 분류와 허용된 진단만 모델 문맥에 전달한다.
+
+    Args:
+        value: 실행기가 만든 직전 행동·형식 오류의 수정 지시.
+    Returns:
+        원문·알 수 없는 진단 필드를 제외한 수정 문맥.
+    """
+    if not isinstance(value, dict) or value.get("kind") not in {"duplicate_request", "invalid_contract"}:
+        return None
+    details = {}
+    allowed = {
+        "kind": {"json_syntax", "schema", "evidence_mapping", "internal_contract", "response_envelope"},
+        "action": {"search_web", "fetch_document"},
+        "validator": _DIAGNOSTIC_VALIDATORS, "finish_reason": _FINISH_REASONS,
+    }
+    for key, item in (value.get("details") or {}).items():
+        if key in allowed and isinstance(item, str) and item in allowed[key]:
+            details[key] = item
+        elif key == "output_truncated" and type(item) is bool:
+            details[key] = item
+        elif key == "path" and isinstance(item, str):
+            details[key] = ".".join(part if part in _DIAGNOSTIC_FIELDS or part.isdigit() or part == "$" else "?"
+                                   for part in item.split(".")[:12])
+    instruction = value.get("instruction")
+    return {"kind": value["kind"], "details": details,
+            "instruction": instruction[:400] if isinstance(instruction, str) else ""}
 
 
 def utcnow() -> str:
@@ -46,12 +118,15 @@ class ProviderError(Exception):
         message: 사용자에게 표시할 안전한 설명.
         provider: 오류가 발생한 자료원 이름.
         retryable: 전송 계층이 일시 연결 오류로 확인했는지 여부.
+        diagnostic: 모델 응답의 안전한 내부 실패 분류. 공개 오류에는 포함하지 않는다.
     """
 
-    def __init__(self, code: str, message: str, provider: str = "", *, retryable: bool = False):
+    def __init__(self, code: str, message: str, provider: str = "", *, retryable: bool = False,
+                 diagnostic: dict | None = None):
         super().__init__(message)
         self.code, self.message, self.provider = code, message, provider
         self.retryable = retryable
+        self.diagnostic = json.loads(canonical(diagnostic)) if diagnostic is not None else None
 
     def as_dict(self) -> dict:
         """비밀이 없는 오류 레코드를 반환한다."""
@@ -644,6 +719,28 @@ class ModelProvider:
         self.gateway = gateway or HttpGateway(settings, meter)
         self.backend = settings.data["app"]["llm_backend"]
         self.last_usage = None
+        self.last_failure = None
+        self.last_finish_reason = None
+
+    def _failure(self, kind: str, **details) -> ProviderError:
+        """정적 분류와 계약 위치만 보존하고 기존 공개 오류 코드를 유지한다.
+
+        Args:
+            kind: 코드에서 정한 응답 실패 단계.
+            details: 원문을 포함하지 않는 필드 경로와 검사 규칙.
+        Returns:
+            재요청 판단에 쓸 내부 진단을 포함한 자료원 오류.
+        """
+        diagnostic = {"kind": kind, **details}
+        if self.last_finish_reason in _FINISH_REASONS:
+            diagnostic["finish_reason"] = self.last_finish_reason
+            if self.last_finish_reason in {"length", "max_output_tokens"}:
+                diagnostic["output_truncated"] = True
+            elif self.last_finish_reason in {"stop", "completed"}:
+                diagnostic["output_truncated"] = False
+        self.last_failure = diagnostic
+        return ProviderError("parse_failed", "모델의 행동 응답이 JSON 계약을 충족하지 않습니다.",
+                             self.backend, diagnostic=diagnostic)
 
     def _endpoint(self) -> str:
         """백엔드 선택과 외부 전송 허용값을 확인한 호출 주소를 반환한다."""
@@ -684,8 +781,10 @@ class ModelProvider:
         Raises:
             ProviderError: 공개 입력 한도 또는 모델 계약을 충족하지 못한 경우.
         """
-        from .domain import SCHEMA, validate
+        from .domain import ApiError, SCHEMA, VALIDATORS, validate
         self.last_diagnostics = None
+        self.last_failure = None
+        self.last_finish_reason = None
         def expand(value):
             """모델 생성 문법과 서버 검증이 같은 정의를 사용하게 한다."""
             if isinstance(value, dict):
@@ -701,6 +800,8 @@ class ModelProvider:
             model_count["properties"]["kind"] = {"const": "ceremony_graduates"}
             model_count["properties"]["grade"] = {"type": "null"}
             model_count["required"] = sorted(set(model_count["required"]) | {"event_date"})
+        if context.get("purpose") == "time":
+            schema["properties"]["counts"] = {"type": "array", "maxItems": 0}
         action_properties = schema["properties"]["action"]["properties"]
         objectives = list(action_properties["objective"]["enum"])
         if context.get("purpose") == "date_count":
@@ -709,13 +810,21 @@ class ModelProvider:
                 objectives = [item for item in objectives if item != "graduation_count"]
         if context.get("conflicts"):
             objectives = [item for item in objectives if item in {"conflict", "change_notice", "event_identity"}]
+        action_options = context.get("action_options")
+        fetch_urls = list(dict.fromkeys(url for url in (action_options or {}).get("fetch_urls", [])
+                                        if isinstance(url, str) and re.match(r"^https?://", url)))[:8]
+        action_kinds = ["search_web", "fetch_document", "stop"]
+        if action_options is not None:
+            action_kinds = (["search_web"] if action_options.get("search_allowed") is True else [])
+            action_kinds += (["fetch_document"] if fetch_urls else []) + ["stop"]
         schema["properties"]["action"] = {"oneOf": [
             {"type": "object", "additionalProperties": False,
              "properties": {"kind": {"const": kind}, "objective": {"type": "string", "enum": objectives},
                             "query": {"type": "string", "minLength": 1} if kind == "search_web" else {"type": "null"},
-                            "url": {"type": "string", "pattern": "^https?://"} if kind == "fetch_document" else {"type": "null"}},
+                            "url": ({"type": "string", "enum": fetch_urls} if action_options is not None
+                                    else {"type": "string", "pattern": "^https?://"}) if kind == "fetch_document" else {"type": "null"}},
              "required": ["kind", "objective", "query", "url"]}
-            for kind in ("search_web", "fetch_document", "stop")]}
+            for kind in action_kinds]}
         claim_properties = {
             "evidence_block_id": {"type": "string", "enum": [f"b{n}" for n in range(1, 33)]},
             "event_title": {"type": "string", "minLength": 1, "maxLength": 150},
@@ -728,15 +837,8 @@ class ModelProvider:
             "date_quote": {"type": ["string", "null"], "maxLength": 600},
             "time_quote": {"type": ["string", "null"], "maxLength": 600},
         }
-        first_month, last_month = season["search_start"][:7], season["search_end"][:7]
-        year, month = map(int, first_month.split("-"))
-        allowed_months = []
-        while f"{year:04}-{month:02}" <= last_month and len(allowed_months) <= 36:
-            allowed_months.append(f"{year:04}-{month:02}")
-            year, month = (year + 1, 1) if month == 12 else (year, month + 1)
-        if 0 < len(allowed_months) <= 36:
-            # 조사 범위만 생성 문법에 반영한다. 행사일 정답과 실제 인용 검증은 별개다.
-            claim_properties["dates"]["items"]["pattern"] = "^(?:" + "|".join(allowed_months) + r")-(?:0[1-9]|[12]\d|3[01])$"
+        # 생성에서는 날짜 문법만 검사한다. 기간 밖 근거가 다음 행동까지 막거나,
+        # 같은 본식의 월 경계 날짜를 잃지 않도록 실제 기간은 원문·게시 검증에서 판단한다.
         # 반복 Evidence 객체는 한 번만 생성하게 하고 원문 대조 뒤 내부 계약으로 복원한다.
         schema["properties"]["candidates"] = {"type": "array", "maxItems": 4,
             "items": {"type": "object", "additionalProperties": False,
@@ -755,6 +857,7 @@ class ModelProvider:
             "date_count에서는 행사 날짜와 대표 행사 식별을 먼저 확보한다. 날짜가 미확인이면 event_date 또는 event_identity 행동을 먼저 선택한다. "
             "특히 대학 인원은 어느 대표 행사인지 확인한 후 조사한다. 인원만 반복 검색하며 날짜를 놓치지 않는다. "
             "time 목적은 target_event와 같은 학교·학년도·전기/후기·회차·캠퍼스·대표 행사의 실제 시작만 조사한다. "
+            "time 목적의 counts는 항상 []이며 인원을 다시 생성하지 않는다. "
             "시즌은 실제 행사 날짜의 양끝 포함 범위이며 학년도가 아니다. 자료마다 원문 학년도를 따로 읽는다. "
             "모든 학교의 학년도는 행사 날짜에서 추정하지 않는다. 연기된 졸업식도 원문 학년도를 유지한다. "
             "원문에 학년도가 없으면 academic_year=null이다. 대학 전기/후기·회차도 원문에서만 확인한다. "
@@ -779,10 +882,17 @@ class ModelProvider:
             "충분한 근거가 없거나 한도 안에서 더 찾을 경로가 없으면 stop과 구체적 이유를 제출한다. "
             "관찰의 검색 결과에 공식 학사일정·졸업식 안내 URL이 있으면 추가 검색보다 그 URL의 fetch_document를 우선 검토한다. "
             "prior_actions와 같은 query/url은 다시 선택하지 않는다. "
+            "action_options가 있으면 fetch_urls의 미방문 공식 주소만 읽고 search_allowed=false이면 검색하지 않는다. "
+            "blocked_queries의 검색어는 다시 제안하지 않는다. decision_feedback이 있으면 해당 오류만 고쳐 새 행동을 선택한다. "
             "reason은 다음 행동의 이유 한 문장으로 짧게 쓴다. 자신감은 검증 근거가 아니다. JSON 계약만 출력한다."
         )
         # 수기 메모와 입력 원문은 고정된 허용 필드에서부터 제외한다.
         public = {
+            # 수정 지시와 남은 선택지를 문맥 축약에서 제외해 같은 실패를 되풀이하지 않게 한다.
+            "action_options": {"fetch_urls": fetch_urls, "search_allowed": action_options.get("search_allowed") is True,
+                               "blocked_queries": action_options.get("blocked_queries", [])}
+                              if action_options is not None else None,
+            "decision_feedback": _decision_feedback(context.get("decision_feedback")),
             "institution": {k: institution.get(k) for k in ("id", "name", "type", "campus_label", "homepage_url")},
             "season": {"search_start": season["search_start"], "search_end": season["search_end"]},
             **{k: context.get(k) for k in ("purpose", "expected_fields", "missing_fields", "conflicts",
@@ -807,7 +917,7 @@ class ModelProvider:
              **({"proposed": {k: r["count"].get(k) for k in ("value", "kind", "academic_year", "event_date")}}
                 if r.get("count") else {})}
             for r in public["candidate_reviews"]]
-        public["available_links"] = sorted(public["available_links"] or [],
+        public["available_links"] = sorted([] if action_options is not None else public["available_links"] or [],
             key=lambda url: not bool(re.search(r"calendar|schedule|haksa|notice|board|bbs", url, re.I)))[:8]
         public["reusable_routes"] = [
             {k: route.get(k) for k in ("url", "purpose", "status", "failure_reason")}
@@ -824,6 +934,14 @@ class ModelProvider:
             public["available_links"].pop()
         while fixed_size + len(canonical(public)) > limit - 500 and public["candidate_reviews"]:
             public["candidate_reviews"].pop(0)
+        # 긴 게시판 주소가 생성 문법과 선택지에 함께 실리므로 근거를 읽을 여유를 먼저 남긴다.
+        while fixed_size + len(canonical(public)) > limit - 500 and action_options is not None and fetch_urls:
+            fetch_urls.pop()
+            if not fetch_urls:
+                schema["properties"]["action"]["oneOf"] = [
+                    branch for branch in schema["properties"]["action"]["oneOf"]
+                    if branch["properties"]["kind"]["const"] != "fetch_document"]
+            fixed_size = len(canonical(schema)) + len(system)
         year_pattern = r"20\d{2}"
         block_number = 0
         for doc in reversed(context.get("documents", [])):
@@ -908,11 +1026,13 @@ class ModelProvider:
         self.last_diagnostics = {"original_proposal": json.loads(canonical(result)), "rejected_fields": [],
             "evidence_blocks": {key: {"document_id": value[0], "segment_id": value[1], "quote": value[2]}
                                 for key, value in block_map.items()}}
+        mapping_path = "candidates"
         try:
             originals = {doc["id"]: {segment["id"]: segment["text"] for segment in doc.get("segments", [])}
                          for doc in context.get("documents", [])}
             mapped = []
-            for proposal in result["candidates"]:
+            for index, proposal in enumerate(result["candidates"]):
+                mapping_path = f"candidates.{index}.evidence_block_id"
                 document_id, segment_id, context_quote = block_map[proposal["evidence_block_id"]]
                 claim = {**proposal, "document_id": document_id, "segment_id": segment_id}
                 text = originals[claim["document_id"]][claim["segment_id"]]
@@ -954,9 +1074,14 @@ class ModelProvider:
                 }
                 mapped.append({"document_id": claim["document_id"], "candidate": candidate})
             result["candidates"] = mapped
+        except (KeyError, ValueError, TypeError):
+            raise self._failure("evidence_mapping", path=mapping_path) from None
+        try:
             return validate("AgentDecision", result)
-        except Exception:
-            raise ProviderError("parse_failed", "모델의 행동 제안이 실행 계약을 충족하지 않습니다.", self.backend) from None
+        except ApiError:
+            error = next(VALIDATORS["AgentDecision"].iter_errors(result), None)
+            details = _contract_diagnostic(error) if error is not None else {"path": "$"}
+            raise self._failure("internal_contract", **details) from None
 
     async def candidates(self, institution: dict, season: dict, document: dict) -> list[dict]:
         """읽은 공개 구간에서 후보만 제안받고 계약을 재검사한다.
@@ -1093,6 +1218,8 @@ class ModelProvider:
         """
         from jsonschema import Draft202012Validator, FormatChecker
         self.last_usage = None
+        self.last_failure = None
+        self.last_finish_reason = None
         endpoint = self._endpoint()
         execution = self.settings.data["execution"]
         headers = {}
@@ -1151,19 +1278,29 @@ class ModelProvider:
                     break
                 if not await wait_for_retry(attempt, response=response, meter=self.gateway.meter):
                     break
+        if not response.is_success:
+            raise ProviderError("provider_error", f"선택 모델의 HTTP {response.status_code} 응답입니다.", self.backend)
         try:
-            if not response.is_success:
-                raise ProviderError("provider_error", f"선택 모델의 HTTP {response.status_code} 응답입니다.", self.backend)
             body = response.json()
             if self.backend == "ollama":
+                finish_reason = body.get("done_reason")
                 text = body["message"]["content"]
             else:
+                finish_reason = (body.get("incomplete_details") or {}).get("reason") or body.get("status")
                 text = "".join(part["text"] for item in body["output"] if item.get("type") == "message"
                                for part in item.get("content", []) if part.get("type") == "output_text")
+            if finish_reason in _FINISH_REASONS:
+                self.last_finish_reason = finish_reason
+            if not isinstance(text, str):
+                raise TypeError
+        except (ValueError, KeyError, TypeError, AttributeError):
+            raise self._failure("response_envelope", path="$") from None
+        try:
             result = json.loads(text)
+        except (ValueError, TypeError):
+            raise self._failure("json_syntax", path="$") from None
+        try:
             Draft202012Validator(output_schema, format_checker=FormatChecker()).validate(result)
-            return result
-        except ProviderError:
-            raise
-        except (ValueError, KeyError, TypeError, ValidationError):
-            raise ProviderError("parse_failed", "모델의 행동 응답이 JSON 계약을 충족하지 않습니다.", self.backend) from None
+        except ValidationError as error:
+            raise self._failure("schema", **_contract_diagnostic(error)) from None
+        return result
