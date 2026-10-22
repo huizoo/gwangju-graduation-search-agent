@@ -51,14 +51,33 @@ def empty_usage() -> dict:
 class BudgetStop(Exception):
     """게시를 강제하지 않고 작업 또는 기관을 중단할 예산 사유."""
 
-    def __init__(self, reason: str):
-        """중단 사유를 보관한다.
+    def __init__(self, reason: str, details: dict | None = None):
+        """중단 사유와 내부 한도 진단값을 보관한다.
 
         Args:
             reason: 예산 소진 또는 사용자 중단 사유 코드.
+            details: 한도 판정에 사용한 숫자와 고정 항목명. 사용자 중단에는 생략한다.
         """
         self.reason = reason
+        self.details = deepcopy(details) if details is not None else None
         super().__init__(reason)
+
+
+def _limit_details(scope, metric, limit_key, used, requested, limit):
+    """원문이나 설정 비밀값 없이 한도 판정 근거를 만든다.
+
+    Args:
+        scope: item·job·segment 중 제한 범위.
+        metric: 사용량 항목.
+        limit_key: 판정에 적용한 실행 설정 이름.
+        used: 판정 시점의 누적 사용량.
+        requested: 추가로 예약하려던 양. 경과시간 검사는 0.
+        limit: 작업 시작 시 고정한 허용량.
+    Returns:
+        내부 작업 이력에 저장할 한도 진단값.
+    """
+    return {"scope": scope, "metric": metric, "limit_key": limit_key,
+            "used": used, "requested": requested, "limit": limit}
 
 
 class Meter:
@@ -102,13 +121,17 @@ class Meter:
             own_active = sum(json.loads(row[0]).get("active_seconds", 0) for row in conn.execute(
                 "SELECT reserved_json FROM call_reservations WHERE job_item_id=? AND status='reserved'", (self.item_id,)))
             elapsed = time.monotonic() - self.started
-            remaining, reason = min((
-                (limits["item_timeout_seconds"] - json.loads(item["usage_json"])["active_seconds"] + own_active - elapsed, "item_timeout"),
-                (limits["job_max_active_seconds"] - json.loads(job["usage_json"])["active_seconds"] + own_active - elapsed, "job_budget"),
-                (limits["segment_timeout_seconds"] - (datetime.now(timezone.utc) - datetime.fromisoformat(segment["started_at"])).total_seconds(), "segment_budget"),
-            ), key=lambda pair: pair[0])
+            candidates = (
+                ("item", "item_timeout_seconds", json.loads(item["usage_json"])["active_seconds"] - own_active + elapsed, "item_timeout"),
+                ("job", "job_max_active_seconds", json.loads(job["usage_json"])["active_seconds"] - own_active + elapsed, "job_budget"),
+                ("segment", "segment_timeout_seconds",
+                 (datetime.now(timezone.utc) - datetime.fromisoformat(segment["started_at"])).total_seconds(), "segment_budget"),
+            )
+            scope, limit_key, used, reason = min(candidates, key=lambda entry: limits[entry[1]] - entry[2])
+            remaining = limits[limit_key] - used
             if remaining <= 0:
-                raise BudgetStop(reason)
+                # 구간은 누적 기관 실행시간이 아니라 구간 시작 후의 벽시계 시간으로 제한한다.
+                raise BudgetStop(reason, _limit_details(scope, "active_seconds", limit_key, used, 0, limits[limit_key]))
             return remaining
 
     async def reserve(self, kind: str, amount: int = 1) -> str:
@@ -132,25 +155,42 @@ class Meter:
             if job["status"] != "running":
                 raise BudgetStop("user_cancel" if job["status"] in {"cancelling", "cancelled"} else "user_pause")
             limits = json.loads(job["limits_json"])
-            if time.monotonic() - self.started >= limits["item_timeout_seconds"]:
-                raise BudgetStop("item_timeout")
-            segment_elapsed = (datetime.now(timezone.utc) - datetime.fromisoformat(segment["started_at"])).total_seconds()
-            if segment_elapsed >= limits["segment_timeout_seconds"]:
-                raise BudgetStop("segment_budget")
             job_usage, item_usage, segment_usage = (
                 json.loads(row["usage_json"]) for row in (job, item, segment)
             )
             own_active = sum(json.loads(reserved[0]).get("active_seconds", 0) for reserved in conn.execute(
                 "SELECT reserved_json FROM call_reservations WHERE job_item_id=? AND status='reserved'", (self.item_id,)))
             elapsed = time.monotonic() - self.started
+            if elapsed >= limits["item_timeout_seconds"]:
+                raise BudgetStop("item_timeout", _limit_details(
+                    "item", "active_seconds", "item_timeout_seconds",
+                    item_usage["active_seconds"] - own_active + elapsed, 0, limits["item_timeout_seconds"]))
+            segment_elapsed = (datetime.now(timezone.utc) - datetime.fromisoformat(segment["started_at"])).total_seconds()
+            if segment_elapsed >= limits["segment_timeout_seconds"]:
+                raise BudgetStop("segment_budget", _limit_details(
+                    "segment", "active_seconds", "segment_timeout_seconds",
+                    segment_elapsed, 0, limits["segment_timeout_seconds"]))
             if item_usage["active_seconds"] - own_active + elapsed >= limits["item_timeout_seconds"]:
-                raise BudgetStop("item_timeout")
+                raise BudgetStop("item_timeout", _limit_details(
+                    "item", "active_seconds", "item_timeout_seconds",
+                    item_usage["active_seconds"] - own_active + elapsed, 0, limits["item_timeout_seconds"]))
             for level, usage in (("item", item_usage), ("job", job_usage), ("segment", segment_usage)):
                 limit_key = f"{level}_max_{kind}"
                 if limit_key in limits and usage[kind] + amount > limits[limit_key]:
-                    raise BudgetStop(f"{level}_budget")
+                    details = _limit_details(level, kind, limit_key, usage[kind], amount, limits[limit_key])
+                    if kind == "tokens":
+                        column, row_id = {"item": ("job_item_id", self.item_id),
+                                          "job": ("job_id", self.job_id),
+                                          "segment": ("segment_id", self.segment_id)}[level]
+                        unknown = sum(json.loads(row[0]).get("tokens", 0) for row in conn.execute(
+                            f"SELECT reserved_json FROM call_reservations WHERE {column}=? AND status='charged_unknown'",
+                            (row_id,)))
+                        details.update(reserved_tokens=usage["reserved_tokens"], unknown_reserved_tokens=unknown)
+                    raise BudgetStop(f"{level}_budget", details)
             if job_usage["active_seconds"] - own_active + elapsed >= limits["job_max_active_seconds"]:
-                raise BudgetStop("job_budget")
+                raise BudgetStop("job_budget", _limit_details(
+                    "job", "active_seconds", "job_max_active_seconds",
+                    job_usage["active_seconds"] - own_active + elapsed, 0, limits["job_max_active_seconds"]))
             for table, row_id, usage in (
                 ("jobs", self.job_id, job_usage), ("job_items", self.item_id, item_usage),
                 ("job_segments", self.segment_id, segment_usage),
@@ -794,9 +834,17 @@ class JobManager:
         meter = Meter(self, job_id, item_id, segment_id)
         started = time.monotonic()
         result, error, reason, outcome = None, None, None, "needs_review"
+        budget_details = None
+        deadline_scope, deadline_key = {
+            "item_timeout": ("item", "item_timeout_seconds"),
+            "job_budget": ("job", "job_max_active_seconds"),
+            "segment_budget": ("segment", "segment_timeout_seconds"),
+        }[deadline_reason]
+        deadline_used = limits[deadline_key] - remaining
         try:
             if remaining <= 0:
-                raise BudgetStop(deadline_reason)
+                raise BudgetStop(deadline_reason, _limit_details(
+                    deadline_scope, "active_seconds", deadline_key, deadline_used, 0, limits[deadline_key]))
             from .config import Settings
             job_config = deepcopy(self.settings.data)
             job_config["execution"] = limits
@@ -857,8 +905,13 @@ class JobManager:
                 result.update(purpose=snapshot.get("purpose", "date_count"), target_event_id=snapshot.get("target_event_id"))
         except BudgetStop as exc:
             reason, outcome = exc.reason, "limit_reached"
+            if exc.reason in {"item_budget", "item_timeout", "job_budget", "segment_budget"}:
+                budget_details = exc.details
         except asyncio.TimeoutError:
             reason, outcome = deadline_reason, "limit_reached"
+            budget_details = _limit_details(
+                deadline_scope, "active_seconds", deadline_key,
+                deadline_used + time.monotonic() - started, 0, limits[deadline_key])
         except asyncio.CancelledError:
             reason, outcome = "interrupted", "blocked"
         except Exception as exc:
@@ -870,6 +923,9 @@ class JobManager:
         if result is not None and measured > remaining:
             # 취소를 삼킨 adapter의 늦은 완료도 기한 내 정상 완료로 인정하지 않는다.
             result, reason, outcome = None, deadline_reason, "limit_reached"
+            budget_details = _limit_details(
+                deadline_scope, "active_seconds", deadline_key,
+                deadline_used + measured, 0, limits[deadline_key])
         elapsed = max(1, math.ceil(measured)) if active_reservation else 0
         # 시간 정산은 결과 저장 오류와 독립적으로 commit한다. crash는 선차감한
         # 상한을 유지하며, 정상 종료에서만 실제 측정한 비용으로 차액을 조정한다.
@@ -917,6 +973,11 @@ class JobManager:
                  now() if result and any(document.get("status") == "ok" and document.get("reading", {}).get("content_match") == "expected" for document in result.get("documents", [])) else None, item_id),
             )
             conn.execute("UPDATE call_reservations SET status='charged_unknown',finished_at=? WHERE job_item_id=? AND status='reserved'", (now(), item_id))
+            if budget_details is not None:
+                history = json.loads(conn.execute("SELECT history_json FROM job_items WHERE id=?", (item_id,)).fetchone()[0] or "[]")
+                conn.execute("UPDATE job_items SET history_json=? WHERE id=?", (dump(history + [{
+                    "at": now(), "stage": "budget_stop", "reason": reason, "details": budget_details,
+                }]), item_id))
             if result:
                 history = json.loads(conn.execute("SELECT history_json FROM job_items WHERE id=?", (item_id,)).fetchone()[0] or "[]")
                 conn.execute("UPDATE job_items SET history_json=? WHERE id=?", (dump(history + [{

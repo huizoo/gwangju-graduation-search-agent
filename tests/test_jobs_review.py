@@ -79,6 +79,8 @@ async def test_final_save_failure_preserves_usage_and_closes_uncertain_reservati
 async def test_known_token_usage_refunds_only_unused_reservation(reviewed_runtime):
     """실제 토큰은 차액 정산하고 미상 응답 비용은 보수적으로 남긴다."""
     runtime = reviewed_runtime
+    # 기본값과 무관하게 환불 누락 시 두 번째 14,000 예약이 막히는 경계를 고정한다.
+    runtime.settings.data["execution"]["item_max_tokens"] = 24000
     class Runner:
         def __init__(self, settings, meter=None):
             self.meter = meter
