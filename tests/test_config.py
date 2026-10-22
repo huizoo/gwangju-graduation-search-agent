@@ -5,6 +5,7 @@ from pathlib import Path
 import shutil
 
 import pytest
+from dotenv import dotenv_values
 
 from app.config import ROOT, ConfigurationError, load_settings
 
@@ -42,6 +43,33 @@ def test_key_does_not_choose_backend(root):
     config = load_settings(root, {})
     assert config.data["app"]["llm_backend"] == "ollama"
     assert not config.data["external_transfer"]["document_text_allowed"]
+
+
+def test_example_matches_user_setup_and_keeps_secrets_blank():
+    """입력 양식은 필요한 항목만 표시하고 비밀값이나 선택적 기본값을 복제하지 않는다."""
+    mapping = json.loads((ROOT / "config/env-map.json").read_text())
+    example = dotenv_values(ROOT / ".env.example", interpolate=False)
+    assert set(example) == {key for key, spec in mapping.items() if spec["user_setup"]}
+    assert all(example[key] == "" for key in example if mapping[key].get("secret"))
+    assert not {"OLLAMA_BASE_URL", "OLLAMA_TEXT_MODEL", "LANGSMITH_TRACING", "LANGSMITH_PROJECT"} & set(example)
+
+
+def test_ollama_defaults_and_existing_overrides(root):
+    """공유 기본값을 사용하면서 기존 로컬 설정과 환경 우선순위를 보존한다."""
+    defaults = load_settings(root, {})
+    assert defaults.data["models"]["ollama_base_url"] == "http://127.0.0.1:11434"
+    assert defaults.data["models"]["ollama_text_model"] == "qwen3:8b"
+    (root / ".env").write_text(
+        "OLLAMA_BASE_URL=http://127.0.0.1:11435\nOLLAMA_TEXT_MODEL=local-model:test\n"
+    )
+    local = load_settings(root, {})
+    assert local.data["models"]["ollama_base_url"] == "http://127.0.0.1:11435"
+    assert local.data["models"]["ollama_text_model"] == "local-model:test"
+    process = load_settings(root, {
+        "OLLAMA_BASE_URL": "http://127.0.0.1:11436", "OLLAMA_TEXT_MODEL": "process-model:test",
+    })
+    assert process.data["models"]["ollama_base_url"] == "http://127.0.0.1:11436"
+    assert process.data["models"]["ollama_text_model"] == "process-model:test"
 
 
 @pytest.mark.parametrize("content", [

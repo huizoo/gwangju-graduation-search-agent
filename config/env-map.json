@@ -273,12 +273,12 @@
   "OLLAMA_BASE_URL": {
     "path": "models.ollama_base_url",
     "type": "string",
-    "user_setup": true
+    "user_setup": false
   },
   "OLLAMA_TEXT_MODEL": {
     "path": "models.ollama_text_model",
     "type": "string",
-    "user_setup": true
+    "user_setup": false
   },
   "OLLAMA_VISION_MODEL": {
     "path": "models.ollama_vision_model",

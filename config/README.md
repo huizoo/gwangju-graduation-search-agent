@@ -4,7 +4,7 @@
 
 | 파일 | 역할 |
 | --- | --- |
-| `.env` | 실제 키·모델 백엔드 선택·이 PC의 Ollama 연결 정보. Git에서 제외합니다. |
+| `.env` | 실제 키·모델 백엔드 선택·필요한 환경별 재정의. Git에서 제외합니다. |
 | `.env.example` | 비밀값이 없는 사용자 입력 양식. 전체 설정 목록이 아닙니다. |
 | `config/defaults.json` | 실행 한도·재시도·기능 활성화·시즌 초기값 등 공유할 수 있는 모든 기본값. 비밀값은 넣지 않습니다. |
 | `config/env-map.json` | 지원하는 전체 선택적 환경 변수와 타입·대상 경로. `user_setup=true`인 항목만 현재 예제에 표시합니다. 모든 항목을 입력할 필요는 없습니다. |
@@ -16,8 +16,8 @@ API 키는 실행 중 메모리에서만 결합하고 설정 JSON, 작업 snapsh
 ## 입력할 곳
 
 - `LLM_BACKEND`: `ollama` 또는 `openai`를 선택합니다. 초기값은 `ollama`입니다.
-- `OLLAMA_BASE_URL`: 같은 PC의 기본 주소는 `http://127.0.0.1:11434`입니다. 별도로 변경한 주소가 없다면 그대로 둡니다.
-- `OLLAMA_TEXT_MODEL`: Ollama의 설치된 모델 목록에서 정확한 이름과 태그를 확인합니다. `ollama list`로 확인할 수 있습니다. 모델 설치 여부와 호출 성공은 일정 추출 정확성의 증거가 아닙니다.
+- `OLLAMA_BASE_URL`: 기본 주소 `http://127.0.0.1:11434`는 `config/defaults.json`에 있습니다. 주소를 변경한 PC만 `.env`에 추가합니다. 기존 `.env`의 재정의도 계속 적용됩니다.
+- `OLLAMA_TEXT_MODEL`: 기본 모델 `qwen3:8b`는 `config/defaults.json`에 있습니다. 다른 모델을 쓸 때만 `.env`에 추가하고 `ollama list`로 설치된 이름과 태그를 확인합니다. 모델 설치 여부와 호출 성공은 일정 추출 정확성의 증거가 아닙니다.
 - `OPENAI_API_KEY`: OpenAI를 선택할 때만 https://platform.openai.com/api-keys 에서 발급한 키를 `.env`에 입력합니다. Ollama 사용 중에는 비워 둡니다.
 - `NEIS_API_KEY`: https://open.neis.go.kr/portal/guide/apiGuidePage.do 의 인증키 신청 절차로 발급받아 `.env`에만 입력합니다.
 - `SCHOOLINFO_API_KEY`: 학교알리미의 학년별 학생 수 공개 API 인증키를 `.env`에만 입력합니다. 앱은 학교 소재 구에 맞는 필수 `sggCode`와 공식 시도 코드를 전달합니다. 키가 없는 경우 공개 공시 페이지 경로도 시도하며, 전체 학생 수를 졸업 학년 인원으로 대체하지 않습니다.
