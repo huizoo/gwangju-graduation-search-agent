@@ -455,6 +455,8 @@ def create_app(settings=None, runner_factory=None) -> FastAPI:
                 await state.flush_exports(force=True)
             except Exception:
                 state.export_worker_failed = True
+            finally:
+                await asyncio.to_thread(state.jobs.tracing.close)
 
     app = FastAPI(title="광주 졸업식 일정 도우미", version=__version__, lifespan=lifespan)
     app.state.runtime = state

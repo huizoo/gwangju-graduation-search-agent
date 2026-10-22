@@ -251,6 +251,8 @@ class JobManager:
         self.tasks = {}
         self.stopping = False
         self.active_changed = asyncio.Event()
+        from .tracing import TraceRecorder
+        self.tracing = TraceRecorder(settings)
 
     def _row(self, conn, job_id):
         """작업을 읽고 없는 식별자를 구분한다."""
@@ -627,6 +629,25 @@ class JobManager:
             conn.execute("UPDATE job_segments SET ended_at=? WHERE job_id=? AND ended_at IS NULL", (now(), job_id))
 
     async def run(self, job_id: str) -> None:
+        """기존 작업 실행을 선택적 진단 구간으로 감싼다.
+
+        Args:
+            job_id: 실행할 작업 UUID.
+        """
+        job = self.get(job_id)
+        snapshot = job["scope_snapshot"]
+        season = snapshot.get("season") or {}
+        with self.tracing.span("job", purpose=snapshot.get("purpose", "registry_sync"),
+                               search_start=season.get("search_start"), search_end=season.get("search_end")) as trace:
+            try:
+                await self._execute_job(job_id)
+            finally:
+                current = self.get(job_id)
+                trace.update(status=current["status"], target_count=current["target_count"],
+                             completed_count=current["counts"]["done"], failed_count=current["counts"]["failed"],
+                             http_requests=current["usage"]["http_requests"], llm_calls=current["usage"]["llm_calls"])
+
+    async def _execute_job(self, job_id: str) -> None:
         """고정 큐를 처리하고 중단되더라도 상태를 영속 정리한다.
 
         Args:
@@ -750,6 +771,21 @@ class JobManager:
         conn.execute("UPDATE call_reservations SET status='settled',actual_json=?,finished_at=? WHERE id=?", (dump({"active_seconds": elapsed}), now(), reservation_id))
 
     async def _run_item(self, job_id: str, item_id: str, segment_id: str) -> None:
+        """학교 구간은 후보 생성뿐 아니라 최종 저장 결과까지 포함한다."""
+        with self.store.transaction() as conn:
+            item = conn.execute("SELECT * FROM job_items WHERE id=?", (item_id,)).fetchone()
+            institution = self.service._institution(conn, item["institution_id"]) if item["institution_id"] else {}
+        with self.tracing.span("school", school_name=institution.get("name"),
+                               institution_type=institution.get("type")) as trace:
+            try:
+                await self._execute_item(job_id, item_id, segment_id)
+            finally:
+                with self.store.transaction() as conn:
+                    item = conn.execute("SELECT * FROM job_items WHERE id=?", (item_id,)).fetchone()
+                    trace.update(status=item["outcome"] or item["status"],
+                                 reason_codes=json.loads(item["reason_codes_json"] or "[]"))
+
+    async def _execute_item(self, job_id: str, item_id: str, segment_id: str) -> None:
         """기관 결과를 저장하기 직전에 최신 취소 상태를 다시 확인한다."""
         claimed = await self._claim_active_time(job_id, item_id, segment_id)
         if claimed is None:

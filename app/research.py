@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import asyncio
 import re
 from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
@@ -16,6 +17,7 @@ from .providers import (
 from .providers_student import StudentProvider
 from .rules import extract_candidates, value_check
 from .tool_boundary import ResearchTools
+from .tracing import CURRENT, TraceRecorder
 
 
 def _url_key(url: str) -> str:
@@ -70,6 +72,40 @@ class ResearchRunner:
 
     async def run(self, institution: dict, season: dict, *, identifiers=None,
                   purpose="date_count", target_event=None, routes=None, existing_evidence=None) -> dict:
+        """학교별 수집을 실행하고 선택한 경우에만 요약 진단을 전송한다.
+
+        Args:
+            institution: 조사할 학교의 공개 식별 정보.
+            season: 작업 시작 시 고정한 실제 행사일 범위.
+            identifiers: 공식 자료원의 학교 식별 코드.
+            purpose: 날짜·인원 또는 특정 행사의 시각 조사.
+            target_event: 시각 조사의 대상 행사.
+            routes: 이전에 확인한 공식 진입 경로.
+            existing_evidence: 사적 메모를 제외한 기존 공개 근거.
+        Returns:
+            최종 게시 검사를 받기 전의 근거·후보·조사 이력.
+        Raises:
+            ValueError: 조사 목적 또는 대상 행사가 올바르지 않은 경우.
+        """
+        parent = CURRENT.get()
+        recorder = parent.recorder if parent else TraceRecorder(self.settings)
+        try:
+            if parent:
+                return await self._research(institution, season, identifiers=identifiers, purpose=purpose,
+                                            target_event=target_event, routes=routes, existing_evidence=existing_evidence)
+            with recorder.span("school", school_name=institution.get("name"), institution_type=institution.get("type"),
+                               search_start=season.get("search_start"), search_end=season.get("search_end"), purpose=purpose) as trace:
+                result = await self._research(institution, season, identifiers=identifiers, purpose=purpose,
+                                              target_event=target_event, routes=routes, existing_evidence=existing_evidence)
+                trace.update(status=result["status"], stop_reason=result["stop_reason"],
+                             missing_fields=result.get("missing_fields", []))
+                return result
+        finally:
+            if parent is None:
+                await asyncio.to_thread(recorder.close)
+
+    async def _research(self, institution: dict, season: dict, *, identifiers=None,
+                        purpose="date_count", target_event=None, routes=None, existing_evidence=None) -> dict:
         """정형 근거·재사용 경로 이후 필요한 공개 조사 행동만 선택한다.
 
         Args:
@@ -400,8 +436,14 @@ class ResearchRunner:
                     if self.model is None:
                         self.model = ModelProvider(self.settings, self.meter, self.gateway)
                     try:
-                        decision = await self.model.decide(institution, season, make_context(missing, conflicts))
-                        validate("AgentDecision", decision)
+                        with CURRENT.get().recorder.span("model", backend=self.settings.data["app"]["llm_backend"]) as trace:
+                            try:
+                                decision = await self.model.decide(institution, season, make_context(missing, conflicts))
+                                validate("AgentDecision", decision)
+                                trace.update(status="ok", action=decision.get("action", {}).get("kind"))
+                            finally:
+                                # 마지막 응답에서 실제 확인한 토큰만 보낸다. 예약량은 사용량이 아니다.
+                                trace.update(**(getattr(self.model, "last_usage", None) or {}))
                     except ProviderError as error:
                         diagnostics = getattr(self.model, "last_diagnostics", None)
                         if diagnostics:

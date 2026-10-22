@@ -75,7 +75,7 @@ def validate_configuration(data: dict, root: Path = ROOT) -> None:
         data: 비밀을 제외한 병합 설정.
         root: 계약 파일을 찾을 프로젝트 경로.
     Raises:
-        ConfigurationError: 한도·주소·모드 또는 시즌이 허용 범위를 벗어난 경우.
+        ConfigurationError: 한도·주소·모드·시즌 또는 추적 설정이 유효하지 않은 경우.
     """
     schema = json.loads((root / "app/domain.schema.json").read_text())
     validator = Draft202012Validator(
@@ -107,9 +107,11 @@ def validate_configuration(data: dict, root: Path = ROOT) -> None:
         url = urlsplit(data["models"]["ollama_base_url"])
         if url.scheme not in {"http", "https"} or not url.hostname or url.username or url.password:
             raise ConfigurationError("OLLAMA_BASE_URL_INVALID")
-    if data["tracing"]["enabled"]:
-        # 공개 문서 허용과 별개로 trace에는 사적 데이터가 섞일 수 있어 P0에서 전송하지 않는다.
-        raise ConfigurationError("EXTERNAL_TRACING_NOT_SUPPORTED")
+    tracing = data["tracing"]
+    if type(tracing["enabled"]) is not bool:
+        raise ConfigurationError("LANGSMITH_TRACING_INVALID")
+    if not isinstance(tracing["project"], str) or not tracing["project"].strip():
+        raise ConfigurationError("LANGSMITH_PROJECT_INVALID")
 
 
 def load_settings(

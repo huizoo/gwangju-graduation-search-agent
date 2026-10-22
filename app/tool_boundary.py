@@ -15,6 +15,7 @@ from .domain import SCHEMA
 from .providers import ProviderError, canonical, utcnow
 from .rules import REGISTERED_RULES
 from .periods import fact_season
+from .tracing import CURRENT
 
 
 class ResearchTools:
@@ -141,6 +142,16 @@ class ResearchTools:
             raise saved_error
 
     async def call(self, name: str, arguments: dict) -> dict:
+        """도구 입력 원문을 보내지 않고 호출 결과의 상태만 추적한다."""
+        parent = CURRENT.get()
+        if parent is None:
+            return await self._call(name, arguments)
+        with parent.recorder.span(name) as trace:
+            result = await self._call(name, arguments)
+            trace.update(status=result.get("status"), reason_codes=result.get("reason_codes", []))
+            return result
+
+    async def _call(self, name: str, arguments: dict) -> dict:
         """직접 Adapter 우회 없이 MCP 요청·응답 검사를 통과해 결과를 얻는다."""
         if self.session is None:
             raise RuntimeError("MCP 세션이 열려 있지 않습니다.")

@@ -8,6 +8,7 @@ import pytest
 from dotenv import dotenv_values
 
 from app.config import ROOT, ConfigurationError, load_settings
+from app.configuration import can_resume_configuration
 
 
 @pytest.fixture
@@ -72,9 +73,66 @@ def test_ollama_defaults_and_existing_overrides(root):
     assert process.data["models"]["ollama_text_model"] == "process-model:test"
 
 
+def test_langsmith_key_alone_is_private_and_does_not_enable_tracing(root):
+    """추적 키만 입력하면 기존 동작을 유지하고 공개 설정에 키를 남기지 않는다."""
+    baseline = load_settings(root, {})
+    (root / ".env").write_text("LANGSMITH_API_KEY=private-tracing-sentinel\n")
+    settings = load_settings(root, {})
+    assert settings.data["tracing"] == {"enabled": False, "project": "graduation-agent"}
+    assert settings.secrets["langsmith_api_key"] == "private-tracing-sentinel"
+    assert "private-tracing-sentinel" not in (
+        repr(settings) + json.dumps(settings.data) + json.dumps(settings.connection_summary())
+    )
+    assert settings.connection_summary() == baseline.connection_summary()
+    assert settings.source_config_hash == baseline.source_config_hash
+
+
+@pytest.mark.parametrize("key", ["", "LANGSMITH_API_KEY=private-tracing-sentinel\n"])
+def test_optional_tracing_settings_preserve_loading_and_resume(root, key):
+    """추적 키 누락은 앱 로드를 막지 않고 추적 변경은 수집 작업 재개를 막지 않는다."""
+    baseline = load_settings(root, {})
+    (root / ".env").write_text(
+        key + "LANGSMITH_TRACING=true\nLANGSMITH_PROJECT=local-tracing-project\n"
+    )
+    settings = load_settings(root, {})
+    assert settings.data["tracing"] == {"enabled": True, "project": "local-tracing-project"}
+    assert bool(settings.secrets.get("langsmith_api_key")) == bool(key)
+    assert settings.connection_summary() == baseline.connection_summary()
+    assert can_resume_configuration(
+        {"source_config_hash": baseline.source_config_hash}, settings.data,
+    )
+    disabled = load_settings(root, {
+        "LANGSMITH_TRACING": "false", "LANGSMITH_PROJECT": "another-tracing-project",
+    })
+    assert disabled.data["tracing"] == {"enabled": False, "project": "another-tracing-project"}
+    assert disabled.source_config_hash == settings.source_config_hash
+
+
+@pytest.mark.parametrize(("field", "value", "error_code"), [
+    ("enabled", "private-tracing-sentinel", "LANGSMITH_TRACING_INVALID"),
+    ("enabled", 1, "LANGSMITH_TRACING_INVALID"),
+    ("enabled", None, "LANGSMITH_TRACING_INVALID"),
+    ("project", "", "LANGSMITH_PROJECT_INVALID"),
+    ("project", " \t", "LANGSMITH_PROJECT_INVALID"),
+    ("project", ["private-tracing-sentinel"], "LANGSMITH_PROJECT_INVALID"),
+    ("project", 1, "LANGSMITH_PROJECT_INVALID"),
+    ("project", None, "LANGSMITH_PROJECT_INVALID"),
+])
+def test_invalid_tracing_defaults_do_not_leak_values(root, field, value, error_code):
+    """환경 변수뿐 아니라 파일의 추적 설정도 입력 원문 없이 타입을 검사한다."""
+    defaults_path = root / "config/defaults.json"
+    defaults = json.loads(defaults_path.read_text())
+    defaults["tracing"][field] = value
+    defaults_path.write_text(json.dumps(defaults))
+    with pytest.raises(ConfigurationError) as error:
+        load_settings(root, {})
+    assert str(error.value) == error_code
+
+
 @pytest.mark.parametrize("content", [
     "UNKNOWN_KEY=secret", "MAX_CONCURRENT_INSTITUTIONS=0", "APP_HOST=0.0.0.0",
     "APP_MODE=live\nLLM_BACKEND=fake", "AUTO_OPEN_BROWSER=maybe",
+    "LANGSMITH_TRACING=private-tracing-sentinel",
 ])
 def test_invalid_settings_do_not_leak_values(root, content):
     """잘못된 입력은 비밀값을 표시하지 않는 설정 오류로 거절한다."""
@@ -82,6 +140,7 @@ def test_invalid_settings_do_not_leak_values(root, content):
     with pytest.raises(ConfigurationError) as error:
         load_settings(root, {})
     assert "secret" not in str(error.value)
+    assert "private-tracing-sentinel" not in str(error.value)
 
 
 def test_demo_data_is_separate(root):
