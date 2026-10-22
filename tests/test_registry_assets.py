@@ -5,8 +5,8 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
-from app.api import create_app
-from app.registry_assets import matching_authorities, official_bundle
+from app.web.api import create_app
+from app.integrations.registry_assets import matching_authorities, official_bundle
 from test_jobs_api import settings_for
 
 

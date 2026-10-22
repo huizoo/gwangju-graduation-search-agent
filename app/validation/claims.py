@@ -5,8 +5,8 @@ import re
 from datetime import date, timedelta
 from urllib.parse import urlsplit
 
-from .providers import official_channel
-from .identity import ceremony_term
+from app.integrations.providers import official_channel
+from app.validation.identity import ceremony_term
 
 
 def _quotes(evidence: list, document: dict) -> list[str] | None:
@@ -241,7 +241,7 @@ def ceremony_negatives(candidate: dict, document: dict, institution: dict) -> se
     Returns:
         본식에 명시된 취소·미실시·연기 상태. 이중 부정이나 조건부 문장은 확정하지 않는다.
     """
-    from .rules import _NEGATIVE
+    from app.validation.rules import _NEGATIVE
     _, lines = _source_context(candidate, document, institution)
     found = set()
     for _, _, role, line in lines:
@@ -469,7 +469,7 @@ def validate_count(claim: dict, document: dict, institution: dict, season: dict,
     Returns:
         allowed와 채택하지 않은 이유. 미발견을 0명으로 바꾸지 않는다.
     """
-    from .domain import validate, ApiError
+    from app.core.domain import validate, ApiError
     try:
         validate("CountClaim", claim)
     except ApiError:
@@ -504,8 +504,8 @@ def validate_count(claim: dict, document: dict, institution: dict, season: dict,
             import hashlib
             from bs4 import BeautifulSoup
             from urllib.parse import parse_qs
-            from .providers import canonical
-            from .providers_student import DISTRICT_CODES, SCHOOL_TYPES
+            from app.integrations.providers import canonical
+            from app.integrations.providers_student import DISTRICT_CODES, SCHOOL_TYPES
 
             def address_key(value):
                 return re.sub(r"\s+", "", str(value or "").replace("전남광주통합특별시", "광주광역시"))

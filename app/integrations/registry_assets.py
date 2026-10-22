@@ -1,11 +1,8 @@
 """서버가 검토한 공식 명부와 일반 사용자 파일의 신뢰 범위를 구분한다."""
 
-from pathlib import Path
-
-from .domain import ApiError, fingerprint
-from .official_registry import IMPORT_FILES, SOURCE_PROFILES, load_official_registry
-
-ROOT = Path(__file__).resolve().parents[1]
+from app.core.domain import ApiError, fingerprint
+from app.core.paths import ROOT
+from app.integrations.official_registry import IMPORT_FILES, SOURCE_PROFILES, load_official_registry
 
 
 def official_bundle(filename: str):

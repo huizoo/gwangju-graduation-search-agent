@@ -10,10 +10,10 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app.domain import validate
-from app.providers import HttpGateway, ModelProvider, neis_document
-from app.providers_student import StudentProvider
-from app.research import ResearchRunner
+from app.core.domain import validate
+from app.integrations.providers import HttpGateway, ModelProvider, neis_document
+from app.integrations.providers_student import StudentProvider
+from app.agent.research import ResearchRunner
 
 
 def setup_case():
@@ -73,7 +73,7 @@ def test_structured_date_and_students_stop_without_model_or_time_search(monkeypa
 
     monkeypatch.setattr(StudentProvider, "lookup", students)
     monkeypatch.setattr(ModelProvider, "decide", forbidden)
-    monkeypatch.setattr("app.claims.validate_count", lambda *args, **kwargs: {"allowed": True, "reasons": []})
+    monkeypatch.setattr("app.validation.claims.validate_count", lambda *args, **kwargs: {"allowed": True, "reasons": []})
     gateway = HttpGateway(settings, client=httpx.AsyncClient(transport=httpx.MockTransport(handler)), resolver=resolve)
     result = asyncio.run(ResearchRunner(settings, gateway=gateway).run(institution, season, identifiers=[{"provider": "neis", "external_key": "F10:123"}]))
     assert result["status"] == "completed" and result["stop_reason"] == "structured_evidence_sufficient"
@@ -209,7 +209,7 @@ def test_model_context_counts_serialized_newlines_and_keeps_recent_observation(m
     captured = []
 
     async def structured(self, system, user, schema):
-        from app.providers import canonical
+        from app.integrations.providers import canonical
         assert len(system) + len(user) + len(canonical(schema)) <= settings.data["execution"]["llm_max_input_tokens"]
         captured.append(json.loads(user))
         return decision()
@@ -284,7 +284,7 @@ def test_calendar_excerpt_preserves_the_actual_row_and_nearest_month_header(monk
                                    format_checker=FormatChecker())
         assert day.is_valid("2027-02-19") and day.is_valid("2026-12-07")
         # 원문 날짜의 형식과 시즌 적합성을 분리해 과거 후보가 다음 탐색까지 막지 않게 한다.
-        from app.periods import within_period
+        from app.validation.periods import within_period
         assert day.is_valid("2026-02-19") and not within_period("2026-02-19", season)
         assert not day.is_valid("2027-02-30")
         return decision()
@@ -329,7 +329,7 @@ def test_long_public_page_keeps_action_and_claim_within_evidence_contract(monkey
 
 def test_model_cannot_select_an_unpresented_document_segment(monkeypatch):
     """잘라서 보여주지 않은 구간 ID를 근거로 선택하면 후보 전체를 거절한다."""
-    from app.providers import ProviderError
+    from app.integrations.providers import ProviderError
     settings, institution, season = setup_case()
     doc_id = str(uuid4())
     claim = {"evidence_block_id": "b99", "event_title": "2026학년도 졸업식",
@@ -375,8 +375,8 @@ def test_model_without_read_evidence_cannot_generate_fact_candidates(monkeypatch
 @pytest.mark.parametrize("case", ["registered", "model_only", "changed_date", "cancelled", "access_failed", "outside_job"])
 async def test_time_job_rechecks_new_source_version_before_next_scope_check(tmp_path, monkeypatch, case):
     """조회수 갱신은 본식 값을 보존하고 실제 날짜 변경은 작업의 기준일과 충돌한다."""
-    from app.api import create_app
-    from app.domain import dumps
+    from app.web.api import create_app
+    from app.core.domain import dumps
     from test_jobs_api import settings_for, institution_payload
     from test_rules import notice
     from test_grounded_claims import NORMAL, candidate
@@ -413,7 +413,7 @@ async def test_time_job_rechecks_new_source_version_before_next_scope_check(tmp_
         assert not pending["current_date_allowed"] and not pending["current_time_allowed"]
         doc = context["documents"][-1]
         if case == "model_only":
-            from app.jobs import JobManager
+            from app.agent.jobs import JobManager
             # 실행기 메모리가 없어도 저장한 작업 소유 원문으로 검토 조건을 복원한다.
             with runtime.store.transaction() as conn:
                 JobManager(runtime.service, settings)._assert_scope(conn, job["scope_snapshot"], job["id"])

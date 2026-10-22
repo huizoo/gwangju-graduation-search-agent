@@ -8,7 +8,7 @@ from pathlib import Path
 import sqlite3
 from uuid import uuid4
 
-from .launcher import InstanceLock
+from app.launcher import InstanceLock
 
 
 PRESERVED_TABLES = (

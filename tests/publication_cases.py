@@ -8,7 +8,7 @@ ROOT = Path(__file__).resolve().parents[1]
 EXAMPLES = ROOT / "tests" / "fixtures" / "contracts"
 NOW = "2026-10-20T07:00:00Z"
 SEASON = {"id": "00000000-0000-0000-0000-000000000003", "academic_year": 2026, "search_start": "2026-12-01", "search_end": "2027-03-31"}
-SCHEMA = json.loads((ROOT / "app" / "domain.schema.json").read_text())
+SCHEMA = json.loads((ROOT / "app" / "core" / "domain.schema.json").read_text())
 PUBLICATION_SCHEMA = {"$schema": SCHEMA["$schema"], "$defs": SCHEMA["$defs"], "$ref": "#/$defs/Publication"}
 VALIDATOR = Draft202012Validator(PUBLICATION_SCHEMA, format_checker=FormatChecker())
 

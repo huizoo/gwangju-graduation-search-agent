@@ -13,7 +13,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from app.exporting import schedule_filename
+from app.web.exporting import schedule_filename
 from checks.browser.periods import HELPER, LocalApp
 
 

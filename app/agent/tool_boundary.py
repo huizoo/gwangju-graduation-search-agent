@@ -11,11 +11,11 @@ from mcp.server import Server
 from mcp.server.lowlevel.helper_types import ReadResourceContents
 from mcp.shared.memory import create_connected_server_and_client_session
 
-from .domain import SCHEMA
-from .providers import ProviderError, canonical, utcnow
-from .rules import REGISTERED_RULES
-from .periods import fact_season
-from .tracing import CURRENT
+from app.core.domain import SCHEMA
+from app.integrations.providers import ProviderError, canonical, utcnow
+from app.validation.rules import REGISTERED_RULES
+from app.validation.periods import fact_season
+from app.agent.tracing import CURRENT
 
 
 class ResearchTools:

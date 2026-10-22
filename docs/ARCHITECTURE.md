@@ -2,6 +2,25 @@
 
 현재 앱은 **학교별 조사 Agent + 코드 기반 실행 관리자** 구조다. 하나의 조사 구현에 학교 종류·조사 목적·현재 행사·재사용 경로·공개 근거를 전달한다. 학교마다 별도 프로그램이나 감독용 LLM을 만들지 않는다. 사용자에게는 조사·직접 기록·일정표를 제공하고 근거와 실행 이력은 SQLite에 보관한다.
 
+## 소스 구성
+
+`app/`은 책임별 패키지로 나눈다. 파일의 내부 구현과 기존 모듈 이름은 유지하며, 폴더 분리는 조사·검증·저장 정책을 변경하지 않는다.
+
+| 경로 | 책임 | 주요 모듈·자료 |
+|---|---|---|
+| `app/core/` | 설정·공통 경로·데이터 계약 | `config.py`, `configuration.py`, `paths.py`, `domain.py`, `domain.schema.json` |
+| `app/agent/` | 조사 행동 선택·실행 관리·진단 | `research.py`, `jobs.py`, `tool_boundary.py`, `job_feedback.py`, `tracing.py` |
+| `app/integrations/` | 모델·공식 자료·검색 등 외부 연결 | `providers.py`, `providers_student.py`, `registry.py`, `official_registry.py`, `registry_assets.py`, `http_compat.py`, `retry.py` |
+| `app/validation/` | 기관·행사·기간·근거·현재 게시 검증 | `claims.py`, `identity.py`, `rules.py`, `publication.py`, `periods.py`, `scope.py` |
+| `app/records/` | 직접 기록·SQLite·이력·마이그레이션·초기화 | `natural.py`, `manual.py`, `storage.py`, `research_records.py`, `migrations.py`, `development_archive.py`, `reset_data.py`, `schema.sql` |
+| `app/web/` | HTTP API·일정표 결과·HTML 생성 | `api.py`, `results.py`, `exporting.py`, `openapi.contract.json` |
+| `app/static/` | 앱과 독립 HTML에서 사용하는 화면 자원 | HTML·CSS·JavaScript |
+| `app/__main__.py`, `app/launcher.py` | `python -m app` 진입점과 로컬 서버 수명 관리 | 기존 `start.command` 실행 경로 유지 |
+
+Agent의 행동 선택과 사실 승인 코드를 구분해 문제를 확인할 위치를 명확히 한다. 외부 연결과 기록 계층도 별도 패키지로 찾을 수 있지만, 새 추상 계층이나 엄격한 단방향 의존 규칙을 추가한 구조는 아니다. 큰 모듈의 내부 분할은 이번 폴더 정리에 포함하지 않는다.
+
+패키지 선언은 `app`의 하위 패키지와 정적 자원·JSON 계약·SQL 스키마를 포함한다. 실행은 기존처럼 소스 프로젝트를 기준으로 하며, 프로젝트 루트의 `config/`·`assets/`·실행파일도 함께 필요하다. wheel 파일만 설치하는 독립 배포를 지원한다는 의미는 아니다. 사용자 DB·내보낸 HTML·백업·`.env`의 위치와 형식은 유지한다.
+
 ## 조사 목적과 실행 흐름
 
 ```mermaid

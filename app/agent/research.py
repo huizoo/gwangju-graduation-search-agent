@@ -8,16 +8,16 @@ import re
 from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
 
-from .domain import validate
-from .identity import scope
-from .providers import (
+from app.core.domain import validate
+from app.validation.identity import scope
+from app.integrations.providers import (
     DocumentReader, HttpGateway, ModelProvider, NeisProvider, ProviderError,
     TavilyProvider, canonical, official_channel, reserve, settle, utcnow,
 )
-from .providers_student import StudentProvider
-from .rules import extract_candidates, value_check
-from .tool_boundary import ResearchTools
-from .tracing import CURRENT, TraceRecorder
+from app.integrations.providers_student import StudentProvider
+from app.validation.rules import extract_candidates, value_check
+from app.agent.tool_boundary import ResearchTools
+from app.agent.tracing import CURRENT, TraceRecorder
 
 
 def _url_key(url: str) -> str:
@@ -282,7 +282,7 @@ class ResearchRunner:
                         and checks.get("ceremony_status", {}).get("status") == "supported"
                         and candidate["ceremony_status"] == "scheduled"):
                     supported_events.append(candidate)
-            from .claims import validate_count
+            from app.validation.claims import validate_count
             population_groups, time_groups = {}, {}
             for review in reviews:
                 if review.get("checks", {}).get("start_time", {}).get("status") == "supported":
@@ -367,7 +367,7 @@ class ResearchRunner:
             outcome = _failure(document)
             academic_years = sorted({int(year) for segment in document.get("segments", [])
                                      for year in re.findall(r"(20\d{2})\s*학년도", segment["text"])})
-            from .claims import explicit_days
+            from app.validation.claims import explicit_days
             source_days = {day for segment in document.get("segments", []) for day in explicit_days(segment["text"])}
             if (outcome == "read_success" and source_days
                     and not any(season["search_start"] <= day <= season["search_end"] for day in source_days)):
@@ -524,7 +524,7 @@ class ResearchRunner:
                         break
                     except Exception as error:
                         # 사용자의 멈춤·예산 예외는 일반 계약 오류로 삼키지 않는다.
-                        from .jobs import BudgetStop
+                        from app.agent.jobs import BudgetStop
                         if isinstance(error, BudgetStop):
                             raise
                         add_error("model", "parse_failed", "Agent 행동이 허용 계약과 맞지 않습니다.")

@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 from copy import deepcopy
 
-from app.domain import ApiError, dumps, new_id, normalize_instant, utcnow, validate
+from app.core.domain import ApiError, dumps, new_id, normalize_instant, utcnow, validate
 
 
 def apply_operations(conn, event: dict, operations: list[dict], context: dict) -> None:
@@ -18,7 +18,7 @@ def apply_operations(conn, event: dict, operations: list[dict], context: dict) -
     Raises:
         ApiError: 중복 필드·미래 확인·잘못된 충돌 해결·근거 연결.
     """
-    from app.storage import _audit
+    from app.records.storage import _audit
     names = [operation["field"] for operation in operations]
     if len(names) != len(set(names)):
         raise ApiError("duplicate_field", "한 요청에서 같은 항목을 두 번 변경할 수 없습니다.")

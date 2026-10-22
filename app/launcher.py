@@ -11,9 +11,9 @@ import webbrowser
 import httpx
 import uvicorn
 
-from .api import create_app
-from .config import ConfigurationError, load_settings
-from .domain import ApiError
+from app.web.api import create_app
+from app.core.config import ConfigurationError, load_settings
+from app.core.domain import ApiError
 
 
 class InstanceLock:

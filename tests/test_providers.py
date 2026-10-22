@@ -12,8 +12,8 @@ import httpx
 import pytest
 from pypdf import PdfWriter
 
-from app.domain import validate
-from app.providers import (
+from app.core.domain import validate
+from app.integrations.providers import (
     DocumentReader, HttpGateway, ModelProvider, NeisProvider, ProviderError,
     TavilyProvider, official_channel, public_addresses, safe_url,
 )

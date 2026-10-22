@@ -3,7 +3,7 @@
 from calendar import monthrange
 from datetime import date
 
-from .domain import ApiError
+from app.core.domain import ApiError
 
 
 def six_month_boundary(start: str) -> str:

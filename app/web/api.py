@@ -21,11 +21,12 @@ from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 from jsonschema import Draft202012Validator, FormatChecker
 
-from . import __version__
-from .config import ROOT, load_settings
-from .domain import ApiError, SCHEMA, model_for, validate
-from .jobs import JobManager, dump, now
-from .storage import Service, Store
+from app import __version__
+from app.core.config import load_settings
+from app.core.domain import ApiError, SCHEMA, model_for, validate
+from app.core.paths import STATIC_DIR
+from app.agent.jobs import JobManager, dump, now
+from app.records.storage import Service, Store
 
 CONTRACT = json.loads((Path(__file__).parent / "openapi.contract.json").read_text())
 
@@ -161,7 +162,7 @@ class Application:
 
     def export_result(self, season_id: str) -> dict:
         """검증된 같은 정책 파일만 현재 일정 URL로 제공한다."""
-        from .exporting import current_export, schedule_filename
+        from app.web.exporting import current_export, schedule_filename
         with self.store.transaction() as conn:
             season = conn.execute("SELECT * FROM seasons WHERE id=?", (season_id,)).fetchone()
             if season is None:
@@ -195,7 +196,7 @@ class Application:
 
     def _write_export(self, payload: dict) -> dict:
         """불변 버전과 프로그램 없이 여는 기간별 최신 파일을 함께 저장한다."""
-        from .exporting import render_export, schedule_filename
+        from app.web.exporting import render_export, schedule_filename
         snapshot = self.service.snapshot(payload["season_id"])
         folder = self.data_dir / "exports"
         # DB와 파일을 한 트랜잭션으로 묶을 수 없으므로 기존 파일 대신 새 불변 버전을 쓴다.
@@ -243,7 +244,7 @@ class Application:
         Returns:
             모든 사용자 시즌의 파일이 현재 내용으로 저장됐는지 여부.
         """
-        from .exporting import current_export, schedule_filename
+        from app.web.exporting import current_export, schedule_filename
         with self.export_lock:
             complete = True
             for season in self.service.list_seasons()["items"]:
@@ -330,7 +331,7 @@ class Application:
         if path == "/api/overview":
             return service.overview(query["season_id"])
         if path == "/api/results":
-            from .results import result_rows, PRESENTATION_VERSION
+            from app.web.results import result_rows, PRESENTATION_VERSION
             snapshot = service.snapshot(query["season_id"])
             return {"presentation_version": PRESENTATION_VERSION, "rows": result_rows(snapshot),
                     "season_id": query["season_id"], "request_job_id": snapshot["request_job_id"],
@@ -339,7 +340,7 @@ class Application:
                     "research_summary": snapshot["research_summary"],
                     "html_save": self.html_save_status(query["season_id"])}
         if path == "/api/records/natural":
-            from .natural import NaturalRecorder
+            from app.records.natural import NaturalRecorder
             return NaturalRecorder(service).record(body)
         if path == "/api/events":
             if method == "post":
@@ -403,7 +404,7 @@ class Application:
                 raise ApiError("not_found", "백업을 찾을 수 없습니다.", 404)
             return FileResponse(target, filename="졸업식-기록-백업.sqlite3", media_type="application/vnd.sqlite3")
         if path == "/exports/{export_key}/schedule.html":
-            from .exporting import current_export, schedule_filename
+            from app.web.exporting import current_export, schedule_filename
             with self.store.transaction() as conn:
                 row = conn.execute("SELECT e.file_ref,e.publication_policy_version,s.search_start,s.search_end FROM exports e JOIN seasons s ON s.id=e.season_id WHERE s.export_key=?", (request.path_params["export_key"],)).fetchone()
             if not row or row["publication_policy_version"] != "4.0" or not row["file_ref"] or not current_export(row["file_ref"]):
@@ -529,8 +530,8 @@ def create_app(settings=None, runner_factory=None) -> FastAPI:
     @app.get("/api/registry/official-files", include_in_schema=False)
     async def official_files():
         """원문 검토를 거친 고정 명부의 범위와 기준일을 제공한다."""
-        from .official_registry import IMPORT_FILES
-        from .registry_assets import official_bundle
+        from app.integrations.official_registry import IMPORT_FILES
+        from app.integrations.registry_assets import official_bundle
         items = []
         for filename in IMPORT_FILES:
             bundle = official_bundle(filename)
@@ -541,7 +542,7 @@ def create_app(settings=None, runner_factory=None) -> FastAPI:
     @app.get("/api/registry/official-files/{filename}", include_in_schema=False)
     async def official_file(filename: str):
         """동일한 일반 미리보기·중복 검토 경로에 넣을 검증된 명부를 반환한다."""
-        from .registry_assets import official_bundle
+        from app.integrations.registry_assets import official_bundle
         return official_bundle(filename).registry
 
     def endpoint_for(path, method, operation):
@@ -614,7 +615,7 @@ def create_app(settings=None, runner_factory=None) -> FastAPI:
         return schema
 
     app.openapi = runtime_openapi
-    static = ROOT / "app/static"
+    static = STATIC_DIR
     if static.exists():
         app.mount("/static", StaticFiles(directory=static), name="assets")
         app.mount("/", StaticFiles(directory=static, html=True), name="ui")

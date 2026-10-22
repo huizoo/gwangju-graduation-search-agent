@@ -17,12 +17,12 @@ from fastapi.testclient import TestClient
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from app.api import create_app
-from app.config import Settings, load_settings
-from app.domain import dumps, validate
-from app.providers import DocumentReader, HttpGateway, NeisProvider, TavilyProvider
-from app.rules import extract_candidates
-from app.tool_boundary import ResearchTools
+from app.web.api import create_app
+from app.core.config import Settings, load_settings
+from app.core.domain import dumps, validate
+from app.integrations.providers import DocumentReader, HttpGateway, NeisProvider, TavilyProvider
+from app.validation.rules import extract_candidates
+from app.agent.tool_boundary import ResearchTools
 
 NOTICE = "https://www.gist.ac.kr/kr/html/sub05/050209.html?mode=V&no=220361&GotoPage=1"
 VALIDATION_ROOT = ROOT / "runtime" / "development-validation"

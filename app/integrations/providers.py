@@ -21,8 +21,8 @@ import httpx
 from bs4 import BeautifulSoup
 from jsonschema.exceptions import ValidationError
 
-from .http_compat import CompatibilityError, is_legacy_p3p_error, read_legacy_p3p
-from .retry import RETRYABLE_STATUS_CODES, is_tls_error, is_transient_error, wait_for_retry
+from app.integrations.http_compat import CompatibilityError, is_legacy_p3p_error, read_legacy_p3p
+from app.integrations.retry import RETRYABLE_STATUS_CODES, is_tls_error, is_transient_error, wait_for_retry
 
 
 _MODEL_SEMAPHORES = weakref.WeakKeyDictionary()
@@ -562,7 +562,7 @@ class NeisProvider:
 
     async def school_registry(self) -> dict:
         """광주 학교 목록 전체 페이지를 공식 파일 적재 계약으로 정규화한다."""
-        from .registry import neis_registry
+        from app.integrations.registry import neis_registry
         rows = await self.rows("schoolInfo", {"ATPT_OFCDC_SC_CODE": "F10"})
         return neis_registry(rows)
 
@@ -781,7 +781,7 @@ class ModelProvider:
         Raises:
             ProviderError: 공개 입력 한도 또는 모델 계약을 충족하지 못한 경우.
         """
-        from .domain import ApiError, SCHEMA, VALIDATORS, validate
+        from app.core.domain import ApiError, SCHEMA, VALIDATORS, validate
         self.last_diagnostics = None
         self.last_failure = None
         self.last_finish_reason = None
@@ -1098,7 +1098,7 @@ class ModelProvider:
         endpoint = self._endpoint()
         if document["status"] != "ok" or not document["segments"]:
             return []
-        from .domain import SCHEMA
+        from app.core.domain import SCHEMA
         from jsonschema import Draft202012Validator, FormatChecker
         contract = SCHEMA
         schema = {"$schema": contract["$schema"], "$defs": contract["$defs"],

@@ -11,7 +11,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from app import tracing
+from app.agent import tracing
 
 
 KEY = "synthetic-langsmith-key"

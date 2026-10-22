@@ -1,7 +1,7 @@
 """실제 JSON Schema와 Pydantic 경계의 일치·거절을 검사한다."""
 import pytest
 from pydantic import ValidationError
-from app.domain import ApiError, model_for, validate
+from app.core.domain import ApiError, model_for, validate
 
 
 def test_calendar_dates_and_unknown_fields_rejected():

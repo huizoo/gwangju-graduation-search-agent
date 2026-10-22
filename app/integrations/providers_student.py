@@ -8,7 +8,7 @@ from urllib.parse import parse_qs, urlencode, urlsplit
 
 from bs4 import BeautifulSoup
 
-from .providers import HttpGateway, ProviderError, canonical, empty_document, neis_identifier, reserve, utcnow
+from app.integrations.providers import HttpGateway, ProviderError, canonical, empty_document, neis_identifier, reserve, utcnow
 
 SCHOOLINFO_BASE = "https://www.schoolinfo.go.kr"
 API_URL = SCHOOLINFO_BASE + "/openApi.do"

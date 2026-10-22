@@ -4,10 +4,10 @@ from uuid import uuid4
 
 import pytest
 
-from app.domain import dumps, validate
-from app.results import result_rows
-from app.rules import extract_candidates
-from app.storage import Service, Store
+from app.core.domain import dumps, validate
+from app.web.results import result_rows
+from app.validation.rules import extract_candidates
+from app.records.storage import Service, Store
 from test_jobs_api import institution_payload
 from test_rules import notice
 
@@ -112,7 +112,7 @@ def _claim_allowed(ctx, text, claim, field, *, document=None):
     Returns:
         필드와 원문 관계가 지원되는지 여부.
     """
-    from app.claims import grounded_claim
+    from app.validation.claims import grounded_claim
     _, school, season = ctx
     return grounded_claim(field, claim[field], claim, document or notice(school, text), school, season)
 
@@ -323,7 +323,7 @@ def _count(document, *, value=132, kind="ceremony_graduates", grade=None, **chan
 
 def test_university_synonym_migration_preserves_count_evidence(grounded_context):
     """이전 종류 명칭별 중복을 연결해도 인원 관측과 그 원문은 유지한다."""
-    from app.domain import fingerprint
+    from app.core.domain import fingerprint
     service, school, season = grounded_context
     text = NORMAL + "\n졸업생 총 132명"
     doc = notice(school, text)
@@ -348,7 +348,7 @@ def test_university_synonym_migration_preserves_count_evidence(grounded_context)
 
 def test_current_graduating_grade_enrollment_is_a_valid_count(grounded_context):
     """초등 6학년 재학생 수를 같은 학년도의 인원으로 사용할 수 있다."""
-    from app.claims import validate_count
+    from app.validation.claims import validate_count
     _, institution, season = grounded_context
     school = {**institution, "type": "elementary", "name": "검증초등학교"}
     doc = notice(school, "2026학년도 검증초등학교 학생 현황\n6학년 학생 수 188명")
@@ -359,7 +359,7 @@ def test_current_graduating_grade_enrollment_is_a_valid_count(grounded_context):
 @pytest.mark.parametrize("mutation", ["wrong_grade", "wrong_year", "other_school", "wrong_number", "not_students"])
 def test_enrollment_count_requires_exact_school_year_grade_and_value(grounded_context, mutation):
     """같은 사이트에 적힌 다른 학교·학년·학년도 수를 사용하지 않는다."""
-    from app.claims import validate_count
+    from app.validation.claims import validate_count
     _, institution, season = grounded_context
     school = {**institution, "type": "elementary", "name": "검증초등학교"}
     text = "2026학년도 검증초등학교 학생 현황\n6학년 학생 수 188명"
@@ -379,7 +379,7 @@ def test_enrollment_count_requires_exact_school_year_grade_and_value(grounded_co
 
 def test_university_count_binds_to_same_representative_ceremony(grounded_context):
     """대학 인원은 해당 본식의 공개 졸업자 수와 날짜를 함께 확인한다."""
-    from app.claims import validate_count
+    from app.validation.claims import validate_count
     _, school, season = grounded_context
     doc = notice(school, NORMAL + "\n졸업생 총 132명")
     claim = _count(doc)
@@ -389,7 +389,7 @@ def test_university_count_binds_to_same_representative_ceremony(grounded_context
 @pytest.mark.parametrize("mutation", ["other_department", "department_count_only", "other_school", "wrong_year", "other_event_date", "wrong_number", "number_suffix", "no_event", "all_enrollment"])
 def test_university_count_rejects_other_cohort_or_event(grounded_context, mutation):
     """대학 전체 재학생이나 다른 행사 졸업자를 대표 본식 인원으로 바꾸지 않는다."""
-    from app.claims import validate_count
+    from app.validation.claims import validate_count
     _, school, season = grounded_context
     text = NORMAL + "\n졸업생 총 132명"
     if mutation == "other_department":
@@ -428,7 +428,7 @@ def test_university_count_reaches_same_output_or_preserves_date_when_rejected(gr
 @pytest.mark.parametrize("mutation", ["campus", "sequence", "past_cohort_total"])
 def test_count_same_day_does_not_override_explicit_ceremony_scope(grounded_context, mutation):
     """같은 날에도 다른 캠퍼스·회차·과거 졸업자의 인원을 옮기지 않는다."""
-    from app.claims import validate_count
+    from app.validation.claims import validate_count
     _, school, season = grounded_context
     text = NORMAL + "\n졸업생 총 132명"
     event = candidate()

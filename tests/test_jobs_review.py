@@ -9,9 +9,9 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api import create_app
-from app.config import load_settings
-from app.jobs import BudgetStop
+from app.web.api import create_app
+from app.core.config import load_settings
+from app.agent.jobs import BudgetStop
 from app.launcher import InstanceLock, bind_server
 from test_jobs_api import settings_for, institution_payload, job_payload, seed_job
 
@@ -268,8 +268,8 @@ def test_missing_mode_keeps_institution_with_another_unresolved_event(reviewed_r
 @pytest.mark.asyncio
 async def test_active_reservation_survives_crash_without_double_charge(reviewed_runtime):
     """강제 종료의 실행 상한을 보존하고 재시작 때 두 번 가산하지 않는다."""
-    from app.jobs import Meter, dump, empty_usage, now
-    from app.domain import ApiError
+    from app.agent.jobs import Meter, dump, empty_usage, now
+    from app.core.domain import ApiError
     runtime = reviewed_runtime
     runtime.settings.data["execution"]["job_max_active_seconds"] = 5
     job = seed_job(runtime, 1)
@@ -323,7 +323,7 @@ async def test_shared_active_reservation_waits_for_actual_settlement(reviewed_ru
 @pytest.mark.asyncio
 async def test_unknown_active_cost_is_not_charged_again_on_resume(reviewed_runtime):
     """시간 한도를 늘린 재개에서도 이전 예약 비용이 누적 상태로 유지된다."""
-    from app.jobs import dump, empty_usage, now
+    from app.agent.jobs import dump, empty_usage, now
     runtime = reviewed_runtime
     runtime.settings.data["execution"]["job_max_active_seconds"] = 2
     job = seed_job(runtime, 1)
@@ -354,7 +354,7 @@ async def test_unknown_active_cost_is_not_charged_again_on_resume(reviewed_runti
 async def test_known_documents_are_current_season_support_sources_only(reviewed_runtime):
     """다른 시즌·미연결 문서를 섞지 않고 지원 URL의 최신 버전만 재확인한다."""
     import hashlib
-    from app.domain import new_id, utcnow
+    from app.core.domain import new_id, utcnow
     from test_publication import live_document, result_for
     runtime = reviewed_runtime
     institution = runtime.service.create_institution(institution_payload("시험학교"))

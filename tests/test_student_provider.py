@@ -8,9 +8,9 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app.domain import validate
-from app.claims import validate_count
-from app.providers_student import API_URL, GRADE_URL, PROFILE_URL, StudentProvider
+from app.core.domain import validate
+from app.validation.claims import validate_count
+from app.integrations.providers_student import API_URL, GRADE_URL, PROFILE_URL, StudentProvider
 
 
 INSTITUTION = {
@@ -136,7 +136,7 @@ async def test_university_requires_event_count_and_does_not_call_school_api():
 async def test_explicit_zero_is_preserved_and_cached_rows_keep_actual_fetch_time(monkeypatch):
     """미공개와 공식 0명을 구분하고 캐시 읽기를 새 확인으로 표시하지 않는다."""
     times = iter(["2026-10-21T01:00:00Z", "2026-10-21T01:00:01Z"])
-    monkeypatch.setattr("app.providers_student.utcnow", lambda: next(times))
+    monkeypatch.setattr("app.integrations.providers_student.utcnow", lambda: next(times))
     provider, gateway = api_provider(row={**ROW, "COL_S6": 0})
     first = await provider.lookup(INSTITUTION, {"academic_year": 2026}, IDENTIFIERS)
     again = await provider.lookup(INSTITUTION, {"academic_year": 2026}, IDENTIFIERS)

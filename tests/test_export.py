@@ -4,7 +4,7 @@ from html.parser import HTMLParser
 
 import pytest
 
-from app.exporting import render_export
+from app.web.exporting import render_export
 
 
 class _Tags(HTMLParser):

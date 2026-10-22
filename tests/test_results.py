@@ -4,9 +4,9 @@ from uuid import uuid4
 
 from fastapi.testclient import TestClient
 
-from app.api import create_app
-from app.domain import validate
-from app.results import result_rows
+from app.web.api import create_app
+from app.core.domain import validate
+from app.web.results import result_rows
 from test_jobs_api import settings_for, institution_payload, job_payload
 from test_review_regressions import source_context, save_notice
 
@@ -58,7 +58,7 @@ def test_verified_cancellation_masks_date_time_but_retains_internal_evidence(sou
 
 def test_failed_recheck_does_not_publish_old_cancellation_as_current(source_context):
     """현재 확인할 수 없는 과거 취소 표시도 경고 없이 확정 정보로 내보내지 않는다."""
-    from app.domain import dumps, utcnow
+    from app.core.domain import dumps, utcnow
     service, _, season = source_context
     save_notice(source_context, "2026학년도 검증초등학교 졸업식은 취소 안내.", "cancel")
     assert result_rows(service.snapshot(season["id"]))[0]["status"] == "cancelled"

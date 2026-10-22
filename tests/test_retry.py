@@ -14,9 +14,9 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app import retry
-from app.jobs import BudgetStop, Meter, dump, empty_usage, now
-from app.providers import HttpGateway, ModelProvider, ProviderError
+from app.integrations import retry
+from app.agent.jobs import BudgetStop, Meter, dump, empty_usage, now
+from app.integrations.providers import HttpGateway, ModelProvider, ProviderError
 
 
 SCHEMA = {"type": "object", "required": ["ok"], "properties": {"ok": {"type": "boolean"}}}
@@ -52,8 +52,8 @@ def gateway(handler, *, config=None, meter=None):
 
 def runtime_job(tmp_path):
     """임시 DB의 실제 JobManager와 대기 중인 학교 작업을 준비한다."""
-    from app.api import create_app
-    from app.config import load_settings
+    from app.web.api import create_app
+    from app.core.config import load_settings
 
     config = load_settings(process_values={
         "APP_MODE": "demo", "LLM_BACKEND": "fake", "APP_DATA_DIR": str(tmp_path), "AUTO_OPEN_BROWSER": "false",

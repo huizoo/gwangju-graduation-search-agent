@@ -7,10 +7,10 @@ from uuid import uuid4
 
 import pytest
 
-from app.domain import validate
-from app.providers import empty_document, utcnow
-from app.publication import RuleRegistry, calculate_publication
-from app.rules import extract_candidates, value_check, verify
+from app.core.domain import validate
+from app.integrations.providers import empty_document, utcnow
+from app.validation.publication import RuleRegistry, calculate_publication
+from app.validation.rules import extract_candidates, value_check, verify
 
 FIXTURES = Path(__file__).parent / "fixtures/calendar-change"
 CAPTURE_HASHES = {
@@ -139,7 +139,7 @@ def test_actual_unverified_capture_is_held_by_publication_boundary(monkeypatch):
     document, school, target, candidate, event, observation = actual_context()
     registry = RuleRegistry()
     registry.register("academic_calendar_row", "1.0.0", verify)
-    monkeypatch.setattr("app.publication.RULES", registry)
+    monkeypatch.setattr("app.validation.publication.RULES", registry)
     event["fields"] = {}
     for field in ("ceremony_status", "event_date"):
         proof = value_check(field, candidate[field], observation, document, event, target, institution=school)

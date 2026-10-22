@@ -1,6 +1,6 @@
 """수기 확인·불확실성·날짜 연결의 실제 저장 동작을 검사한다."""
 import pytest
-from app.domain import ApiError
+from app.core.domain import ApiError
 from test_storage import service, event, operation
 
 

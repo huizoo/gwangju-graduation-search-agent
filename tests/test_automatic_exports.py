@@ -8,8 +8,8 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 import pytest
 
-from app.api import create_app
-from app.exporting import schedule_filename
+from app.web.api import create_app
+from app.web.exporting import schedule_filename
 from tests.test_jobs_api import institution_payload, job_payload, manual_event, settings_for
 
 
@@ -64,7 +64,7 @@ def test_file_failure_preserves_last_good_export_and_retries(tmp_path, monkeypat
     old_content = path.read_bytes()
     old_url = runtime.export_result(season["id"])["url"]
     runtime.service.create_institution(institution_payload("추가 검사학교"))
-    import app.api as api_module
+    import app.web.api as api_module
     replace = api_module.os.replace
 
     def reject_latest(source, target):

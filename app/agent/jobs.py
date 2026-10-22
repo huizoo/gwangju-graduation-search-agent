@@ -10,7 +10,7 @@ import math
 import time
 from uuid import uuid4
 
-from .domain import ApiError, SCHEMA, validate
+from app.core.domain import ApiError, SCHEMA, validate
 
 TERMINAL = {"completed", "cancelled", "failed"}
 USAGE_KEYS = (
@@ -291,7 +291,7 @@ class JobManager:
         self.tasks = {}
         self.stopping = False
         self.active_changed = asyncio.Event()
-        from .tracing import TraceRecorder
+        from app.agent.tracing import TraceRecorder
         self.tracing = TraceRecorder(settings)
 
     def _row(self, conn, job_id):
@@ -391,9 +391,9 @@ class JobManager:
                 if row is None:
                     raise ApiError("not_found", "시즌을 찾을 수 없습니다.", 404)
                 season = dict(row)
-                from .periods import validate_period
+                from app.validation.periods import validate_period
                 validate_period(season["search_start"], season["search_end"])
-                from .scope import eligible_school
+                from app.validation.scope import eligible_school
                 institutions = [self.service._institution(conn, row[0]) for row in conn.execute("SELECT id FROM institutions ORDER BY name,id")]
                 if not institutions:
                     raise ApiError("roster_required", "학교 목록이 없어요. 학교 목록을 먼저 불러와 주세요.")
@@ -447,7 +447,7 @@ class JobManager:
                 targets = [(provider, None) for provider in payload["providers"]]
             job_id = str(uuid4())
             limits = payload["limits"] or deepcopy(self.settings.data["execution"])
-            from .scope import RESEARCH_VERSION
+            from app.validation.scope import RESEARCH_VERSION
             snapshot = {"season": season, "source_config_hash": self.settings.source_config_hash,
                         "purpose": payload.get("purpose", "date_count"),
                         "target_event_id": payload.get("target_event_id"), "research_version": RESEARCH_VERSION}
@@ -517,7 +517,7 @@ class JobManager:
         supports = field["automatic"].get("value_check", {}).get("document_ids", [])
         if not supports:
             return False
-        from .publication import _authority
+        from app.validation.publication import _authority
         for identity in supports:
             old = documents.get(identity)
             if not old or set(old.get("recheck", {}).get("reason_codes", [])) != {"semantic_review_required"}:
@@ -535,7 +535,7 @@ class JobManager:
 
     def recover(self) -> None:
         """재시작 시 취소 의도를 우선하고 불명확한 호출 비용을 유지한다."""
-        from .scope import RESEARCH_VERSION
+        from app.validation.scope import RESEARCH_VERSION
         with self.store.transaction(write=True) as conn:
             conn.execute("UPDATE call_reservations SET status='charged_unknown',finished_at=? WHERE status='reserved'", (now(),))
             for row in conn.execute("SELECT * FROM jobs WHERE status IN ('running','pausing','cancelling','queued')").fetchall():
@@ -621,7 +621,7 @@ class JobManager:
                                {"existing_job_id": active["id"]})
             if json.loads(row["scope_snapshot_json"])["source_config_hash"] != self.settings.source_config_hash:
                 raise ApiError("settings_changed", "설정이 바뀌었습니다. 이전 설정을 복원하거나 새 조사를 시작해 주세요.", 409, {"reason_codes": ["configuration_required"]})
-            from .scope import RESEARCH_VERSION
+            from app.validation.scope import RESEARCH_VERSION
             if json.loads(row["scope_snapshot_json"]).get("research_version") != RESEARCH_VERSION:
                 raise ApiError("settings_changed", "조사 방식이 변경되었습니다. 기록을 유지하고 새 일정찾기를 시작해 주세요.", 409)
             self._assert_scope(conn, json.loads(row["scope_snapshot_json"]), job_id)
@@ -702,7 +702,7 @@ class JobManager:
             if json.loads(row["scope_snapshot_json"])["source_config_hash"] != self.settings.source_config_hash:
                 conn.execute("UPDATE jobs SET status='paused',paused_reason='configuration_required' WHERE id=?", (job_id,))
                 return
-            from .scope import RESEARCH_VERSION
+            from app.validation.scope import RESEARCH_VERSION
             if json.loads(row["scope_snapshot_json"]).get("research_version") != RESEARCH_VERSION:
                 conn.execute("UPDATE jobs SET status='paused',paused_reason='configuration_required' WHERE id=?", (job_id,))
                 return
@@ -845,15 +845,15 @@ class JobManager:
             if remaining <= 0:
                 raise BudgetStop(deadline_reason, _limit_details(
                     deadline_scope, "active_seconds", deadline_key, deadline_used, 0, limits[deadline_key]))
-            from .config import Settings
+            from app.core.config import Settings
             job_config = deepcopy(self.settings.data)
             job_config["execution"] = limits
             job_settings = Settings(job_config, self.settings.secrets, self.settings.root)
             if job["kind"] == "registry_sync":
-                from .registry import sync_registry
+                from app.integrations.registry import sync_registry
                 result = await asyncio.wait_for(sync_registry(job_settings, item["target_ref"], meter=meter), max(0, remaining - (time.monotonic() - started)))
             else:
-                from .research import ResearchRunner
+                from app.agent.research import ResearchRunner
                 runner = (self.runner_factory or ResearchRunner)(job_settings, meter=meter)
                 with self.store.transaction() as conn:
                     institution = self.service._institution(conn, item["institution_id"])
@@ -887,7 +887,7 @@ class JobManager:
                         for document in latest_sources.values()
                     ]
                     identifiers = [dict(r) for r in conn.execute("SELECT provider,external_key FROM institution_identifiers WHERE institution_id=?", (item["institution_id"],))]
-                    from .research_records import reusable_routes
+                    from app.records.research_records import reusable_routes
                     routes = reusable_routes(conn, institution["id"], snapshot.get("purpose", "date_count"))
                     target_event = None
                     if snapshot.get("target_event_id"):
@@ -916,7 +916,7 @@ class JobManager:
             reason, outcome = "interrupted", "blocked"
         except Exception as exc:
             # 공급자 예외 문자열에는 인증 URL이 포함될 수 있으므로 타입과 고정 안내만 저장한다.
-            from .providers import ProviderError
+            from app.integrations.providers import ProviderError
             reason, outcome = (exc.code if isinstance(exc, ProviderError) and exc.code in {"configuration_required", "external_transfer_blocked"} else "provider_error"), "error"
             error = {"code": type(exc).__name__, "message": "자료원 설정 또는 호출 결과를 확인해 주세요.", "retryable": True, "details": {"reason_codes": [reason]}}
         measured = time.monotonic() - started
@@ -956,7 +956,7 @@ class JobManager:
                         {**result, "season_snapshot": snapshot["season"]}, conn=conn)
                     if result.get("errors"):
                         reason = "provider_error"
-                    from .research_records import current_counts
+                    from app.records.research_records import current_counts
                     projections = [self.service._project(conn, event_id, season_id=snapshot["season"]["id"])[0] for event_id in saved["event_ids"]]
                     counts = current_counts(self.service, conn, snapshot["season"], projections)
                     if snapshot.get("purpose") == "time":

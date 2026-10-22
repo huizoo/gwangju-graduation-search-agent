@@ -14,10 +14,10 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 
-from app.api import create_app
-from app.config import load_settings
-from app.exporting import render_export
-from app.jobs import BudgetStop
+from app.web.api import create_app
+from app.core.config import load_settings
+from app.web.exporting import render_export
+from app.agent.jobs import BudgetStop
 from app.launcher import bind_server
 import uvicorn
 

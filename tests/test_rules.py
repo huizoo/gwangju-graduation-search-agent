@@ -6,9 +6,9 @@ from uuid import uuid4
 
 import pytest
 
-from app.domain import validate
-from app.providers import empty_document, neis_document
-from app.rules import extract_candidates, value_check, verify
+from app.core.domain import validate
+from app.integrations.providers import empty_document, neis_document
+from app.validation.rules import extract_candidates, value_check, verify
 
 
 def context(source="neis"):

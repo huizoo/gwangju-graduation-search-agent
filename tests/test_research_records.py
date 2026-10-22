@@ -4,9 +4,9 @@ import json
 
 import pytest
 
-from app.domain import dumps, utcnow
-from app.providers import empty_document
-from app.research_records import current_counts, reusable_routes, save_supplement
+from app.core.domain import dumps, utcnow
+from app.integrations.providers import empty_document
+from app.records.research_records import current_counts, reusable_routes, save_supplement
 from test_grounded_claims import grounded_context, _count, candidate, NORMAL, _save
 from test_rules import notice
 from test_storage import operation
@@ -300,7 +300,7 @@ def test_successful_recheck_adds_new_proof_without_erasing_previous_rejection(gr
 @pytest.mark.parametrize("source", ["api", "public"])
 async def test_validated_schoolinfo_source_keeps_count_after_resave_and_restart(grounded_context, source):
     """공시 전용 관계를 검증한 원문은 동일 재조회·재시작에도 인원을 유지한다."""
-    from app.storage import Service
+    from app.records.storage import Service
     from test_student_provider import INSTITUTION, IDENTIFIERS, api_provider, public_provider
     service, school, season = grounded_context
     with service.store.transaction(True) as conn:
@@ -312,7 +312,7 @@ async def test_validated_schoolinfo_source_keeps_count_after_resave_and_restart(
     ctx = service, school, season
     _school_event(ctx)
     provider, _ = api_provider() if source == "api" else public_provider()
-    from app.periods import fact_season
+    from app.validation.periods import fact_season
     result = await provider.lookup(school, fact_season(season, 2026), IDENTIFIERS)
     assert result["counts"][0]["value"] == 188
     for _ in range(2):

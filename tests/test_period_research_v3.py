@@ -7,11 +7,11 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app.claims import grounded_claim, validate_count
-from app.providers import HttpGateway, ModelProvider, NeisProvider
-from app.providers_student import StudentProvider
-from app.research import ResearchRunner
-from app.rules import extract_candidates
+from app.validation.claims import grounded_claim, validate_count
+from app.integrations.providers import HttpGateway, ModelProvider, NeisProvider
+from app.integrations.providers_student import StudentProvider
+from app.agent.research import ResearchRunner
+from app.validation.rules import extract_candidates
 from test_agent_loop import setup_case, resolve, decision
 from test_grounded_claims import candidate, _count, grounded_context, _save
 from test_rules import notice
@@ -183,7 +183,7 @@ def test_delayed_school_ceremony_queries_source_year_students_only(monkeypatch, 
 @pytest.mark.parametrize("requested_year,allowed", [(2025, True), (2026, False)])
 def test_student_tool_uses_verified_source_year_permissions(requested_year, allowed):
     """MCP 도구도 날짜에서 예상한 학년도 대신 서버 검증으로 허용한 학년도만 조회한다."""
-    from app.tool_boundary import ResearchTools
+    from app.agent.tool_boundary import ResearchTools
     settings, school, _ = setup_case()
     period = {**_period(), "search_start": "2026-03-01", "search_end": "2026-03-15"}
     calls = []
@@ -306,9 +306,9 @@ def test_model_calendar_excerpt_selection_uses_actual_period_not_school_ay(monke
 
 def test_verified_multiple_days_preserve_source_and_display_only_period_intersection(tmp_path):
     """2월 20·21일 본식은 원문 전체를 보존하고 21일 시즌에는 21일만 표시한다."""
-    from app.domain import dumps, utcnow
-    from app.results import result_rows
-    from app.storage import Service, Store
+    from app.core.domain import dumps, utcnow
+    from app.web.results import result_rows
+    from app.records.storage import Service, Store
     from test_jobs_api import institution_payload
     service = Service(Store(tmp_path / "multi.sqlite3"), {"auto_rule_ids": ["grounded_notice"]})
     school = service.create_institution({**institution_payload("검증대학교"), "type": "university",
@@ -382,7 +382,7 @@ def test_date_range_explicitly_saying_daily_has_common_time():
 
 def test_partial_time_keeps_verified_dates_through_storage_and_overlapping_period(grounded_context):
     """보류한 공통 시각 후보는 이력에 남고 두 시즌 모두 정상 날짜만 제공한다."""
-    from app.results import result_rows
+    from app.web.results import result_rows
     service, _, season = grounded_context
     timing = "일시 : 2027. 2. 20.(토) 14:00\n일시 : 2027. 2. 21.(일)"
     text = "2026학년도 검증대학교 학위수여식\n" + timing

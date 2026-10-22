@@ -11,10 +11,10 @@ import httpx
 import pytest
 from bs4 import BeautifulSoup
 
-import app.official_registry as official
-from app.domain import ApiError
-from app.registry import validate_registry_import
-from app.providers import ProviderError
+import app.integrations.official_registry as official
+from app.core.domain import ApiError
+from app.integrations.registry import validate_registry_import
+from app.integrations.providers import ProviderError
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "assets/registry/source-manifest.json"

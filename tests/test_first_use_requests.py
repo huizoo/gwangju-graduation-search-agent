@@ -5,7 +5,7 @@ from pathlib import Path
 import shutil
 import subprocess
 
-from app.domain import validate
+from app.core.domain import validate
 
 
 def _request(kind, roster_ready):

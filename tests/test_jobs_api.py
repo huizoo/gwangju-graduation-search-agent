@@ -8,10 +8,10 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 import pytest
 
-from app.api import CONTRACT, create_app
-from app.config import ROOT, load_settings
-from app.domain import ApiError, validate
-from app.jobs import BudgetStop, JobManager, Meter, dump, empty_usage, now
+from app.web.api import CONTRACT, create_app
+from app.core.config import ROOT, load_settings
+from app.core.domain import ApiError, validate
+from app.agent.jobs import BudgetStop, JobManager, Meter, dump, empty_usage, now
 
 
 def settings_for(tmp_path):

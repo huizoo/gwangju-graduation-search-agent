@@ -3,11 +3,11 @@ from copy import deepcopy
 from datetime import datetime, timedelta, timezone
 
 import pytest
-from app import publication
-from app.domain import dumps, utcnow, new_id
-from app.providers import empty_document
-from app.rules import REGISTERED_RULES, extract_candidates
-from app.storage import Service
+from app.validation import publication
+from app.core.domain import dumps, utcnow, new_id
+from app.integrations.providers import empty_document
+from app.validation.rules import REGISTERED_RULES, extract_candidates
+from app.records.storage import Service
 from publication_cases import run as publication_cases
 from test_storage import service, season, institution, operation
 

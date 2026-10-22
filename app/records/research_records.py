@@ -5,9 +5,9 @@ import re
 from datetime import datetime, timezone
 from urllib.parse import parse_qsl, urlsplit, urlunsplit
 
-from .claims import validate_count
-from .domain import dumps, fingerprint, new_id, utcnow
-from .providers import official_channel
+from app.validation.claims import validate_count
+from app.core.domain import dumps, fingerprint, new_id, utcnow
+from app.integrations.providers import official_channel
 
 
 _PURPOSES = {"date_count": {"date_count", "event_date", "graduation_count"},
@@ -69,7 +69,7 @@ def _current_document(document: dict, institution: dict, *, structured: bool = F
         return False
     if structured:
         return True  # 전용 인원 검증기가 실제 제공자·학교 코드·학년 관계를 다시 검사한다.
-    from .publication import _authority
+    from app.validation.publication import _authority
     return _authority(document, institution, datetime.now(timezone.utc))
 
 
@@ -130,7 +130,7 @@ def save_supplement(service, conn, institution: dict, season: dict, result: dict
         document_ids: 이번 읽기의 임시 UUID와 실제 불변 문서 UUID 매핑.
     """
     documents = service._documents(conn, institution["id"])
-    from .periods import fact_season
+    from app.validation.periods import fact_season
     events = [event for event in service._events(conn, season["id"])
               if event["institution"]["id"] == institution["id"]]
     event_ids = [event["id"] for event in events]
@@ -195,7 +195,7 @@ def current_counts(service, conn, season: dict, events: list[dict]) -> dict:
     Returns:
         해당 행사의 학년도와 일치하는 근거만 모은 행사 ID별 현재 허용 인원.
     """
-    from .periods import fact_season
+    from app.validation.periods import fact_season
     values, cache = {}, {}
     by_institution = {}
     for event in events:

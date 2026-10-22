@@ -7,17 +7,17 @@ import shutil
 import pytest
 from dotenv import dotenv_values
 
-from app.config import ROOT, ConfigurationError, load_settings
-from app.configuration import can_resume_configuration
+from app.core.config import ROOT, ConfigurationError, load_settings
+from app.core.configuration import can_resume_configuration
 
 
 @pytest.fixture
 def root(tmp_path):
     """실제 .env를 읽지 않는 격리 설정 폴더를 만든다."""
     shutil.copytree(ROOT / "config", tmp_path / "config")
-    target = tmp_path / "app"
+    target = tmp_path / "app" / "core"
     target.mkdir(parents=True)
-    shutil.copy(ROOT / "app/domain.schema.json", target)
+    shutil.copy(ROOT / "app/core/domain.schema.json", target)
     return tmp_path
 
 

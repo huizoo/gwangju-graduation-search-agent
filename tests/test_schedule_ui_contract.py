@@ -3,7 +3,7 @@
 from html.parser import HTMLParser
 from pathlib import Path
 
-from app.exporting import MARKER, current_export, schedule_markup
+from app.web.exporting import MARKER, current_export, schedule_markup
 
 
 class ScheduleParser(HTMLParser):

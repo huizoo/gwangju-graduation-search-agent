@@ -10,8 +10,8 @@ import httpx
 import pytest
 from jsonschema import Draft202012Validator
 
-from app.providers import HttpGateway, ModelProvider, ProviderError, canonical
-from app.rules import value_check
+from app.integrations.providers import HttpGateway, ModelProvider, ProviderError, canonical
+from app.validation.rules import value_check
 from test_rules import notice
 
 

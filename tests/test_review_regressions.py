@@ -4,13 +4,13 @@ from uuid import uuid4
 
 import pytest
 
-from app.domain import ApiError, dumps
-from app.providers import neis_document
-from app.rules import extract_candidates
-from app.storage import Service, Store
+from app.core.domain import ApiError, dumps
+from app.integrations.providers import neis_document
+from app.validation.rules import extract_candidates
+from app.records.storage import Service, Store
 from test_rules import context, notice
 from test_jobs_api import settings_for, institution_payload, job_payload
-from app.api import create_app
+from app.web.api import create_app
 
 
 @pytest.fixture
@@ -165,6 +165,6 @@ def test_bound_postponement_holds_old_date_without_calling_it_cancelled(source_c
     service, _, season = source_context
     save_notice(source_context, "2026학년도 검증초등학교 졸업식은 2027년 1월 7일 오전 10시에 시작합니다.")
     save_notice(source_context, "2026학년도 검증초등학교 졸업식은 연기합니다.", "postponed")
-    from app.results import result_rows
+    from app.web.results import result_rows
     row = result_rows(service.snapshot(season["id"]))[0]
     assert row["date"] is row["start_time"] is row["status"] is None

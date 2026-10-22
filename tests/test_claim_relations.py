@@ -2,7 +2,7 @@
 
 import pytest
 
-from app.results import result_rows
+from app.web.results import result_rows
 from test_grounded_claims import NORMAL, candidate, grounded_context, _save
 from test_review_regressions import source_context, save_notice
 

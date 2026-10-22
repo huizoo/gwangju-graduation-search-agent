@@ -5,8 +5,8 @@ from urllib.parse import unquote
 from fastapi.testclient import TestClient
 import pytest
 
-from app.api import create_app
-from app.exporting import schedule_filename
+from app.web.api import create_app
+from app.web.exporting import schedule_filename
 from tests.test_jobs_api import settings_for
 
 

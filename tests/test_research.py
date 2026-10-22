@@ -9,9 +9,9 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app.domain import validate
-from app.providers import HttpGateway, ModelProvider, ProviderError
-from app.research import ResearchRunner
+from app.core.domain import validate
+from app.integrations.providers import HttpGateway, ModelProvider, ProviderError
+from app.agent.research import ResearchRunner
 
 
 def fixture():

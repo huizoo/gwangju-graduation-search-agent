@@ -5,8 +5,8 @@ from uuid import uuid4
 
 import pytest
 
-from app.job_feedback import season_research_summary, time_feedback
-from app.storage import Service, Store
+from app.agent.job_feedback import season_research_summary, time_feedback
+from app.records.storage import Service, Store
 from test_jobs_api import institution_payload
 
 

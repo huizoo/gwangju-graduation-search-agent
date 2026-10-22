@@ -2,9 +2,9 @@
 from pathlib import Path
 from datetime import datetime, timezone
 import pytest
-from app.domain import ApiError
-from app.rules import REGISTERED_RULES
-from app.storage import Store, Service
+from app.core.domain import ApiError
+from app.validation.rules import REGISTERED_RULES
+from app.records.storage import Store, Service
 
 
 @pytest.fixture

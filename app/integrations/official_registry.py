@@ -25,9 +25,9 @@ from urllib.parse import parse_qs, urlsplit
 
 from bs4 import BeautifulSoup
 
-from .domain import ApiError, validate
-from .registry import district_for
-from .providers import HttpGateway, ProviderError, canonical, utcnow
+from app.core.domain import ApiError, validate
+from app.integrations.registry import district_for
+from app.integrations.providers import HttpGateway, ProviderError, canonical, utcnow
 
 # 클라이언트가 pin을 지정하는 인자는 두지 않는다. 이 값 변경은 원문 재검토가 필요하다.
 APPROVED_MANIFEST_SHA256 = frozenset({

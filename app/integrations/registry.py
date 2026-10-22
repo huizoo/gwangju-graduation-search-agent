@@ -12,8 +12,8 @@ from datetime import date
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from .domain import VALIDATORS
-from .providers import ProviderError, canonical
+from app.core.domain import VALIDATORS
+from app.integrations.providers import ProviderError, canonical
 
 DISTRICTS = {"동구", "서구", "남구", "북구", "광산구"}
 TYPES = {"childcare", "kindergarten", "elementary", "middle", "high",
@@ -192,7 +192,7 @@ async def sync_registry(settings, provider: str, meter=None) -> dict:
     Raises:
         ProviderError: 키 누락, 미지원 API 또는 응답 무결성 실패.
     """
-    from .providers import HttpGateway, NeisProvider
+    from app.integrations.providers import HttpGateway, NeisProvider
     if provider not in {"neis", "higher_education"}:
         raise ProviderError("configuration_required",
             "이 자료원의 승인된 API 연결은 준비되지 않았습니다. 공식 JSON·UTF-8 CSV 원본과 출처 URL·기준일·범위를 준비해 목록 가져오기를 이용하세요.",
@@ -200,7 +200,7 @@ async def sync_registry(settings, provider: str, meter=None) -> dict:
     gateway = HttpGateway(settings, meter)
     try:
         if provider == "higher_education":
-            from .official_registry import HigherEducationProvider
+            from app.integrations.official_registry import HigherEducationProvider
             verified = await HigherEducationProvider(settings, meter, gateway).registry()
             validate_registry_import(verified.registry)
             return {"registry": verified.registry, "_verified_registry": verified}

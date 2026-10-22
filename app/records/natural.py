@@ -4,8 +4,8 @@ import re
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from .domain import ApiError, dumps, fingerprint, new_id, utcnow, validate
-from .storage import _audit, empty_automatic
+from app.core.domain import ApiError, dumps, fingerprint, new_id, utcnow, validate
+from app.records.storage import _audit, empty_automatic
 
 KST = ZoneInfo("Asia/Seoul")
 DATE = re.compile(r"(?:(\d{4})\s*(?:년|[-.])\s*)?(\d{1,2})\s*(?:월|[-.])\s*(\d{1,2})\s*일?")

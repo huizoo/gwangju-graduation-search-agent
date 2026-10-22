@@ -8,8 +8,8 @@ import subprocess
 
 import pytest
 
-from app.domain import ApiError
-from app.periods import six_month_boundary, validate_period
+from app.core.domain import ApiError
+from app.validation.periods import six_month_boundary, validate_period
 
 
 @pytest.mark.parametrize("start,end,valid,max_end", [

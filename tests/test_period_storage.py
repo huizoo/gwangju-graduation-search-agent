@@ -9,11 +9,11 @@ from uuid import uuid4
 
 import pytest
 
-from app.api import create_app
-from app.domain import ApiError
-from app.jobs import JobManager, Meter
-from app.migrations import EXTENSION_SQL
-from app.storage import Service, Store
+from app.web.api import create_app
+from app.core.domain import ApiError
+from app.agent.jobs import JobManager, Meter
+from app.records.migrations import EXTENSION_SQL
+from app.records.storage import Service, Store
 from test_grounded_claims import grounded_context, candidate, NORMAL, _save
 from test_jobs_api import settings_for, institution_payload, job_payload, manual_event
 from test_research_records import _document
@@ -69,7 +69,7 @@ def _old_database(source, path):
         이관 전 원본 열·값 목록. 사용자 DB는 열지 않는다.
     """
     with sqlite3.connect(path) as legacy, source.transaction() as current:
-        legacy.executescript(Path("app/schema.sql").read_text(encoding="utf-8"))
+        legacy.executescript(Path("app/records/schema.sql").read_text(encoding="utf-8"))
         legacy.executescript(EXTENSION_SQL)
         tables = [row[0] for row in legacy.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name!='sqlite_sequence'")]
@@ -488,7 +488,7 @@ def test_unknown_year_time_evidence_completes_existing_known_event(grounded_cont
 
 def test_new_school_phone_record_keeps_unknown_year_and_clear_date(grounded_context):
     """날짜만 직접 확인한 새 초등학교 행사에는 학년도를 추정해 넣지 않는다."""
-    from app.natural import NaturalRecorder
+    from app.records.natural import NaturalRecorder
     service, _, season = grounded_context
     school = service.create_institution({**institution_payload("지연초등학교"), "type": "elementary"})
     result = NaturalRecorder(service).record({
@@ -505,7 +505,7 @@ def test_new_school_phone_record_keeps_unknown_year_and_clear_date(grounded_cont
 @pytest.mark.parametrize("status", ["no_data", "provider_error"])
 async def test_date_only_neis_recheck_preserves_connected_document_outside_queried_period(neis_context, status):
     """같은 정본에 연결돼도 이번 날짜 범위 밖 NEIS 원문은 누락·실패로 처리하지 않는다."""
-    from app.domain import utcnow
+    from app.core.domain import utcnow
     service, school, season = neis_context
     january = row_for(school, season, "20270107")
     february = row_for(school, season, "20270220")
@@ -533,7 +533,7 @@ async def test_date_only_neis_recheck_preserves_connected_document_outside_queri
 @pytest.mark.asyncio
 async def test_neis_explicit_year_enriches_unknown_manual_event_without_copying(neis_context):
     """학년도 없는 수기 행사를 NEIS 명시 학년도로 보완하면서 수기 UUID를 보존한다."""
-    from app.natural import NaturalRecorder
+    from app.records.natural import NaturalRecorder
     service, school, season = neis_context
     recorded = NaturalRecorder(service).record({
         "season_id": season["id"],

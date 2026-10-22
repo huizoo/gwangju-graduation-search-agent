@@ -2,8 +2,8 @@
 
 from fastapi.testclient import TestClient
 
-from app.api import create_app
-from app.domain import validate
+from app.web.api import create_app
+from app.core.domain import validate
 from tests.test_jobs_api import institution_payload, settings_for
 
 

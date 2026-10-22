@@ -6,8 +6,8 @@ from uuid import uuid4
 
 import pytest
 
-from app.api import create_app
-from app.domain import ApiError
+from app.web.api import create_app
+from app.core.domain import ApiError
 from test_jobs_api import settings_for, institution_payload, job_payload, manual_event
 
 

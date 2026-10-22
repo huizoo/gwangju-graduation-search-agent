@@ -5,10 +5,10 @@ import json
 
 import pytest
 
-from app.domain import dumps, utcnow
-from app.providers import empty_document
-from app.rules import extract_candidates
-from app.storage import Service, Store
+from app.core.domain import dumps, utcnow
+from app.integrations.providers import empty_document
+from app.validation.rules import extract_candidates
+from app.records.storage import Service, Store
 
 
 @pytest.fixture

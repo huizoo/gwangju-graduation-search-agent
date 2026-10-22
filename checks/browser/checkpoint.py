@@ -12,7 +12,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from app.jobs import BudgetStop
+from app.agent.jobs import BudgetStop
 from checks.browser.periods import HELPER, LocalApp, fixtures
 
 

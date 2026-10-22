@@ -29,7 +29,7 @@ class RuleRegistry:
             version: 시험한 구현 버전.
             verifier: 실제 원문·기관·행사·정규값을 다시 검사할 함수.
         """
-        from app.domain import validate
+        from app.core.domain import validate
         validate("RuleId", rule_id)
         self._rules[rule_id] = (version, verifier)
 
@@ -244,7 +244,7 @@ def _support(field, automatic, event, season, context, now):
     Returns:
         지원 문서 목록과 거절 사유 목록.
     """
-    from .identity import same_event
+    from app.validation.identity import same_event
     proof = automatic.get("value_check") or {}
     rule = proof.get("rule_id")
     registered = context.get("registered_rules", {})
@@ -269,7 +269,7 @@ def _support(field, automatic, event, season, context, now):
         source_season = (source_seasons or {}).get(observation.get("season_id"))
         if source_seasons is None and observation.get("season_id") == season.get("id"):
             source_season = season
-        from .identity import academic_year
+        from app.validation.identity import academic_year
         fact_year = academic_year(event)
         if "academic_year" not in event:
             fact_year = season.get("academic_year")  # 이전 계약의 독립 게시 검사 호환.
@@ -278,7 +278,7 @@ def _support(field, automatic, event, season, context, now):
                                and candidate.get("event_key_hint") == event["event_key"])
         if source_season is None or not (year_matches or linked_unknown_year):
             continue
-        from .periods import fact_season
+        from app.validation.periods import fact_season
         source_season = fact_season(source_season, fact_year)
         fact_event = {**event, "academic_year": fact_year}
         if (

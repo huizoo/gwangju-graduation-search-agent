@@ -7,9 +7,9 @@ import json
 import re
 from datetime import date
 
-from .providers import canonical, neis_identifier, neis_unit, official_channel, utcnow
-from .identity import same_event
-from .periods import fact_season, within_period
+from app.integrations.providers import canonical, neis_identifier, neis_unit, official_channel, utcnow
+from app.validation.identity import same_event
+from app.validation.periods import fact_season, within_period
 
 REGISTERED_RULES = {"neis_ceremony_row": "1.3.0", "explicit_notice": "1.4.0",
                     "academic_calendar_row": "1.1.0", "grounded_notice": "1.2.0"}
@@ -425,7 +425,7 @@ def value_check(field: str, value, observation: dict, document: dict, event: dic
             break
     if (checks["normalized_value"] == "unknown" and rule == "explicit_notice"
             and checks["content"] == checks["institution"] == checks["literal_presence"] == checks["event_identity"] == "pass"):
-        from .claims import grounded_claim
+        from app.validation.claims import grounded_claim
         # 모델을 파서와 재대결시키지 않고 같은 행사 구간의 역할·연도·값을 독립 검사한다.
         if grounded_claim(field, value, candidate, document, institution, season):
             checks.update(normalized_value="pass", season="pass")
@@ -433,7 +433,7 @@ def value_check(field: str, value, observation: dict, document: dict, event: dic
                 checks["time_role"] = "pass"
             result.update(rule_id="grounded_notice", rule_version=REGISTERED_RULES["grounded_notice"])
     if rule == "explicit_notice" and candidate.get("ceremony_status") == "scheduled":
-        from .claims import ceremony_negatives
+        from app.validation.claims import ceremony_negatives
         # 한 줄 파서가 원래 분절의 후속 취소 문장을 생략해도 정상 일정으로 승인하지 않는다.
         if ceremony_negatives(candidate, document, institution):
             checks["normalized_value"] = "fail"

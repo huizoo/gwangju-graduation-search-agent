@@ -8,9 +8,9 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from app import http_compat, providers
-from app.http_compat import CompatibilityError, is_legacy_p3p_error, read_legacy_p3p
-from app.providers import DocumentReader, HttpGateway, ProviderError
+from app.integrations import http_compat, providers
+from app.integrations.http_compat import CompatibilityError, is_legacy_p3p_error, read_legacy_p3p
+from app.integrations.providers import DocumentReader, HttpGateway, ProviderError
 
 
 P3P_ERROR = "illegal header line: bytearray(b'P3P : CP=\"ALL\"')"

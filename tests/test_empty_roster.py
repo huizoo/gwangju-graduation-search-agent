@@ -5,9 +5,9 @@ from uuid import uuid4
 from fastapi.testclient import TestClient
 import pytest
 
-from app.api import create_app
-from app.domain import ApiError, validate
-from app.job_feedback import season_research_summary
+from app.web.api import create_app
+from app.core.domain import ApiError, validate
+from app.agent.job_feedback import season_research_summary
 from test_jobs_api import institution_payload, job_payload, settings_for
 
 

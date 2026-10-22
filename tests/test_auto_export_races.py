@@ -7,8 +7,8 @@ from threading import Event
 import httpx
 import pytest
 
-from app.api import create_app
-from app.exporting import current_export, schedule_filename
+from app.web.api import create_app
+from app.web.exporting import current_export, schedule_filename
 from tests.test_jobs_api import institution_payload, settings_for
 
 
@@ -122,7 +122,7 @@ async def test_explicit_export_wait_does_not_block_health_or_event_loop(tmp_path
 @pytest.mark.asyncio
 async def test_automatic_and_manual_exports_keep_newest_revision_after_concurrent_edit(tmp_path, monkeypatch):
     """이전 snapshot의 자동 저장이 새 기록의 수동 저장을 역순으로 덮어쓰지 않는다."""
-    import app.exporting as exporting
+    import app.web.exporting as exporting
 
     app = create_app(settings_for(tmp_path))
     runtime = app.state.runtime

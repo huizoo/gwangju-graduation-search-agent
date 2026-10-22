@@ -2,11 +2,11 @@
 
 from copy import deepcopy
 
-from app.identity import academic_year, ceremony_term, same_event, scope
-from app.natural import parse_turn
-from app.natural import NaturalRecorder
-from app.research_records import current_counts
-from app.storage import Service, Store
+from app.validation.identity import academic_year, ceremony_term, same_event, scope
+from app.records.natural import parse_turn
+from app.records.natural import NaturalRecorder
+from app.records.research_records import current_counts
+from app.records.storage import Service, Store
 from test_grounded_claims import grounded_context, candidate, NORMAL, _save
 from test_research_records import _document, _write, _count, _grade_context, _school_event
 from test_storage import operation

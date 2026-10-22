@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from app.providers import ProviderError
+from app.integrations.providers import ProviderError
 from checks.browser.periods import ControlledRunner, HELPER, LocalApp
 
 
@@ -131,7 +131,7 @@ def main():
             rows:document.querySelectorAll('#results tbody tr').length})""")
 
     try:
-        with patch("app.registry.sync_registry", registry.sync):
+        with patch("app.integrations.registry.sync_registry", registry.sync):
             local.start()
             # helper의 시작 검사가 전용 runtime 버전·캐시·전체 Chromium 실행 파일을 고정한다.
             lease = json.loads(invoke(["start", "--url", local.url, "--deadline", "420"]).stdout)["lease"]

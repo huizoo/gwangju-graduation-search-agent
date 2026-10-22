@@ -4,8 +4,8 @@ import json
 import sqlite3
 from pathlib import Path
 
-from app.domain import fingerprint, new_id, utcnow
-from app.storage import Service, Store
+from app.core.domain import fingerprint, new_id, utcnow
+from app.records.storage import Service, Store
 from test_review_regressions import source_context, save_notice
 
 
@@ -13,7 +13,7 @@ def test_additive_schema_backs_up_old_database_before_any_change(tmp_path):
     """4.0 파일을 덮어쓰지 않고 backup API로 확장 전 사본을 남긴다."""
     path = tmp_path / "legacy.sqlite3"
     with sqlite3.connect(path) as conn:
-        conn.executescript(Path("app/schema.sql").read_text())
+        conn.executescript(Path("app/records/schema.sql").read_text())
         conn.execute("INSERT INTO app_meta VALUES('preserved_user_value','original')")
     store = Store(path)
     backups = list((tmp_path / "backups").glob("before-experience-2-*.sqlite3"))

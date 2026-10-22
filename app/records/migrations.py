@@ -4,8 +4,8 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
-from .domain import ApiError, dumps, fingerprint, utcnow
-from .identity import scope
+from app.core.domain import ApiError, dumps, fingerprint, utcnow
+from app.validation.identity import scope
 
 EXTENSION_SQL = """
 CREATE TABLE IF NOT EXISTS natural_records(
@@ -56,7 +56,7 @@ def install_extensions(store, *, existing: bool):
         marker = conn.execute("SELECT value FROM app_meta WHERE key='experience_schema'").fetchone()
     if marker and marker[0] == "2":
         install_periods(store, existing=existing)
-        from .development_archive import separate_development_artifacts
+        from app.records.development_archive import separate_development_artifacts
         separate_development_artifacts(store)
         return
     if marker and marker[0] != "1":
@@ -69,7 +69,7 @@ def install_extensions(store, *, existing: bool):
             if statement.strip():
                 conn.execute(statement)
     install_periods(store, existing=existing)
-    from .development_archive import separate_development_artifacts
+    from app.records.development_archive import separate_development_artifacts
     separate_development_artifacts(store)
 
 
@@ -83,7 +83,7 @@ def install_periods(store, *, existing: bool):
         ApiError: 지원하지 않는 확장 버전 또는 이관 무결성 오류.
     """
     import re
-    from .identity import ceremony_term
+    from app.validation.identity import ceremony_term
     with store.transaction() as conn:
         marker = conn.execute("SELECT value FROM app_meta WHERE key='period_schema'").fetchone()
     if marker:
@@ -147,8 +147,8 @@ def reconcile_rules(service):
     Args:
         service: 현재 허용 규칙이 설정된 서비스.
     """
-    from .storage import _audit
-    from .development_archive import reassess_retained_events
+    from app.records.storage import _audit
+    from app.records.development_archive import reassess_retained_events
     reassess_retained_events(service)
     repair_null_homepages(service)
     rules = service._enabled_rules()
@@ -208,7 +208,7 @@ def repair_null_homepages(service):
         service: 기존 공식 명부·프로필을 가진 서비스.
     """
     from urllib.parse import urlsplit
-    from .storage import _audit
+    from app.records.storage import _audit
     def placeholder(value):
         return isinstance(value, str) and urlsplit(value).hostname in {"none", "null", "nan"}
     with service.store.transaction() as conn:

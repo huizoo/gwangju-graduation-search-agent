@@ -10,9 +10,9 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app.api import create_app
-from app.jobs import BudgetStop, Meter, dump, empty_usage, now
-from app.providers import HttpGateway, ModelProvider
+from app.web.api import create_app
+from app.agent.jobs import BudgetStop, Meter, dump, empty_usage, now
+from app.integrations.providers import HttpGateway, ModelProvider
 from test_jobs_api import seed_job, settings_for
 
 

@@ -6,9 +6,9 @@ from copy import deepcopy
 
 import pytest
 
-from app.providers import ProviderError
-from app.registry import TYPES, district_for, load_official_file, neis_registry, validate_registry_import
-from app.registry import normalize_homepage
+from app.integrations.providers import ProviderError
+from app.integrations.registry import TYPES, district_for, load_official_file, neis_registry, validate_registry_import
+from app.integrations.registry import normalize_homepage
 
 
 def payload():

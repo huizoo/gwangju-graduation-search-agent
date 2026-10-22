@@ -4,8 +4,8 @@ from uuid import uuid4
 
 import pytest
 
-from app.domain import ApiError, validate
-from app.scope import eligible_school
+from app.core.domain import ApiError, validate
+from app.validation.scope import eligible_school
 
 
 def test_time_request_requires_single_school_and_event():

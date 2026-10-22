@@ -2,9 +2,9 @@
 
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
-from .identity import scope
-from .providers import official_channel
-from .scope import eligible_school
+from app.validation.identity import scope
+from app.integrations.providers import official_channel
+from app.validation.scope import eligible_school
 
 PRESENTATION_VERSION = "3.0"
 

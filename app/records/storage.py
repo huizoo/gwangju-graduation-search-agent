@@ -10,8 +10,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
-from app.domain import ApiError, FIELDS, SCHEMA, dumps, fingerprint, new_id, normalize_instant, utcnow, validate
-from app.publication import POLICY_VERSION, RULES, calculate_publication
+from app.core.domain import ApiError, FIELDS, SCHEMA, dumps, fingerprint, new_id, normalize_instant, utcnow, validate
+from app.validation.publication import POLICY_VERSION, RULES, calculate_publication
 
 
 class Store:
@@ -36,7 +36,7 @@ class Store:
                 version = conn.execute("SELECT value FROM app_meta WHERE key='schema_version'").fetchone() if "app_meta" in tables else None
                 if not version or version[0] != "4.0":
                     raise ApiError("migration_required", "기존 DB를 보존했습니다. 4.0 마이그레이션이 필요합니다.", 409)
-        from .migrations import install_extensions
+        from app.records.migrations import install_extensions
         install_extensions(self, existing=bool(tables))
 
     def connect(self) -> sqlite3.Connection:
@@ -201,13 +201,13 @@ class Service:
         """
         self.store, self.settings = store, settings
         self._configure_rules()
-        from .migrations import reconcile_rules
+        from app.records.migrations import reconcile_rules
         reconcile_rules(self)
 
     def _configure_rules(self):
         """구현이 존재하는 규칙만 서버 레지스트리에 연결한다."""
         try:
-            from app.rules import REGISTERED_RULES, verify
+            from app.validation.rules import REGISTERED_RULES, verify
         except ImportError:
             return
         for key, version in REGISTERED_RULES.items():
@@ -265,7 +265,7 @@ class Service:
             Season.
         """
         data = validate("SeasonCreate", payload)
-        from .periods import validate_period
+        from app.validation.periods import validate_period
         validate_period(data["search_start"], data["search_end"])
         with self.store.transaction(True) as conn:
             existing = conn.execute("SELECT id FROM seasons WHERE search_start=? AND search_end=? ORDER BY rowid LIMIT 1",
@@ -280,7 +280,7 @@ class Service:
                 raise ApiError("export_key_exists", "일정표 저장 이름이 이미 사용 중입니다.", 409)
             identity = new_id()
             conn.execute("INSERT INTO seasons(id,label,academic_year,search_start,search_end,export_key,timezone,region_profile) VALUES(?,?,?,?,?,?,?,?)", (identity, *(data[key] for key in ("label", "academic_year", "search_start", "search_end", "export_key", "timezone", "region_profile"))))
-            from .periods import within_period
+            from app.validation.periods import within_period
             for row in conn.execute("SELECT id FROM events WHERE id NOT IN(SELECT old_id FROM event_aliases)").fetchall():
                 event = self._project(conn, row[0])[0]
                 if within_period(event["fields"]["event_date"]["effective_value"], data):
@@ -425,7 +425,7 @@ class Service:
             명시 학년도와 전기·후기. 행사 연기 가능성이 있어 날짜로 학년도를 추측하지 않는다.
         """
         import re
-        from .identity import ceremony_term
+        from app.validation.identity import ceremony_term
         year = data.get("academic_year")
         years = {int(y) for y in re.findall(r"(20\d{2})\s*학년도", data["title"])}
         if year is None and len(years) == 1:
@@ -456,12 +456,12 @@ class Service:
         Returns:
             EventProjection.
         """
-        from app.manual import apply_operations
+        from app.records.manual import apply_operations
         data = validate("EventCreate", payload)
         with self.store.transaction(True) as conn:
             _one(conn, "institutions", data["institution_id"])
             self._season(conn, data["season_id"])
-            from .identity import same_event
+            from app.validation.identity import same_event
             institution = self._institution(conn, data["institution_id"])
             year, term = self._identity_metadata(conn, data)
             data = {**data, "academic_year": year, "ceremony_term": term}
@@ -508,7 +508,7 @@ class Service:
         Returns:
             변경한 계약 객체.
         """
-        from app.manual import apply_operations
+        from app.records.manual import apply_operations
         data = validate("OverridePatch", payload)
         with self.store.transaction(True) as conn:
             alias = conn.execute("SELECT current_id FROM event_aliases WHERE old_id=?", (identity,)).fetchone()
@@ -846,9 +846,9 @@ class Service:
                 support_sources = {all_docs[key]["source_key"] for key in refs if key in all_docs}
                 refs.update(key for key, document in all_docs.items() if document["source_key"] in support_sources)
                 documents[event["id"]] = [item for key, item in all_docs.items() if key in refs]
-            from .scope import eligible_school
-            from .research_records import current_counts
-            from .job_feedback import season_research_summary, time_feedback
+            from app.validation.scope import eligible_school
+            from app.records.research_records import current_counts
+            from app.agent.job_feedback import season_research_summary, time_feedback
             latest = conn.execute("SELECT id FROM jobs WHERE kind='schedule_scan' AND season_id=? AND coalesce(json_extract(request_json,'$.purpose'),'date_count')='date_count' ORDER BY (status='cancelled'),created_at DESC,rowid DESC LIMIT 1", (season_id,)).fetchone()
             targets = [self._institution(conn, row[0]) for row in conn.execute("SELECT id FROM institutions ORDER BY name,id")]
             targets = [school for school in targets if eligible_school(school, season)]
@@ -882,7 +882,7 @@ class Service:
         source = validate("RegistrySource", payload["source"])
         import re
         from urllib.parse import urlsplit
-        from app.registry import district_for
+        from app.integrations.registry import district_for
         if not re.fullmatch(r"[a-f0-9]{64}", source["source_hash"]):
             raise ApiError("source_hash_required", "원본 파일의 SHA-256 해시가 필요합니다.")
         settings = getattr(self.settings, "data", self.settings or {})
@@ -985,7 +985,7 @@ class Service:
                 conn.execute("INSERT OR IGNORE INTO institution_identifiers(provider,external_key,institution_id) VALUES(?,?,?)", (source["provider"], row["external_key"], institution_id))
                 conn.execute("INSERT INTO registry_memberships(snapshot_id,institution_id,external_key,raw_row_json) VALUES(?,?,?,?)", (snapshot_id, institution_id, row["external_key"], dumps(row)))
             conn.execute("UPDATE registry_snapshots SET linked_count=? WHERE id=?", (result["linked_count"], snapshot_id))
-            from .registry_assets import matching_authorities
+            from app.integrations.registry_assets import matching_authorities
             for relation in matching_authorities(original):
                 member = conn.execute(
                     "SELECT institution_id FROM registry_memberships WHERE snapshot_id=? AND external_key=?",
@@ -1027,7 +1027,7 @@ class Service:
         if existing:
             identity = existing[0]
             if existing["authority"] == "official" and document["acquisition"]["transport_status"] == "ok":
-                from app.publication import _authority
+                from app.validation.publication import _authority
                 if not _authority(document, self._institution(conn, institution_id), datetime.now(timezone.utc)):
                     document["recheck"] = {"status": "failed", "attempted_at": document["retrieved_at"], "reason_codes": ["source_unverified"]}
                     document["last_checked_at"] = document["retrieved_at"]
@@ -1070,8 +1070,8 @@ class Service:
             event_id: 행사 UUID.
             refreshed_document_ids: 이번 조사에서 본문을 실제 성공적으로 읽은 문서 ID.
         """
-        from app.publication import _support
-        from app.rules import supersession_edges, value_check
+        from app.validation.publication import _support
+        from app.validation.rules import supersession_edges, value_check
         event, context = self._project(conn, event_id)
         season = context["season"]
         event["_identifiers"] = {item["provider"]: item["external_key"] for item in conn.execute("SELECT provider,external_key FROM institution_identifiers WHERE institution_id=?", (event["institution"]["id"],))}
@@ -1088,7 +1088,7 @@ class Service:
                 references.append((observation, value))
                 document = context["documents"][observation["document_id"]]
                 for rule_id, rule_version in context["registered_rules"].items():
-                    from .periods import fact_season
+                    from app.validation.periods import fact_season
                     source_period = context["observation_seasons"].get(observation["season_id"], season)
                     proof = validate("ValueCheck", value_check(name, value, observation, document, event,
                         fact_season(source_period, candidate.get("academic_year")), institution=event["institution"]))
@@ -1278,7 +1278,7 @@ class Service:
         frozen = result.get("season_snapshot")
         if frozen and any(frozen.get(key) != season.get(key) for key in ("id", "search_start", "search_end", "revision")):
             raise ApiError("season_changed", "작업을 시작한 조사 기간과 저장 조건이 다릅니다. 새 조사를 시작해 주세요.", 409)
-        from .claims import validate_count
+        from app.validation.claims import validate_count
         raw_documents = {d["id"]: d for d in result.get("documents", [])}
         channels = list(institution["official_channels"])
         for claim in result.get("counts", []):
@@ -1308,7 +1308,7 @@ class Service:
             candidate = copy.deepcopy(original)
             target_matches = True
             if result.get("purpose") == "time":
-                from .identity import compatible_scope, same_event
+                from app.validation.identity import compatible_scope, same_event
                 target = _one(conn, "events", result.get("target_event_id"))
                 possible_scope = (same_event(candidate, dict(target), institution)
                                   or ((candidate.get("academic_year") is None or target.get("academic_year") is None)
@@ -1325,11 +1325,11 @@ class Service:
                 raise ApiError("evidence_link_invalid", "관측 원문이 조사 결과에 없습니다.")
             event_id = None
             reasons = ["event_match_required"]
-            from .claims import grounded_claim
+            from app.validation.claims import grounded_claim
             source_document = next(d for d in result["documents"] if d["id"] == extracted["document_id"])
             grounded_identity = grounded_claim("event_date", candidate["event_date"], candidate,
                                               source_document, institution, season)
-            from .rules import value_check
+            from app.validation.rules import value_check
             probe_event = {"id": new_id(), "institution": institution, "title": candidate["event_title"],
                            "event_type": candidate["event_type"], "audience": candidate.get("audience"),
                            "campus_label": candidate.get("campus_label"), "academic_year": candidate.get("academic_year"),
@@ -1348,7 +1348,7 @@ class Service:
                     and candidate["ceremony_status"] in {"cancelled", "not_held"}
                     and candidate["event_date"].get("precision") == "unknown"
                     and candidate.get("academic_year") is not None):
-                from .identity import same_event
+                from app.validation.identity import same_event
                 negative_matches = [dict(row) for row in conn.execute(
                     "SELECT * FROM events WHERE institution_id=? AND id NOT IN(SELECT old_id FROM event_aliases)",
                     (institution_id,)) if same_event(candidate, dict(row), institution)]
@@ -1362,7 +1362,7 @@ class Service:
                 status_linkable = False
             if (target_matches and (date_supported or status_linkable)
                     and candidate["event_type"] != "unknown"):
-                from .identity import same_dates, scope
+                from app.validation.identity import same_dates, scope
                 candidate["event_key_hint"] = candidate["event_key_hint"] or "server-linked"
                 event_key = fingerprint({"institution_id": institution_id,
                                          "scope": scope(candidate, institution)})
@@ -1373,12 +1373,12 @@ class Service:
                         existing = alias
                         event_key = _one(conn, "events", alias[0])["event_key"]
                 if not existing:
-                    from .identity import same_event
+                    from app.validation.identity import same_event
                     matches = [dict(row) for row in conn.execute(
                         "SELECT * FROM events WHERE institution_id=? AND id NOT IN(SELECT old_id FROM event_aliases)", (institution_id,))
                         if same_event(candidate, dict(row), institution)]
                     if not matches and candidate.get("academic_year") is None:
-                        from .identity import compatible_scope
+                        from app.validation.identity import compatible_scope
                         known = [dict(row) for row in conn.execute(
                             "SELECT * FROM events WHERE institution_id=? AND academic_year IS NOT NULL "
                             "AND id NOT IN(SELECT old_id FROM event_aliases)", (institution_id,))
@@ -1424,7 +1424,7 @@ class Service:
                 if existing:
                     event_id = existing[0]
                 elif candidate["event_key_hint"]:
-                    from .identity import ceremony_term
+                    from app.validation.identity import ceremony_term
                     event_id = self._insert_event(conn, {"institution_id": institution_id, "season_id": season_id, "title": candidate["event_title"], "event_type": candidate["event_type"], "audience": candidate["audience"], "campus_label": candidate["campus_label"],
                         "academic_year": candidate.get("academic_year"), "ceremony_term": ceremony_term(candidate)}, event_key)
                 if event_id:
@@ -1465,7 +1465,7 @@ class Service:
             self._apply_source_blockers(conn, event_id)
             self.link_event_periods(conn, event_id)
             conn.execute("UPDATE events SET revision=revision+1,last_attempt_at=?,last_successful_source_check_at=CASE WHEN ? THEN ? ELSE last_successful_source_check_at END,change_check_status=?,updated_at=? WHERE id=?", (utcnow(), success, utcnow(), "completed" if success else "limited", utcnow(), event_id))
-        from .research_records import save_supplement
+        from app.records.research_records import save_supplement
         save_supplement(self, conn, institution, season, result, document_ids)
         revision = self.store.touch(conn, season_id)
         return {"document_ids": list(document_ids.values()), "observation_ids": observations, "event_ids": sorted(events), "content_revision": revision}
@@ -1497,7 +1497,7 @@ class Service:
             conn: 쓰기 거래.
             event_id: 수기·원문을 복사하지 않고 재사용할 행사 UUID.
         """
-        from .periods import within_period
+        from app.validation.periods import within_period
         event = self._project(conn, event_id)[0]
         value = event["fields"]["event_date"]["effective_value"]
         for period in conn.execute("SELECT * FROM seasons").fetchall():
@@ -1570,7 +1570,7 @@ class Service:
                     relation_url = "https://open.neis.go.kr/hub/schoolInfo?" + urlencode({"ATPT_OFCDC_SC_CODE": office, "SD_SCHUL_CODE": code, "Type": "json"})
                     channels.append({"url": homepage, "verified_by_url": relation_url, "verified_at": evidence["verified_at"]})
                 conn.execute("UPDATE institutions SET official_channels_json=? WHERE id=?", (dumps(channels), row[0]))
-        from .official_registry import VerifiedOfficialRegistry
+        from app.integrations.official_registry import VerifiedOfficialRegistry
         verified = result.get("_verified_registry")
         if isinstance(verified, VerifiedOfficialRegistry) and verified.registry == payload:
             for relation in verified.authorities:

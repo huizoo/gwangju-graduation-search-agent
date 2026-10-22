@@ -8,9 +8,9 @@ from uuid import uuid4
 
 import pytest
 
-from app import development_archive as archive
-from app.domain import ApiError, dumps, fingerprint, utcnow
-from app.storage import Service, Store
+from app.records import development_archive as archive
+from app.core.domain import ApiError, dumps, fingerprint, utcnow
+from app.records.storage import Service, Store
 from test_grounded_claims import candidate, _save, _count
 from test_jobs_api import institution_payload, settings_for
 from test_rules import notice

@@ -5,7 +5,7 @@ import os
 import sqlite3
 from uuid import uuid4
 
-from .domain import ApiError, dumps, fingerprint, utcnow
+from app.core.domain import ApiError, dumps, fingerprint, utcnow
 
 ARCHIVE_KEY = "development_archive_gist_20261020_v1"
 SEASON_ID = "ce4a7893-04e5-46de-b5df-22d781ded241"
@@ -179,7 +179,7 @@ def separate_development_artifacts(store):
                    "removed_event_ids": [] if retained_event else [EVENT_ID],
                    "removed_season_ids": [] if retained_season else [SEASON_ID], "completed_at": utcnow()}
         conn.execute("INSERT INTO app_meta VALUES(?,?)", (ARCHIVE_KEY, dumps(receipt)))
-        from .storage import _audit
+        from app.records.storage import _audit
         _audit(conn, "development_archive", ARCHIVE_KEY, "separate_development_evidence",
                after=receipt, actor="system", summary="고정 URL 개발 검증 자료를 원본 보관 후 운영 데이터와 분리")
         store.touch(conn)

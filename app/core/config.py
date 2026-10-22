@@ -12,12 +12,11 @@ from urllib.parse import urlsplit
 from dotenv import dotenv_values
 from jsonschema import Draft202012Validator, FormatChecker
 
-from .configuration import (
+from app.core.configuration import (
     ConfigurationError, llm_connection_plan, missing_service_settings,
     resolve_configuration, source_configuration_hash,
 )
-
-ROOT = Path(__file__).resolve().parents[1]
+from app.core.paths import ROOT
 
 
 @dataclass(repr=False)
@@ -77,7 +76,7 @@ def validate_configuration(data: dict, root: Path = ROOT) -> None:
     Raises:
         ConfigurationError: 한도·주소·모드·시즌 또는 추적 설정이 유효하지 않은 경우.
     """
-    schema = json.loads((root / "app/domain.schema.json").read_text())
+    schema = json.loads((root / "app/core/domain.schema.json").read_text())
     validator = Draft202012Validator(
         {"$ref": "#/$defs/ExecutionLimits", "$defs": schema["$defs"]},
         format_checker=FormatChecker(),

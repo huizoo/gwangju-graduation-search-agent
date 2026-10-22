@@ -6,9 +6,10 @@ from datetime import date
 from html import escape
 from pathlib import Path
 
-from .results import result_rows
+from app.core.paths import STATIC_DIR
+from app.web.results import result_rows
 
-STATIC = Path(__file__).with_name("static")
+STATIC = STATIC_DIR
 MARKER = '<meta name="schedule-presentation" content="3.0">'
 
 

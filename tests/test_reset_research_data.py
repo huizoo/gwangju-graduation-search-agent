@@ -13,10 +13,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from app import reset_data
-from app.config import ROOT
+from app.records import reset_data
+from app.core.config import ROOT
 from app.launcher import InstanceLock
-from app.storage import Service, Store
+from app.records.storage import Service, Store
 from test_storage import event, registry_payload
 
 

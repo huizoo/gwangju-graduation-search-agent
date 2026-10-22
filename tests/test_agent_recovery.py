@@ -7,9 +7,9 @@ from uuid import uuid4
 import httpx
 import pytest
 
-from app.jobs import BudgetStop
-from app.providers import HttpGateway, ModelProvider, ProviderError
-from app.research import ResearchRunner
+from app.agent.jobs import BudgetStop
+from app.integrations.providers import HttpGateway, ModelProvider, ProviderError
+from app.agent.research import ResearchRunner
 from test_agent_loop import decision, resolve, setup_case
 from test_grounded_claims import NORMAL, candidate
 

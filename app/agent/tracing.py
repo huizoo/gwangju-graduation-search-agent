@@ -9,7 +9,7 @@ from threading import Event, Thread
 import time
 from uuid import uuid4
 
-from .domain import SCHEMA
+from app.core.domain import SCHEMA
 
 
 CURRENT = ContextVar("graduation_trace", default=None)

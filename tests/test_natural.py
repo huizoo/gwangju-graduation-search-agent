@@ -6,8 +6,8 @@ from datetime import datetime, timezone
 
 import pytest
 
-from app.natural import NaturalRecorder, parse_turn
-from app.results import result_rows
+from app.records.natural import NaturalRecorder, parse_turn
+from app.web.results import result_rows
 from test_review_regressions import source_context, save_notice
 
 
@@ -160,7 +160,7 @@ def test_natural_api_idempotency_and_restart_preserve_conversation(tmp_path):
     """재전송과 재시작 이후에도 원문 대화와 한 행사 연결을 유지한다."""
     from fastapi.testclient import TestClient
     from uuid import uuid4
-    from app.api import create_app
+    from app.web.api import create_app
     from test_jobs_api import settings_for, institution_payload
     settings = settings_for(tmp_path)
     app = create_app(settings)
