@@ -377,7 +377,7 @@ async def test_time_job_rechecks_new_source_version_before_next_scope_check(tmp_
     """조회수 갱신은 본식 값을 보존하고 실제 날짜 변경은 작업의 기준일과 충돌한다."""
     from app.web.api import create_app
     from app.core.domain import dumps
-    from test_jobs_api import settings_for, institution_payload
+    from test_jobs_api import seed_season, settings_for, institution_payload
     from test_rules import notice
     from test_grounded_claims import NORMAL, candidate
 
@@ -385,7 +385,7 @@ async def test_time_job_rechecks_new_source_version_before_next_scope_check(tmp_
     runtime = create_app(settings).state.runtime
     school = runtime.service.create_institution({
         **institution_payload("검증대학교"), "type": "university", "homepage_url": "https://school.example"})
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     channel = {"url": "https://school.example", "verified_by_url": "https://directory.example/university",
                "verified_at": "2026-10-21T01:00:00Z"}
     with runtime.store.transaction(True) as conn:

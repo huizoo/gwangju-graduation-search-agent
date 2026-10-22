@@ -13,7 +13,7 @@ from app.web.api import create_app
 from app.core.config import load_settings
 from app.agent.jobs import BudgetStop
 from app.launcher import InstanceLock, bind_server
-from test_jobs_api import settings_for, institution_payload, job_payload, seed_job
+from test_jobs_api import seed_season, settings_for, institution_payload, job_payload, seed_job
 
 
 @pytest.fixture
@@ -33,7 +33,7 @@ def test_all_institution_queue_includes_rows_after_api_page_limit(reviewed_runti
 def test_export_database_failure_keeps_last_good_bytes(reviewed_runtime):
     """파일 교체 이후 DB 오류에서도 기존 정상 파일을 지켜야 한다."""
     runtime = reviewed_runtime
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     payload = {"season_id": season["id"], "include_notes": False, "publication_policy_version": "4.0"}
     runtime.export(payload)
     with runtime.store.transaction() as conn:
@@ -238,7 +238,7 @@ def test_job_filter_uses_same_effective_profile_as_visible_list(reviewed_runtime
     runtime = reviewed_runtime
     institution = runtime.service.create_institution(institution_payload("원본 기관명"))
     runtime.service.patch_institution(institution["id"], {"expected_revision": institution["revision"], "set": {"name": "보호된 기관명", "district": "남구"}, "release_fields": [], "note": "사용자 수정"})
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     payload = job_payload(season["id"])
     payload["selection"] = {"scope": "filter", "types": [], "districts": ["남구"], "query": "보호된"}
     job = runtime.jobs.create(payload, str(uuid4()))
@@ -247,10 +247,10 @@ def test_job_filter_uses_same_effective_profile_as_visible_list(reviewed_runtime
 
 def test_missing_mode_keeps_institution_with_another_unresolved_event(reviewed_runtime):
     """한 기관의 다른 행사 시간이 미확인이라면 누락 조사 대상에 남긴다."""
-    from test_jobs_api import manual_event
+    from test_jobs_api import seed_season, manual_event
     runtime = reviewed_runtime
     institution = runtime.service.create_institution(institution_payload())
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     first = manual_event(institution["id"], season["id"])
     first["audience"] = "오전 대상"
     first["operations"].append({"field": "start_time", "action": "set", "value": "10:00", "basis": "phone_confirmed", "confirmed_at": "2026-10-19T03:00:00Z", "note": "", "bound_date": "2027-01-07", "resolves_fingerprint": None, "source_url": None})
@@ -358,7 +358,7 @@ async def test_known_documents_are_current_season_support_sources_only(reviewed_
     from test_publication import live_document, result_for
     runtime = reviewed_runtime
     institution = runtime.service.create_institution(institution_payload("시험학교"))
-    current = runtime.service.list_seasons()["items"][0]
+    current = seed_season(runtime)
     old = runtime.service.create_season({"label": "지난 시즌", "academic_year": 2025, "search_start": "2025-12-01", "search_end": "2026-03-31", "export_key": "old2025", "timezone": "Asia/Seoul", "region_profile": "gwangju_5_gu"})
     document = live_document(runtime.service, institution, url="https://school.gen.go.kr/notice/current")
     institution = runtime.service.get_institution(institution["id"])

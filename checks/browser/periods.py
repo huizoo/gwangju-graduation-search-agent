@@ -121,7 +121,7 @@ def fixtures(service):
     Returns:
         저장된 시즌과 첫 행사.
     """
-    season = service.list_seasons()["items"][0]
+    season = service.create_season({"search_start": "2026-12-01", "search_end": "2027-03-31"})
     first = None
     for n in range(45):
         school = service.create_institution({"name": f"화면검사{n + 1:02}학교", "type": "elementary",

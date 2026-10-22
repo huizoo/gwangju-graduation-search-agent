@@ -14,6 +14,8 @@
 
 ## 일시 장애와 선택적 추적
 
+`test_segment_continuation.py`는 운영 DB·외부 모델 없이 구간 자동 연결, 동시 실행 시 동일 큐·누적 비용 보존, 전체 한도·불가능한 예약의 정지, 사용자 중지·취소·서버 종료 우선순위를 검사한다. 실제 모델 어댑터와 모의 HTTP로 요청 전 토큰 거절의 판단 횟수 환불과 전송 후 재시도 거절의 비용 유지를 구분한다. 실제 학교 정보 확보율이나 외부 서비스 성공률을 검증하는 검사는 아니다.
+
 ```sh
 .venv/bin/python -m pytest tests/test_retry.py tests/test_tracing.py -q
 ```

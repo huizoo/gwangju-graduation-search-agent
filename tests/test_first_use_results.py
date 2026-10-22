@@ -4,14 +4,14 @@ from fastapi.testclient import TestClient
 
 from app.web.api import create_app
 from app.core.domain import validate
-from tests.test_jobs_api import institution_payload, settings_for
+from tests.test_jobs_api import seed_season, institution_payload, settings_for
 
 
 def test_results_report_school_readiness_before_any_schedule_is_collected(tmp_path):
     """일정이 없어도 대상 학교가 있으면 조사 준비가 된 것으로 응답한다."""
     app = create_app(settings_for(tmp_path))
     service = app.state.runtime.service
-    season = service.list_seasons()["items"][0]
+    season = seed_season(app.state.runtime)
     with TestClient(app, base_url="http://127.0.0.1") as client:
         empty = client.get("/api/results", params={"season_id": season["id"]}).json()
         validate("ScheduleResult", empty)

@@ -10,7 +10,7 @@ import pytest
 
 from app.web.api import create_app
 from app.web.exporting import schedule_filename
-from tests.test_jobs_api import institution_payload, job_payload, manual_event, settings_for
+from tests.test_jobs_api import seed_season, institution_payload, job_payload, manual_event, settings_for
 
 
 def latest_file(runtime, season):
@@ -33,6 +33,7 @@ def test_manual_change_exports_without_open_or_download_and_restart(tmp_path):
     settings = settings_for(tmp_path)
     app = create_app(settings)
     runtime = app.state.runtime
+    seed_season(runtime)
     with TestClient(app, base_url="http://127.0.0.1") as client:
         boot = client.get("/api/bootstrap").json()
         season = boot["seasons"][0]
@@ -41,7 +42,9 @@ def test_manual_change_exports_without_open_or_download_and_restart(tmp_path):
                                headers={"X-App-Token": boot["token"], "Idempotency-Key": str(uuid4())})
         assert response.status_code == 201, response.text
         path = latest_file(runtime, season)
-        wait_for(lambda: path.exists() and "자동저장 검사학교" in path.read_text())
+        # 기관 등록 직후의 날짜 없는 중간 저장본과 행사 저장 완료본을 구분한다.
+        wait_for(lambda: path.exists() and "자동저장 검사학교" in path.read_text()
+                 and "2027-01-07" in path.read_text())
         assert "2027-01-07" in path.read_text()
         before = sorted(path.parent.glob("versions/*/*.html"))
         assert runtime._refresh_exports()
@@ -57,7 +60,7 @@ def test_manual_change_exports_without_open_or_download_and_restart(tmp_path):
 def test_file_failure_preserves_last_good_export_and_retries(tmp_path, monkeypatch):
     """고정 파일 교체 실패는 마지막 정상 파일을 유지하고 재시도로 복구한다."""
     runtime = create_app(settings_for(tmp_path)).state.runtime
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     runtime.service.create_institution(institution_payload("기존 검사학교"))
     assert runtime._refresh_exports()
     path = latest_file(runtime, season)
@@ -105,6 +108,7 @@ def test_shutdown_pauses_work_and_flushes_html(tmp_path):
 
     app = create_app(settings_for(tmp_path), WaitingRunner)
     runtime = app.state.runtime
+    seed_season(runtime)
     with TestClient(app, base_url="http://127.0.0.1") as client:
         boot = client.get("/api/bootstrap").json()
         season = boot["seasons"][0]
@@ -159,7 +163,7 @@ async def test_worker_survives_unexpected_flush_failure(tmp_path, monkeypatch):
     await asyncio.wait_for(entered.wait(), 1)
     await asyncio.sleep(0)
     assert not task.done()
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     assert runtime.html_save_status(season["id"])["status"] == "failed"
     runtime.export_stop.set()
     await asyncio.wait_for(task, 1)

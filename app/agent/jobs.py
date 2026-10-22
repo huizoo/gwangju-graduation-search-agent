@@ -567,7 +567,7 @@ class JobManager:
         """
         with self.store.transaction(write=True) as conn:
             row = self._row(conn, job_id)
-            if row["status"] in {"queued", "running"}:
+            if row["status"] in {"queued", "running", "pausing"}:
                 conn.execute("UPDATE jobs SET status='pausing',paused_reason='user_pause',revision=revision+1,updated_at=? WHERE id=?", (now(), job_id))
         self.active_changed.set()
         if job_id not in self.tasks:
@@ -680,12 +680,54 @@ class JobManager:
         with self.tracing.span("job", purpose=snapshot.get("purpose", "registry_sync"),
                                search_start=season.get("search_start"), search_end=season.get("search_end")) as trace:
             try:
-                await self._execute_job(job_id)
+                while True:
+                    await self._execute_job(job_id)
+                    if not self._continue_segment(job_id):
+                        break
             finally:
                 current = self.get(job_id)
                 trace.update(status=current["status"], target_count=current["target_count"],
                              completed_count=current["counts"]["done"], failed_count=current["counts"]["failed"],
                              http_requests=current["usage"]["http_requests"], llm_calls=current["usage"]["llm_calls"])
+
+    def _continue_segment(self, job_id: str) -> bool:
+        """구간 한도만 소진됐으면 같은 고정 큐를 누적 비용 그대로 이어간다.
+
+        Args:
+            job_id: 방금 실행 구간을 마친 작업 UUID.
+        Returns:
+            새 구간을 실행할 수 있으면 True. 사용자 중지·취소는 재개하지 않는다.
+        """
+        if self.stopping:
+            return False
+        current = self.get(job_id)
+        if current["status"] != "paused" or current["paused_reason"] != "segment_budget":
+            return False
+        with self.store.transaction() as conn:
+            for row in conn.execute(
+                "SELECT history_json FROM job_items WHERE job_id=? AND status='pending'", (job_id,)
+            ):
+                stops = [entry for entry in json.loads(row[0]) if entry.get("stage") == "budget_stop"]
+                if stops and stops[-1].get("reason") == "segment_budget":
+                    details = stops[-1].get("details", {})
+                    # 빈 구간에도 들어가지 않는 요청은 구간 교체로 해결되지 않는다.
+                    if details.get("requested", 0) > details.get("limit", float("inf")):
+                        return False
+        try:
+            self.resume(job_id, {"expected_revision": current["revision"], "increase_limits": None})
+        except ApiError as exc:
+            # 재개 계약의 조건·전체 예산 검사를 자동 전환에서도 그대로 적용한다.
+            if exc.code in {"job_budget", "settings_changed"}:
+                with self.store.transaction(write=True) as conn:
+                    row = self._row(conn, job_id)
+                    if row["status"] == "paused" and row["paused_reason"] == "segment_budget":
+                        reason = "job_budget" if exc.code == "job_budget" else "configuration_required"
+                        conn.execute(
+                            "UPDATE jobs SET paused_reason=?,revision=revision+1,updated_at=? WHERE id=?",
+                            (reason, now(), job_id),
+                        )
+            return False
+        return True
 
     async def _execute_job(self, job_id: str) -> None:
         """고정 큐를 처리하고 중단되더라도 상태를 영속 정리한다.
@@ -936,7 +978,8 @@ class JobManager:
         with self.store.transaction(write=True) as conn:
             current = self._row(conn, job_id)
             cancelled = current["status"] in TERMINAL | {"cancelling"}
-            if reason in {"segment_budget", "job_budget"} and not cancelled:
+            if (reason in {"segment_budget", "job_budget"} and not cancelled
+                    and current["paused_reason"] not in {"user_pause", "job_budget"}):
                 conn.execute("UPDATE jobs SET status='pausing',paused_reason=? WHERE id=?", (reason, job_id))
             # 저장은 같은 트랜잭션의 취소 검사 뒤 수행해야 취소 후 늦은 응답을 반영하지 않는다.
             if result is not None and not cancelled and job["kind"] == "schedule_scan":

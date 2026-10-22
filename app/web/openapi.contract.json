@@ -13,7 +13,7 @@
   "paths": {
     "/api/status": {
       "get": {
-        "summary": "기능별 준비 상태",
+        "summary": "기능별 준비 상태와 조사 대상 학교 수",
         "operationId": "get_기능별_0",
         "responses": {
           "200": {
@@ -43,6 +43,7 @@
             "name": "season_id",
             "in": "query",
             "required": false,
+            "description": "생략해도 학교 명부 준비 상태를 조회할 수 있다. 지정하면 기간별 폐교 제외 조건을 대상 학교 수에 적용한다.",
             "schema": {
               "type": "string",
               "format": "uuid"

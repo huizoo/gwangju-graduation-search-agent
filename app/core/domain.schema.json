@@ -342,6 +342,11 @@
             }
           ]
         },
+        "eligible_institution_count": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "전체 조사와 같은 기관 범위의 학교 수. 시즌이 없으면 기간별 폐교 제외는 적용하지 않는다."
+        },
         "html_save": {
           "anyOf": [
             {
@@ -379,7 +384,8 @@
         "schema_version",
         "capabilities",
         "content_revision",
-        "active_job_id"
+        "active_job_id",
+        "eligible_institution_count"
       ]
     },
     "SeasonCreate": {

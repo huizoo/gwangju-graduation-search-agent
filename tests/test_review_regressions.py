@@ -9,7 +9,7 @@ from app.integrations.providers import neis_document
 from app.validation.rules import extract_candidates
 from app.records.storage import Service, Store
 from test_rules import context, notice
-from test_jobs_api import settings_for, institution_payload, job_payload
+from test_jobs_api import seed_season, settings_for, institution_payload, job_payload
 from app.web.api import create_app
 
 
@@ -101,7 +101,7 @@ def test_resume_cannot_bypass_active_job_guard(tmp_path):
     """새 작업 생성과 재개가 동일한 원자적 활성 작업 경계를 사용한다."""
     runtime = create_app(settings_for(tmp_path)).state.runtime
     school = runtime.service.create_institution(institution_payload())
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     payload = job_payload(season["id"], [school["id"]])
     a = runtime.jobs.create(payload, str(uuid4()))
     runtime.jobs.pause(a["id"])

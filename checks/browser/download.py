@@ -96,7 +96,7 @@ def main():
         local.start()
         lease = json.loads(invoke(["start", "--url", local.url, "--deadline", "420"]).stdout)["lease"]
         invoke(["run", "--lease", lease, "--", "resize", "1440", "1000"])
-        assert wait("document.querySelector('#season-select')?.options.length===2")
+        assert wait("document.querySelector('#season-select')?.options.length===1")
         run("async(page)=>{await page.locator('#season-select').selectOption(" + json.dumps(season["id"]) + ");}")
         assert wait("document.querySelector('#season-select').value===" + json.dumps(season["id"]) +
                     " && document.querySelectorAll('#results tbody tr').length===25")

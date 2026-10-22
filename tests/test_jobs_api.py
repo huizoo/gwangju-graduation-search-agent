@@ -41,6 +41,17 @@ def job_payload(season_id, ids=None):
     return {"kind": "schedule_scan", "season_id": season_id, "mode": "recheck", "selection": {"scope": "all"} if ids is None else {"scope": "ids", "institution_ids": ids}, "limits": None}
 
 
+def seed_season(runtime):
+    """시즌이 필요한 검사만 명시적으로 조사 기간을 준비한다.
+
+    Args:
+        runtime: 임시 저장소를 사용하는 앱 실행 객체.
+    Returns:
+        해당 검사 기간의 저장 시즌. 재시작 자체는 시즌을 만들지 않는다.
+    """
+    return runtime.service.create_season({"search_start": "2026-12-01", "search_end": "2027-03-31"})
+
+
 @pytest.fixture
 def runtime(tmp_path):
     """앱의 실제 도메인 서비스와 영속 저장소를 준비한다."""
@@ -51,6 +62,7 @@ def test_api_security_idempotency_revision_restart_and_export(tmp_path):
     """직접 입력·중복 요청·경합·파일 저장·재시작 보존을 실제 API로 검사한다."""
     settings = settings_for(tmp_path)
     app = create_app(settings)
+    seed_season(app.state.runtime)
     with TestClient(app, base_url="http://127.0.0.1") as client:
         bootstrap = client.get("/api/bootstrap").json()
         season = bootstrap["seasons"][0]
@@ -131,7 +143,7 @@ def seed_job(runtime, count=2):
     """고정 큐 검사용 기관과 대기 작업을 만든다."""
     for n in range(count):
         runtime.service.create_institution(institution_payload(f"검사{n}"))
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     return runtime.jobs.create(job_payload(season["id"]), str(uuid4()))
 
 

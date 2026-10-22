@@ -161,9 +161,10 @@ def test_natural_api_idempotency_and_restart_preserve_conversation(tmp_path):
     from fastapi.testclient import TestClient
     from uuid import uuid4
     from app.web.api import create_app
-    from test_jobs_api import settings_for, institution_payload
+    from test_jobs_api import seed_season, settings_for, institution_payload
     settings = settings_for(tmp_path)
     app = create_app(settings)
+    seed_season(app.state.runtime)
     app.state.runtime.service.create_institution(institution_payload("검증초등학교"))
     with TestClient(app, base_url="http://127.0.0.1") as client:
         bootstrap = client.get("/api/bootstrap").json()

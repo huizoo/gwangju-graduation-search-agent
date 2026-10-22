@@ -2,7 +2,7 @@
 (() => {
   const $ = id => document.getElementById(id);
   const state = {token: "", season: null, seasons: [], rows: [], conversation: null,
-    jobs: [], jobSignature: null, contentRevision: null, researchSummary: null, rosterReady: false, pendingRegistry: false, recordPending: false, activeJobId: null, pendingTime: new Set(), timeErrors: new Map(), stopped: false};
+    jobs: [], jobSignature: null, contentRevision: null, researchSummary: null, rosterReady: false, pendingRegistry: false, recordPending: false, activeJobId: null, pendingTime: new Set(), pendingActions: new Set(), timeErrors: new Map(), stopped: false};
   function message(text) { $("message").textContent = text; $("message").hidden = !text; }
   async function api(path, {method = "GET", body} = {}) {
     const headers = {};
@@ -14,9 +14,9 @@
     return result;
   }
   async function action(button, work) {
-    button.disabled = true; message("");
+    state.pendingActions.add(button); button.disabled = true; message("");
     try { await work(); } catch (error) { message(error.message); }
-    finally { button.disabled = false; renderTimeStates(); }
+    finally { state.pendingActions.delete(button); button.disabled = false; renderTimeStates(); }
   }
   function button(text, click) {
     const node = document.createElement("button"); node.type = "button"; node.textContent = text; node.onclick = click; return node;
@@ -83,13 +83,30 @@
       }
       cell.append(area);
     });
-    $("research-submit").disabled = busy || !state.rosterReady;
+    const hasSeason = Boolean(state.season);
+    $("season-bar").hidden = !hasSeason;
+    $("season-select").disabled = !hasSeason;
+    $("roster-guide").hidden = state.rosterReady;
+    $("season-guide").hidden = hasSeason || !state.rosterReady;
+    $("research-submit").hidden = !hasSeason;
+    $("research-submit").disabled = busy || !state.rosterReady || !hasSeason;
     $("registry-sync").disabled = busy;
     $("load-roster").disabled = busy;
     $("load-roster").textContent = state.pendingRegistry || active?.kind === "registry_sync" ?
       "학교 목록 불러오는 중…" : "학교 목록 불러오기";
     $("add-season").disabled = busy || !state.rosterReady;
+    $("add-season").textContent = hasSeason ? "새 시즌 조사" : "조사 기간 선택";
+    $("add-season").classList.toggle("primary", !hasSeason);
     $("season-submit").disabled = busy || !state.rosterReady;
+    $("record-guide").hidden = hasSeason;
+    ["record-text", "record-submit", "new-record"].forEach(id => {
+      $(id).disabled = !hasSeason || state.recordPending;
+    });
+    ["open-html", "save-html"].forEach(id => { $(id).disabled = !hasSeason; });
+    $("results").hidden = !hasSeason;
+    $("results-guide").hidden = hasSeason;
+    // 폴링이 새로 계산한 준비 상태로 아직 응답 중인 버튼을 풀지 않게 한다.
+    state.pendingActions.forEach(node => { node.disabled = true; });
   }
   function htmlSaveStatus(saved) {
     $("html-save-message").textContent = saved?.status === "failed" ? saved.message || "일정표 파일을 저장하지 못했어요." : "";
@@ -97,6 +114,17 @@
   }
   async function results() {
     const season = state.season;
+    // 시즌을 임의로 만들지 않고 명부 준비 상태만 조회한다.
+    if (!season) {
+      const status = await api("/api/status");
+      if (state.season) return;
+      state.rows = []; state.researchSummary = null;
+      state.rosterReady = status.eligible_institution_count > 0;
+      state.activeJobId = status.active_job_id || null;
+      $("results").querySelector("tbody").replaceChildren();
+      $("research-summary").hidden = true; htmlSaveStatus(null); renderTimeStates();
+      return;
+    }
     const result = await api(`/api/results?season_id=${season}`);
     if (season !== state.season) return;
     state.rows = result.rows;
@@ -130,6 +158,8 @@
   async function startJob({kind = "schedule_scan", purpose = "date_count", eventId = null, institutionId = null} = {}) {
     if (kind === "schedule_scan" && !state.rosterReady)
       throw new Error("조사할 학교 목록이 없어요. 먼저 학교 목록을 불러와 주세요.");
+    if (kind === "schedule_scan" && !state.season)
+      throw new Error("조사할 기간을 선택해 주세요.");
     // 목록 확보와 시즌 조사는 서로 다른 요청 계약을 사용한다.
     const body = kind === "registry_sync" ? {kind, providers:["neis", "higher_education"], limits:null} :
       {kind, season_id:state.season, mode:"recheck", limits:null, purpose, target_event_id:eventId,
@@ -139,20 +169,22 @@
     let job;
     try { job = await api("/api/jobs", {method:"POST", body}); }
     finally { state.pendingRegistry = false; }
-    message(kind === "registry_sync" ? "학교 목록을 가져오고 있어요." : "조사를 시작했어요.");
+    message(kind === "registry_sync" ? "학교 목록 불러오기를 요청했어요." : "조사를 시작했어요.");
     state.jobs = [job, ...state.jobs.filter(item => item.id !== job.id)];
     state.activeJobId = activeStatuses.has(job.status) ? job.id : null;
     renderTimeStates(); await jobs(); await results(); return job;
   }
   async function jobs() {
     const season = state.season;
-    const [data, status] = await Promise.all([api("/api/jobs?limit=100"), api(`/api/status?season_id=${season}`)]);
+    const [data, status] = await Promise.all([api("/api/jobs?limit=100"),
+      api(season ? `/api/status?season_id=${season}` : "/api/status")]);
     if (season !== state.season) return;
     htmlSaveStatus(status.html_save);
     // 오래전에 멈춘 작업도 재개될 수 있어 최근 100건 밖의 활성 작업을 따로 확인한다.
     if (status.active_job_id && !data.items.some(job => job.id === status.active_job_id))
       data.items.unshift(await api(`/api/jobs/${status.active_job_id}`));
     state.jobs = data.items;
+    state.rosterReady = status.eligible_institution_count > 0;
     state.activeJobId = status.active_job_id;
     const signature = data.items.map(job => `${job.id}:${job.revision}:${job.status}`).join("|");
     const changed = state.jobSignature !== null && (state.jobSignature !== signature || state.contentRevision !== status.content_revision);
@@ -193,6 +225,7 @@
   }
   function newRecord() { state.conversation = null; $("conversation").replaceChildren(); $("record-text").value = ""; }
   async function exportHtml(download) {
+    if (!state.season) throw new Error("조사할 기간을 먼저 선택해 주세요.");
     const popup = download ? null : window.open("about:blank", "_blank");
     try {
       const result = await api("/api/exports/html", {method:"POST",body:{season_id:state.season,include_notes:false,publication_policy_version:"4.0"}});
@@ -215,16 +248,17 @@
     } catch(error) { if (popup) popup.close(); throw error; }
   }
   async function seasonChanged() {
-    state.season = $("season-select").value; newRecord(); state.jobSignature = null;
+    state.season = $("season-select").value || null; newRecord(); state.jobSignature = null;
     state.researchSummary = null; $("research-summary").hidden = true; htmlSaveStatus(null);
-    state.rosterReady = false; $("roster-guide").hidden = true; renderTimeStates();
+    renderTimeStates();
     $("results").dataset.page = "0";
-    await api("/api/selected-season", {method:"POST",body:{season_id:state.season}});
+    if (state.season) await api("/api/selected-season", {method:"POST",body:{season_id:state.season}});
     await Promise.all([results(), jobs()]);
   }
   $("research-form").onsubmit = e => { e.preventDefault(); action($("research-submit"), () => startJob()); };
   $("record-form").onsubmit = e => { e.preventDefault(); const submit=e.submitter;
     action(submit, async () => {
+      if (!state.season) throw new Error("조사할 기간을 먼저 선택해 주세요.");
       const text = $("record-text").value.trim(); if (!text) return;
       state.recordPending = true;
       let result;
@@ -289,8 +323,10 @@
   });
   async function init() {
     const data=await api("/api/bootstrap");state.token=data.token;state.seasons=data.seasons;
+    state.rosterReady = data.status.eligible_institution_count > 0;
+    state.activeJobId = data.status.active_job_id;
     $("season-select").replaceChildren(...data.seasons.map(seasonOption));
-    $("season-select").value=data.selected_season_id; await seasonChanged();
+    $("season-select").value=data.selected_season_id || ""; await seasonChanged();
     async function poll() { if(state.stopped)return;try{await jobs();}catch{}setTimeout(poll,Math.max(2000,data.poll_interval_ms)); }
     setTimeout(poll,Math.max(2000,data.poll_interval_ms));
   }

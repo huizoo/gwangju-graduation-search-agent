@@ -7,7 +7,7 @@ from fastapi.testclient import TestClient
 from app.web.api import create_app
 from app.core.domain import validate
 from app.web.results import result_rows
-from test_jobs_api import settings_for, institution_payload, job_payload
+from test_jobs_api import seed_season, settings_for, institution_payload, job_payload
 from test_review_regressions import source_context, save_notice
 
 
@@ -17,7 +17,7 @@ def test_all_target_schools_include_unattempted_missing_rows(tmp_path):
     runtime = app.state.runtime
     a = runtime.service.create_institution(institution_payload("요청 학교"))
     runtime.service.create_institution(institution_payload("요청하지 않은 학교"))
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     runtime.jobs.create(job_payload(season["id"], [a["id"]]), str(uuid4()))
     with TestClient(app, base_url="http://127.0.0.1") as client:
         response = client.get("/api/results", params={"season_id": season["id"]})
@@ -35,7 +35,7 @@ def test_cancelled_request_does_not_remove_any_target_school(tmp_path):
     runtime = app.state.runtime
     a = runtime.service.create_institution(institution_payload("이전 요청"))
     b = runtime.service.create_institution(institution_payload("취소 요청"))
-    season = runtime.service.list_seasons()["items"][0]
+    season = seed_season(runtime)
     first = runtime.jobs.create(job_payload(season["id"], [a["id"]]), str(uuid4()))
     runtime.jobs.pause(first["id"])
     second = runtime.jobs.create(job_payload(season["id"], [b["id"]]), str(uuid4()))
